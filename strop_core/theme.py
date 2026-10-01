@@ -464,8 +464,12 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
     about.set_website("https://github.com/strop-linux/strop")
     about.set_website_label("GitHub Repository")
     about.set_authors(["Strop Linux Contributors <https://github.com/strop-linux/strop>"])
-    about.set_copyright("Copyright © 2026 Strop Linux Contributors\nLicensed under the GNU General Public License v3.0 (GPLv3).")
-    about.set_license_type(Gtk.License.GPL_3_0)
+    about.set_copyright("Copyright © 2026 Strop Linux Contributors\nLicensed under GNU GPL-3.0-or-later.")
+    about.set_license_type(Gtk.License.CUSTOM)
+    about.set_license(
+        "GNU General Public License, version 3 or (at your option) any later version.\n\n"
+        "The full license text and Strop license scope are available in the LICENSE and LICENSES.md files."
+    )
     about.set_logo_icon_name("strop")
 
     # Try loading custom logo texture from local assets if available
@@ -479,4 +483,3 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
 
     about.present()
     return about
-

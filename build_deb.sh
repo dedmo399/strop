@@ -30,6 +30,7 @@ cp -r assets "${PKG_DIR}/usr/lib/strop/"
 find "${PKG_DIR}/usr/lib/strop" -type d -name "__pycache__" -exec rm -rf {} +
 find "${PKG_DIR}/usr/lib/strop" -type f -name "*.pyc" -delete
 cp LICENSE "${PKG_DIR}/usr/share/doc/strop/copyright"
+cp LICENSES.md "${PKG_DIR}/usr/share/doc/strop/"
 cp README.md "${PKG_DIR}/usr/share/doc/strop/"
 if [ -d docs ]; then
     cp -r docs "${PKG_DIR}/usr/share/doc/strop/"

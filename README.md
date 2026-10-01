@@ -126,8 +126,7 @@ See [docs/SUPPORT.md](docs/SUPPORT.md) for the platform matrix, device scope, pa
 ## 📜 Version & License
 
 - **Version**: `0.9.2`
-- **License**: [GNU General Public License v3.0 (GPLv3)](LICENSE) — Free & Open Source Software.
-
+- **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 
 
 
