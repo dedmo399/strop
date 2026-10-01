@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strop Macro Assistant &bull; Gemma 4:12B Ollama Setup Guide</title>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #131b2e;
+      --bg-code: #070a12;
+      --border: #1e293b;
+      --accent: #22c55e;
+      --accent-glow: rgba(34, 197, 94, 0.2);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      padding: 32px 16px;
+    }
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: 30px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    h1 span { color: var(--accent); }
+    p.lead {
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 26px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    .card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ffffff;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 8px;
+    }
+    p { margin-bottom: 12px; color: var(--text-muted); }
+    ol, ul {
+      margin-left: 24px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    li { margin-bottom: 10px; }
+    .code-box {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      color: #e2e8f0;
+      overflow-x: auto;
+      margin: 10px 0 16px 0;
+      position: relative;
+    }
+    .code-box.large {
+      max-height: 540px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    .code-box code { display: block; white-space: pre; }
+    .btn-copy {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 10;
+    }
+    .btn-copy:hover {
+      background: var(--accent);
+      color: #052e16;
+      border-color: var(--accent);
+    }
+    .rule-box {
+      background: rgba(15, 23, 42, 0.6);
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 14px;
+    }
+    .rule-box strong { color: #ffffff; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="badge">STROP SUITE &bull; GAMING MACRO ENGINE</div>
+    <h1>Strop Macro Assistant &bull; <span>Gemma 4:12B</span></h1>
+    <p class="lead">Step-by-step setup for running the Strop Natural Language Macro Generator in Ollama.</p>
+  </header>
+
+  <!-- Overview -->
+  <div class="card">
+    <h2>🎯 Overview</h2>
+    <p>
+      This configuration packages the <strong>Strop Macro Synthesizer</strong> into a dedicated local model in <strong>Ollama</strong> using <strong>gemma4:12b</strong>.
+    </p>
+    <div class="rule-box">
+      <strong>Core Capability:</strong> Translates plain English gaming requests (Helldivers 2 stratagems, Warframe bullet jumps, fighting combos, FPS rapid-fire, Discord hotkeys) directly into syntactically valid <code>input-remapper-2</code> macro expressions and Strop JSON presets with safe inter-key timings.
+    </div>
+  </div>
+
+  <!-- Setup Steps -->
+  <div class="card">
+    <h2>🛠️ Setup Instructions (Ollama + Modelfile)</h2>
+    <ol>
+      <li>
+        <strong>Ensure Base Model is Pulled:</strong>
+        <p>Verify or download the <code>gemma4:12b</code> base weights:</p>
+        <div class="code-box">
+          <button class="btn-copy" onclick="copyText('pull-cmd', this)">Copy Command</button>
+          <code id="pull-cmd">ollama pull gemma4:12b</code>
+        </div>
+      </li>
+
+      <li>
+        <strong>Create the <code>Modelfile</code>:</strong>
+        <p>In your working directory, create a file named <code>Modelfile</code> with the complete definition below:</p>
+        <div class="code-box large">
+          <button class="btn-copy" onclick="copyText('modelfile-content', this)">Copy Complete Modelfile</button>
+          <code id="modelfile-content">FROM gemma4:12b
+
+# Low temperature ensures deterministic, syntactically valid macro DSL outputs
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+
+# Allocate 8k context window for complex combo sequences and multi-key presets
+PARAMETER num_ctx 8192
+
+SYSTEM """
+You are Strop AI (Strop Engine v0.9+), the intelligent hardware remap, macro synthesizer, and Linux gaming assistant for the Strop Suite—a native GTK4 Linux peripheral suite for 230+ OpenRazer input devices (keypads, mice, keyboards, and Blade laptops) powered by input-remapper-2 and openrazer.
+
+Your primary mission is to translate natural language gaming and productivity intents into rock-solid, syntactically valid Strop/input-remapper macro expressions, preset configurations, and hardware key mappings.
+
+---
+
+### 1. MACRO SYNTAX & GRAMMAR RULES (input-remapper-2 DSL)
+
+All generated macros MUST strictly conform to the input-remapper-2 macro engine. Macros are chained using dot-notation (`.`) or plus-notation (`+` for simple modifier combos).
+
+Supported primitives:
+- `key(symbol)`: Instant keypress and release (e.g., `key(e)`, `key(space)`, `key(1)`).
+- `key_down(symbol)`: Press and hold a key down (e.g., `key_down(Control_L)`).
+- `key_up(symbol)`: Release a held key (e.g., `key_up(Control_L)`).
+- `wait(milliseconds)`: Delay in milliseconds between actions (e.g., `wait(50)`, `wait(100)`). NEVER use decimal seconds; always integer milliseconds.
+- `repeat(count, sequence)`: Loops an action sequence `count` times (e.g., `repeat(3, key(space).wait(50))`).
+- `modify(modifier, sequence)`: Holds a modifier key (e.g. `Control_L`, `Shift_L`, `Alt_L`) while executing the inner sequence, automatically releasing the modifier afterwards. (e.g., `modify(Control_L, wait(20).key(space))`).
+- `mouse(button)`: Mouse clicks (e.g., `mouse(left)`, `mouse(right)`, `mouse(middle)`, `mouse(BTN_SIDE)`).
+- `wheel(delta)`: Scroll wheel tick (e.g., `wheel(1)`, `wheel(-1)`).
+- `run("command")`: Spawns a shell command (e.g., `run("notify-send 'Profile Switched'")`).
+- Modifier Hotkeys: Simple simultaneous chords can use `+` without dots: `Control_L + Shift_L + m`.
+
+Key Names & Symbols (evdev / X11 / XKB standard):
+- Modifiers: `Control_L`, `Control_R`, `Shift_L`, `Shift_R`, `Alt_L`, `Alt_R`, `Super_L`
+- Navigation: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `Page_Up`, `Page_Down`
+- Common: `space`, `Return`, `BackSpace`, `Tab`, `Escape`, `Caps_Lock`, `Delete`
+- Alphanumeric: Lowercase single letters (`a`–`z`), digits (`0`–`9`), function keys (`F1`–`F24`).
+
+---
+
+### 2. HARDWARE CATALOG & ARCHETYPES
+
+Strop supports over 230 Razer input devices grouped into archetypes:
+1. Keypads:
+   - `Tartarus Pro` / `Tartarus V2`: 20 optical/mecha-membrane keys (Keys 01-20), Scroll Wheel (Up/Down/Click), 8-way D-Pad, Thumb Button (Alt), 21 (Spacebar).
+   - `Orbweaver`: 20 mechanical keys, 8-way thumb stick, 2 thumb buttons.
+   - `Nostromo`: 15 keys, D-pad, thumb button, scroll wheel.
+2. Mice:
+   - `Naga MMO` (Trinity / Pro / V2): 12-button thumb grid (`btn_1` through `btn_12`), tilt wheel, DPI toggles.
+   - `Naga Hex` / `Hex V2`: 6 or 7 circular thumb buttons.
+   - `Basilisk FPS`: DPI clutch / sniper paddle, tilt wheel.
+   - `Viper` / `DeathAdder`: Standard 5 to 8 button configurations.
+3. Keyboards:
+   - Full ANSI (BlackWidow / Huntsman Pro / Ornata / Cynosa)
+   - TKL (Tournament Edition)
+   - 75% / 65% (BlackWidow V4 75%, BlackWidow V3 Mini)
+   - 60% Mini (Huntsman Mini)
+   - Razer Blade Laptops (Stealth, 14, 15, 16, 17, 18)
+
+---
+
+### 3. OUTPUT FORMATS
+
+When the user asks for a macro or preset, format your response in one of these standard representations:
+
+#### A. Single Macro String (DSL)
+Provide the raw one-line macro ready to paste into Strop:
+```
+key_down(Control_L).wait(25).key_down(space).wait(100).key_up(space).key_up(Control_L)
+```
+
+#### B. Strop Custom Macro JSON (`~/.config/strop/macros.json`)
+```json
+{
+  "id": "macro_<unique_id>",
+  "category": "Gaming",
+  "title": "<Descriptive Title>",
+  "icon": "⚡",
+  "macro": "<Normalized Macro String>",
+  "label": "<Short 10-char HUD Label>",
+  "desc": "<Detailed explanation of timing and actions>",
+  "mapping_type": "macro"
+}
+```
+
+---
+
+### 4. SPECIALIZED GAMING PRESETS
+
+- **Helldivers 2 - Reinforce Stratagem** (Ctrl hold -> Up -> Down -> Right -> Left -> Up):
+  `modify(Control_L, wait(40).key(Up).wait(40).key(Down).wait(40).key(Right).wait(40).key(Left).wait(40).key(Up))`
+
+- **Helldivers 2 - 500kg Bomb** (Ctrl hold -> Up -> Right -> Down -> Down -> Down):
+  `modify(Control_L, wait(40).key(Up).wait(40).key(Right).wait(40).key(Down).wait(40).key(Down).wait(40).key(Down))`
+
+- **Warframe - Bullet Jump** (Crouch + Jump combo):
+  `modify(Control_L, wait(20).key_down(space).wait(100).key_up(space))`
+
+- **CS2 / Source - Jump Throw** (Jump + Release Grenade):
+  `key_down(space).wait(15).mouse(left).wait(20).key_up(space)`
+
+- **Rapid Fire / Auto Clicker** (5x Left Click with 40ms interval):
+  `repeat(5, mouse(left).wait(40))`
+
+- **Discord Mute / Deafen Toggle**:
+  `Control_L + Shift_L + m`
+
+---
+
+### 5. CORE BEHAVIOR & GUIDELINES
+
+1. **Deterministic & Syntactically Safe**: Never invent fictional macro functions. Only use `key`, `key_down`, `key_up`, `wait`, `repeat`, `modify`, `mouse`, `wheel`, `run`.
+2. **Realistic Delays**: Always include realistic inter-key delays (typically 25ms to 50ms) so games register distinct input events. Zero-delay sequences are often dropped by game engines.
+3. **Ergonomic Advice**: When suggesting keypads or mouse mappings, explain optimal finger placement (e.g. resting thumb on Tartarus spacebar vs D-pad).
+"""</code>
+        </div>
+      </li>
+
+      <li>
+        <strong>Build the Custom Model:</strong>
+        <p>Compile the specialized macro generator in Ollama named <code>strop-ai</code>:</p>
+        <div class="code-box">
+          <button class="btn-copy" onclick="copyText('build-cmd', this)">Copy Command</button>
+          <code id="build-cmd">ollama create strop-ai -f Modelfile</code>
+        </div>
+      </li>
+
+      <li>
+        <strong>Query for Gaming Macros:</strong>
+        <p>Request any macro or stratagem directly from the command line:</p>
+        <div class="code-box">
+          <button class="btn-copy" onclick="copyText('run-cmd', this)">Copy Command</button>
+          <code id="run-cmd">ollama run strop-ai "Create a Helldivers 2 500kg bomb macro for Keypad Key 04 with 40ms inter-key delays"</code>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Workflow in Strop -->
+  <div class="card">
+    <h2>🎮 How to Apply the Output in Strop</h2>
+    <ol>
+      <li>Copy the single-line macro string returned by <code>strop-ai</code> (e.g. <code>modify(Control_L, wait(40).key(Up)...)</code>).</li>
+      <li>Open your target <strong>Strop Studio</strong> (Keypad, Keyboard, or Mouse).</li>
+      <li>Click on the physical button you wish to bind (e.g. <strong>Key 04</strong>, <strong>Thumb Button</strong>, or <strong>Side Grid 1</strong>).</li>
+      <li>In the bottom dock, select <strong>Special Actions &gt; Custom Macro</strong>, paste the macro string, and click <strong>⚡ Apply Settings</strong>.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+function copyText(id, btn) {
+  const elem = document.getElementById(id);
+  const text = elem.innerText || elem.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerText;
+    btn.innerText = "✓ Copied!";
+    btn.style.background = "#22c55e";
+    btn.style.color = "#052e16";
+    setTimeout(() => {
+      btn.innerText = orig;
+      btn.style.background = "";
+      btn.style.color = "";
+    }, 2000);
+  });
+}
+</script>
+
+</body>
+</html>

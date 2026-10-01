@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Strop
+Comment=Razer Linux Peripheral Studio & In-Game HUD
+Exec=/home/playerone/Projects/strop/strop.py
+Icon=/home/playerone/Projects/strop/assets/strop_icon.png
+Terminal=false
+Type=Application
+Categories=Utility;Settings;HardwareSettings;Game;
+StartupNotify=true
+StartupWMClass=strop
+

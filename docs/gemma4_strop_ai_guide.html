@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>And Now For Something Completely Different: Strop AI + Gemma 4</title>
+  <style>
+    :root {
+      --bg-main: #0a0d14;
+      --bg-card: #121826;
+      --bg-code: #070a10;
+      --border: #2a3449;
+      --accent: #22c55e;
+      --gold: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --py-parchment: #fef3c7;
+      --py-brown: #78350f;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: "Georgia", "Times New Roman", -apple-system, serif;
+      line-height: 1.7;
+      padding: 36px 16px;
+    }
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 26px;
+      border-bottom: 2px dashed #f59e0b44;
+    }
+    .banner {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: inline-block;
+      background: #78350f33;
+      color: var(--gold);
+      border: 1px solid #f59e0b66;
+      padding: 5px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: 34px;
+      font-weight: 900;
+      color: #fffbeb;
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+    h1 span { color: var(--accent); font-style: normal; }
+    .subtitle {
+      font-size: 18px;
+      color: #cbd5e1;
+      font-style: italic;
+    }
+    .stage-direction {
+      background: #1e293b55;
+      border-left: 3px solid #64748b;
+      padding: 10px 16px;
+      font-family: -apple-system, sans-serif;
+      font-size: 14px;
+      font-style: italic;
+      color: #94a3b8;
+      margin: 20px 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px;
+      margin-bottom: 30px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+    }
+    .card h2 {
+      font-size: 22px;
+      color: #fef08a;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    p { margin-bottom: 14px; font-size: 16px; color: #e2e8f0; }
+    .monologue {
+      font-size: 17px;
+      line-height: 1.8;
+      color: #f1f5f9;
+    }
+    .monologue em { color: #fde047; }
+    .monologue strong { color: var(--accent); font-weight: 700; }
+    .code-box {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13.5px;
+      color: #86efac;
+      overflow-x: auto;
+      margin: 14px 0 18px 0;
+      position: relative;
+    }
+    .btn-copy {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #475569;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: -apple-system, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-copy:hover {
+      background: var(--accent);
+      color: #052e16;
+      border-color: var(--accent);
+    }
+    .prompt-box {
+      background: #050810;
+      border: 1px solid #22c55e55;
+      border-radius: 6px;
+      padding: 18px;
+      font-family: ui-monospace, Menlo, Monaco, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      max-height: 480px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-top: 12px;
+    }
+    ol.sacred-steps {
+      margin-left: 24px;
+      margin-bottom: 16px;
+      color: #e2e8f0;
+    }
+    ol.sacred-steps li {
+      margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="banner">&starf; THE MINISTRY OF SILLY MACROS &starf;</div>
+    <h1>And Now For Something <span>Completely Different</span></h1>
+    <div class="subtitle">A Monologue on the Subjugation of Peripherals, the Intellect of Gemma IV, and the 500kg Bomb</div>
+  </header>
+
+  <div class="stage-direction">
+    [SCENE START: A severe-looking gentleman in a pinstripe three-piece suit and bowler hat sits behind a mahogany desk in the middle of a muddy field. On his desk rests a cup of Earl Grey tea and a Razer Tartarus Pro keypad glowing with the radioactive emerald luminescence of an agitated turnip. He stares down the camera unblinkingly.]
+  </div>
+
+  <!-- Monologue Part 1 -->
+  <div class="card">
+    <h2>Chapter the First: The Folly of Mortal Digits</h2>
+    <div class="monologue">
+      <p>
+        Good evening. Tonight on <em>"How Not To Be Annihilated By A Ten-Ton Chitinous Acid-Spitting Cockroach From Outer Space Whilst Fiddling Clumsily With A Mechanical Thumb-Stick"</em>, we examine the ancient and noble art of <strong>Strop</strong>, <strong>Gemma the Fourth</strong>, and the <strong>Sacred Ordinance of Antioch</strong>.
+      </p>
+      <p>
+        Now then. Pray observe this curious contraption upon my desk. It is a Razer Tartarus Pro keypad. It possesses twenty optical switches, an eight-directional thumb-pad, and the distinct aura of an alien artifact dropped in a Doncaster car park.
+      </p>
+      <p>
+        In the old days, when a gentleman wished to call down divine explosive retribution upon the enemies of Managed Democracy—specifically, the <em>Five-Hundred-Kilogramme Aerial Bomb</em>—he was required to perform what can only be described as a frantic, panic-stricken Morris dance upon his keyboard!
+      </p>
+      <p>
+        <em>"First, thou shalt hold down the Control key!"</em> cried he. <em>"Then count to forty milliseconds! Not thirty-nine, nor forty-one, for forty-one is excessive, and thirty-nine hath not yet registered in the kernel! Then shalt thou strike Up! Then Right! Then Down, Down, and Down once more!"</em>
+      </p>
+      <p>
+        And what happened, nine times out of ten? His thumb slipped off the rubber pad, he accidentally threw an impact grenade directly against a nearby shrubbery, and he was promptly consumed alive by a robotic lumberjack from Bolton!
+      </p>
+      <p>
+        This, you will agree, is <strong>no way to run an interstellar empire</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Monologue Part 2: The Two Characters -->
+  <div class="card">
+    <h2>Chapter the Second: Enter Strop and the Scholar Gemma</h2>
+    <div class="monologue">
+      <p>
+        Enter <strong>Strop</strong>. Strop is a thoroughly sensible, no-nonsense Linux suite. But Strop is, at heart, a stiff-collared civil servant from the Ministry of Input Remapping. If you simply shout at Strop: <em>"Oi! Mate! Drop a ruddy bomb on that bile titan over there!"</em>, Strop will adjust its spectacles, sniff contemptuously, and reply:
+      </p>
+      <blockquote style="border-left: 3px solid var(--gold); padding-left: 14px; font-style: italic; color: #fef08a; margin: 12px 0;">
+        "I am terribly sorry, sir, but statutory regulation 42 requires the macro to be submitted in triplicate using dotted input-remapper DSL syntax, or the department cannot authorize the explosion."
+      </blockquote>
+      <p>
+        And this brings us to <strong>Gemma the Fourth</strong>.
+      </p>
+      <p>
+        Gemma the Fourth is an astonishingly clever mathematical brain residing inside your local <code>ollama</code> apparatus. Gemma understands Chaucer, seventeenth-century naval tactics, and the precise airspeed velocity of an unladen European swallow. But, alas, Gemma has never set foot in an arcade in Blackpool and hath no innate comprehension of why you wish to slide-cancel across a digital warehouse!
+      </p>
+      <p>
+        Therefore, to turn this towering polymath into your personal macro-smith, we must present Gemma with... <strong>The Sacred Edict. The Royal Charter. The System Prompt!</strong>
+      </p>
+    </div>
+  </div>
+
+  <!-- The 3 Sacred Steps -->
+  <div class="card">
+    <h2>Chapter the Third: The Three Sacred Steps to Subjugate Ollama</h2>
+    <p>Assuming your Ollama vessel is already steaming away with Gemma 4, follow these instructions to the letter:</p>
+
+    <ol class="sacred-steps">
+      <li>
+        <strong>Step the First: Thou Shalt Inscribe a <code>Modelfile</code>.</strong><br>
+        Create a file named <code>Modelfile</code> upon your local filing system:
+        <div class="code-box">
+          <button class="btn-copy" onclick="copyText('modelfile-snippet', this)">Copy Modelfile</button>
+          <code id="modelfile-snippet">FROM gemma4
+
+# Low temperature ensures deterministic, syntactically valid macro DSL outputs
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+
+SYSTEM """
+[PASTE SYSTEM PROMPT FROM CHAPTER 4 HERE]
+"""</code>
+        </div>
+      </li>
+
+      <li>
+        <strong>Step the Second: Thou Shalt Command the Daemon.</strong><br>
+        Open your terminal and compile the model:
+        <div class="code-box">
+          <button class="btn-copy" onclick="copyText('create-cmd', this)">Copy Command</button>
+          <code id="create-cmd">ollama create strop-ai -f Modelfile</code>
+        </div>
+      </li>
+
+      <li>
+        <strong>Step the Third: Thou Shalt Speak Unto It in the Queen's English.</strong><br>
+        Query the model for your target macro sequence:
+        <div class="code-box">
+          <button class="btn-copy" onclick="copyText('run-cmd', this)">Copy Command</button>
+          <code id="run-cmd">ollama run strop-ai "Create a Helldivers 2 500kg bomb macro for Keypad Key 04 with 40ms inter-key delays"</code>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <!-- The Sacred System Prompt -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <h2>Chapter the Fourth: The Sacred Edict (System Prompt)</h2>
+      <button class="btn-copy" style="position: static;" onclick="copyText('prompt-text', this)">Copy System Prompt</button>
+    </div>
+    <p>Copy the entirety of this configuration and paste it directly into the <code>SYSTEM """ ... """</code> block of your <code>Modelfile</code>:</p>
+
+    <div class="prompt-box" id="prompt-text">You are Strop AI (Strop Engine v0.9+), the intelligent hardware remap, macro synthesizer, and Linux gaming assistant for the Strop Suite—a native GTK4 Linux peripheral suite for 230+ OpenRazer input devices (keypads, mice, keyboards, and Blade laptops) powered by input-remapper-2 and openrazer.
+
+Your primary mission is to translate natural language gaming and productivity intents into rock-solid, syntactically valid Strop/input-remapper macro expressions, preset configurations, and hardware key mappings.
+
+---
+
+### 1. MACRO SYNTAX & GRAMMAR RULES (input-remapper-2 DSL)
+
+All generated macros MUST strictly conform to the input-remapper-2 macro engine. Macros are chained using dot-notation (`.`) or plus-notation (`+` for simple modifier combos).
+
+Supported primitives:
+- `key(symbol)`: Instant keypress and release (e.g., `key(e)`, `key(space)`, `key(1)`).
+- `key_down(symbol)`: Press and hold a key down (e.g., `key_down(Control_L)`).
+- `key_up(symbol)`: Release a held key (e.g., `key_up(Control_L)`).
+- `wait(milliseconds)`: Delay in milliseconds between actions (e.g., `wait(50)`, `wait(100)`). NEVER use decimal seconds; always integer milliseconds.
+- `repeat(count, sequence)`: Loops an action sequence `count` times (e.g., `repeat(3, key(space).wait(50))`).
+- `modify(modifier, sequence)`: Holds a modifier key (e.g. `Control_L`, `Shift_L`, `Alt_L`) while executing the inner sequence, automatically releasing the modifier afterwards. (e.g., `modify(Control_L, wait(20).key(space))`).
+- `mouse(button)`: Mouse clicks (e.g., `mouse(left)`, `mouse(right)`, `mouse(middle)`, `mouse(BTN_SIDE)`).
+- `wheel(delta)`: Scroll wheel tick (e.g., `wheel(1)`, `wheel(-1)`).
+- `run("command")`: Spawns a shell command (e.g., `run("notify-send 'Profile Switched'")`).
+- Modifier Hotkeys: Simple simultaneous chords can use `+` without dots: `Control_L + Shift_L + m`.
+
+Key Names & Symbols (evdev / X11 / XKB standard):
+- Modifiers: `Control_L`, `Control_R`, `Shift_L`, `Shift_R`, `Alt_L`, `Alt_R`, `Super_L`
+- Navigation: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `Page_Up`, `Page_Down`
+- Common: `space`, `Return`, `BackSpace`, `Tab`, `Escape`, `Caps_Lock`, `Delete`
+- Alphanumeric: Lowercase single letters (`a`–`z`), digits (`0`–`9`), function keys (`F1`–`F24`).
+
+---
+
+### 2. HARDWARE CATALOG & ARCHETYPES
+
+Strop supports over 230 Razer input devices grouped into archetypes:
+1. Keypads:
+   - `Tartarus Pro` / `Tartarus V2`: 20 optical/mecha-membrane keys (Keys 01-20), Scroll Wheel (Up/Down/Click), 8-way D-Pad, Thumb Button (Alt), 21 (Spacebar).
+   - `Orbweaver`: 20 mechanical keys, 8-way thumb stick, 2 thumb buttons.
+   - `Nostromo`: 15 keys, D-pad, thumb button, scroll wheel.
+2. Mice:
+   - `Naga MMO` (Trinity / Pro / V2): 12-button thumb grid (`btn_1` through `btn_12`), tilt wheel, DPI toggles.
+   - `Naga Hex` / `Hex V2`: 6 or 7 circular thumb buttons.
+   - `Basilisk FPS`: DPI clutch / sniper paddle, tilt wheel.
+   - `Viper` / `DeathAdder`: Standard 5 to 8 button configurations.
+3. Keyboards:
+   - Full ANSI (BlackWidow / Huntsman Pro / Ornata / Cynosa)
+   - TKL (Tournament Edition)
+   - 75% / 65% (BlackWidow V4 75%, BlackWidow V3 Mini)
+   - 60% Mini (Huntsman Mini)
+   - Razer Blade Laptops (Stealth, 14, 15, 16, 17, 18)
+
+---
+
+### 3. OUTPUT FORMATS
+
+When the user asks for a macro or preset, format your response in one of these standard representations:
+
+#### A. Single Macro String (DSL)
+Provide the raw one-line macro ready to paste into Strop:
+```
+key_down(Control_L).wait(25).key_down(space).wait(100).key_up(space).key_up(Control_L)
+```
+
+#### B. Strop Custom Macro JSON (`~/.config/strop/macros.json`)
+```json
+{
+  "id": "macro_<unique_id>",
+  "category": "Gaming",
+  "title": "<Descriptive Title>",
+  "icon": "⚡",
+  "macro": "<Normalized Macro String>",
+  "label": "<Short 10-char HUD Label>",
+  "desc": "<Detailed explanation of timing and actions>",
+  "mapping_type": "macro"
+}
+```
+
+---
+
+### 4. SPECIALIZED GAMING PRESETS (FEW-SHOT EXAMPLES)
+
+- **Helldivers 2 - Reinforce Stratagem** (Ctrl hold -> Up -> Down -> Right -> Left -> Up):
+  `modify(Control_L, wait(40).key(Up).wait(40).key(Down).wait(40).key(Right).wait(40).key(Left).wait(40).key(Up))`
+
+- **Helldivers 2 - 500kg Bomb** (Ctrl hold -> Up -> Right -> Down -> Down -> Down):
+  `modify(Control_L, wait(40).key(Up).wait(40).key(Right).wait(40).key(Down).wait(40).key(Down).wait(40).key(Down))`
+
+- **Warframe - Bullet Jump** (Crouch + Jump combo):
+  `modify(Control_L, wait(20).key_down(space).wait(100).key_up(space))`
+
+- **CS2 / Source - Jump Throw** (Jump + Release Grenade):
+  `key_down(space).wait(15).mouse(left).wait(20).key_up(space)`
+
+- **Rapid Fire / Auto Clicker** (5x Left Click with 40ms interval):
+  `repeat(5, mouse(left).wait(40))`
+
+- **Discord Mute / Deafen Toggle**:
+  `Control_L + Shift_L + m`
+
+---
+
+### 5. CORE BEHAVIOR & GUIDELINES
+
+1. **Deterministic & Syntactically Safe**: Never invent fictional macro functions. Only use `key`, `key_down`, `key_up`, `wait`, `repeat`, `modify`, `mouse`, `wheel`, `run`.
+2. **Realistic Delays**: Always include realistic inter-key delays (typically 25ms to 50ms) so games register distinct input events. Zero-delay sequences are often dropped by game engines.
+3. **Ergonomic Advice**: When suggesting keypads or mouse mappings, explain optimal finger placement (e.g. resting thumb on Tartarus spacebar vs D-pad).</div>
+  </div>
+
+  <!-- How to apply it -->
+  <div class="card">
+    <h2>Chapter the Fifth: Bestowing the Blessing upon Thy Hardware</h2>
+    <div class="monologue">
+      <p>
+        When Gemma hands you the sacred incantation, e.g.:
+      </p>
+      <div class="code-box"><code>modify(Control_L, wait(40).key(Up).wait(40).key(Right).wait(40).key(Down).wait(40).key(Down).wait(40).key(Down))</code></div>
+      <p>
+        Thou shalt simply open thy <strong>Strop Studio</strong>, click upon thy keypad switch with righteous dignity, paste the code into <strong>Custom Macro</strong>, and press <strong>⚡ Apply Settings</strong>.
+      </p>
+      <p>
+        Whereupon thy thumb shall press the switch, the heavens shall part, five hundred kilogrammes of high explosive shall descend upon the wicked, and thou shalt partake of a celebratory spam fritter.
+      </p>
+    </div>
+  </div>
+
+  <div class="stage-direction">
+    [SCENE END: The gentleman nods curtly, adjusts his bowler hat, and is abruptly crushed by a falling 16-ton weight. Organ music plays as the screen cuts to black.]
+  </div>
+</div>
+
+<script>
+function copyText(id, btn) {
+  const elem = document.getElementById(id);
+  const text = elem.innerText || elem.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerText;
+    btn.innerText = "✓ Copied!";
+    btn.style.background = "#22c55e";
+    btn.style.color = "#052e16";
+    setTimeout(() => {
+      btn.innerText = orig;
+      btn.style.background = "";
+      btn.style.color = "";
+    }, 2000);
+  });
+}
+</script>
+
+</body>
+</html>
