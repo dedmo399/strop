@@ -19,7 +19,8 @@ if str(script_dir) not in sys.path:
 from strop_core.device import scan_all_connected_devices, clean_device_display_name
 from strop_core.presets import (
     get_presets_base_dir, get_active_profile, get_all_active_profiles,
-    set_active_profile, apply_profile, list_device_presets, check_daemon_status
+    list_device_presets, check_daemon_status,
+    run_profile_operation_async, check_profile_state_async
 )
 
 from strop_core.theme import apply_theme, show_about_dialog
@@ -167,6 +168,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         self.connected_devices = scan_all_connected_devices()
         self.selected_dev_name = ""
         self.available_presets_for_selected = []
+        self.profile_operation_pending = False
 
         self._build_ui()
 
@@ -239,7 +241,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
         p_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         lbl_p_title = Gtk.Label()
-        lbl_p_title.set_markup("<span weight='bold' size='small' color='#86efac'>⚡ Active Profile &amp; Settings Manager</span>")
+        lbl_p_title.set_markup("<span weight='bold' size='small' color='#86efac'>⚡ Profile &amp; Settings Manager</span>")
         lbl_p_title.set_xalign(0)
         lbl_p_title.set_hexpand(True)
         p_header.append(lbl_p_title)
@@ -263,12 +265,17 @@ class StropHubWindow(Gtk.ApplicationWindow):
         self.hub_preset_dropdown.set_hexpand(True)
         p_controls.append(self.hub_preset_dropdown)
 
-        # Apply Settings Button
-        btn_apply = Gtk.Button(label="⚡ Apply Settings")
-        btn_apply.add_css_class("primary-btn")
-        btn_apply.set_tooltip_text("Applies and activates this profile on the selected device via input-remapper")
-        btn_apply.connect("clicked", self._on_hub_apply_clicked)
-        p_controls.append(btn_apply)
+        self.btn_profile_apply = Gtk.Button(label="⚡ Apply Settings")
+        self.btn_profile_apply.add_css_class("primary-btn")
+        self.btn_profile_apply.set_tooltip_text("Apply the selected saved profile")
+        self.btn_profile_apply.connect("clicked", self._on_hub_apply_clicked)
+        p_controls.append(self.btn_profile_apply)
+
+        self.btn_profile_stop = Gtk.Button(label="■ Stop")
+        self.btn_profile_stop.add_css_class("ghost-btn")
+        self.btn_profile_stop.set_tooltip_text("Stop injection for the selected device")
+        self.btn_profile_stop.connect("clicked", self._on_hub_stop_clicked)
+        p_controls.append(self.btn_profile_stop)
 
         profile_card.append(p_controls)
         main_box.append(profile_card)
@@ -390,11 +397,11 @@ class StropHubWindow(Gtk.ApplicationWindow):
                 badge = Gtk.Button()
                 dev_clean = d.get("clean_name", d["name"])
                 active_prof = get_active_profile(d["name"])
-                prof_str = f" [⚡ {active_prof}]" if active_prof else ""
+                prof_str = f" [Last Strop: {active_prof}]" if active_prof else ""
 
                 badge.set_child(Gtk.Label.new(f"🟢 {dev_clean}{prof_str}"))
                 badge.add_css_class("badge-device")
-                badge.set_tooltip_text(f"Hardware:\n{dev_clean}\nActive Profile: {active_prof or 'None (Stock)'}\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
+                badge.set_tooltip_text(f"Hardware:\n{dev_clean}\nLast profile applied by Strop: {active_prof or 'None recorded'}\nBackend state is shown in the profile manager.\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
                 badge.connect("clicked", lambda w, dev=d: self._launch_studio_for_device(dev["name"]))
                 self.hardware_box.append(badge)
         else:
@@ -432,8 +439,55 @@ class StropHubWindow(Gtk.ApplicationWindow):
         if active_prof and active_prof in preset_names:
             self.hub_preset_dropdown.set_selected(preset_names.index(active_prof))
 
+        self.lbl_profile_status.set_text("Checking backend injection state…")
+        check_profile_state_async(
+            device_name,
+            lambda state, target=device_name: self._on_profile_state_checked(target, state),
+            GLib.idle_add,
+        )
+
+    def _on_profile_state_checked(self, device_name: str, state: str):
+        if device_name != self.selected_dev_name:
+            return
+        last_profile = get_active_profile(device_name)
+        last_text = f" · Last Strop profile: {last_profile}" if last_profile else " · No Strop profile recorded"
+        state_text = {
+            "running": "Injection running",
+            "starting": "Injection starting",
+            "stopped": "Injection stopped",
+            "failed": "Injection failed",
+            "unknown": "Injection state unknown",
+        }.get(state, "Injection state unknown")
+        self.lbl_profile_status.set_text(state_text + last_text)
+
+    def _set_profile_controls_busy(self, busy: bool):
+        self.profile_operation_pending = busy
+        self.btn_profile_apply.set_sensitive(not busy)
+        self.btn_profile_stop.set_sensitive(not busy)
+
+    def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
+        self._set_profile_controls_busy(False)
+        if device_name == self.selected_dev_name:
+            if result.status == "applied":
+                self.lbl_profile_status.set_text(result.message)
+            elif result.status == "stopped":
+                self.lbl_profile_status.set_text(result.message)
+            elif result.status == "unknown":
+                self.lbl_profile_status.set_text("Injection state unknown · " + result.message)
+            else:
+                self.lbl_profile_status.set_text(f"{operation.title()} failed · " + result.message)
+        if result.status in ("applied", "stopped"):
+            self._refresh_hardware_banner()
+        title = {
+            "applied": "Profile Applied",
+            "stopped": "Profile Stopped",
+            "unknown": "Profile Outcome Unknown",
+            "failed": f"Profile {operation.title()} Failed",
+        }.get(result.status, "Profile Operation")
+        Gtk.AlertDialog(message=title, detail=result.message).show(self)
+
     def _on_hub_apply_clicked(self, widget):
-        if not self.selected_dev_name or not self.available_presets_for_selected:
+        if self.profile_operation_pending or not self.selected_dev_name or not self.available_presets_for_selected:
             return
         idx = self.hub_preset_dropdown.get_selected()
         if idx >= len(self.available_presets_for_selected):
@@ -442,21 +496,27 @@ class StropHubWindow(Gtk.ApplicationWindow):
         if chosen_preset.startswith("("):
             return
 
-        success, msg = apply_profile(self.selected_dev_name, chosen_preset)
-        if success:
-            self.lbl_profile_status.set_markup(f"<span color='#86efac'>✓ Active: <b>{chosen_preset}</b></span>")
-            alert_title = f"Applied Profile '{chosen_preset}'"
-        else:
-            self.lbl_profile_status.set_markup(f"<span color='#f87171'>⚠️ Failed: <b>{chosen_preset}</b></span>")
-            alert_title = f"Failed to Apply Profile '{chosen_preset}'"
-
-        self._refresh_hardware_banner()
-
-        alert = Gtk.AlertDialog(
-            message=alert_title,
-            detail=msg
+        device_name = self.selected_dev_name
+        self._set_profile_controls_busy(True)
+        self.lbl_profile_status.set_text(f"Applying {chosen_preset}…")
+        run_profile_operation_async(
+            "apply", device_name,
+            lambda result: self._on_profile_operation_finished("apply", device_name, chosen_preset, result),
+            GLib.idle_add, preset_name=chosen_preset,
         )
-        alert.show(self)
+
+    def _on_hub_stop_clicked(self, widget):
+        if self.profile_operation_pending or not self.selected_dev_name:
+            return
+        device_name = self.selected_dev_name
+        last_profile = get_active_profile(device_name) or ""
+        self._set_profile_controls_busy(True)
+        self.lbl_profile_status.set_text("Stopping injection…")
+        run_profile_operation_async(
+            "stop", device_name,
+            lambda result: self._on_profile_operation_finished("stop", device_name, last_profile, result),
+            GLib.idle_add,
+        )
 
     def _create_app_card(self, title, desc, btn_label, script):
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)

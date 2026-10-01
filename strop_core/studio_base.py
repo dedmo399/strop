@@ -23,7 +23,8 @@ from gi.repository import Gtk, Gdk, GLib, Gio
 from strop_core.device import clean_device_display_name
 from strop_core.presets import (
     get_device_presets_dir, get_active_profile, apply_profile,
-    save_device_preset, load_preset_file
+    save_device_preset, load_preset_file,
+    run_profile_operation_async, check_profile_state_async
 )
 from strop_core.theme import apply_theme, show_about_dialog
 from strop_core.toast import StropToast
@@ -74,6 +75,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         self.detected_device: Dict[str, Any] = {}
         self.default_device_name = "Razer Input Device"
         self.default_preset_name = "my-profile"
+        self.profile_operation_pending = False
         self.state: Dict[str, Dict[str, Any]] = {}
         self.button_widgets: Dict[str, Dict[str, Any]] = {}
         self.selected_key_id: Optional[str] = None
@@ -479,7 +481,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
         status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         lbl_p_title = Gtk.Label()
-        lbl_p_title.set_markup("<span weight='bold' size='small' color='#f8fafc'>Active Profile:</span>")
+        lbl_p_title.set_markup("<span weight='bold' size='small' color='#f8fafc'>Last Strop Profile:</span>")
         status_row.append(lbl_p_title)
 
         self.lbl_active_profile_status = Gtk.Label()
@@ -507,11 +509,17 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         btn_export_json.connect("clicked", self._export_json_preset)
         p_row.append(btn_export_json)
 
-        btn_apply_json = Gtk.Button(label="⚡ Apply")
-        btn_apply_json.add_css_class("primary-btn")
-        btn_apply_json.set_tooltip_text("Apply & activate this profile on hardware via input-remapper")
-        btn_apply_json.connect("clicked", self._apply_current_preset)
-        p_row.append(btn_apply_json)
+        self.btn_apply_profile = Gtk.Button(label="⚡ Apply")
+        self.btn_apply_profile.add_css_class("primary-btn")
+        self.btn_apply_profile.set_tooltip_text("Apply the saved profile and verify backend state")
+        self.btn_apply_profile.connect("clicked", self._apply_current_preset)
+        p_row.append(self.btn_apply_profile)
+
+        self.btn_stop_profile = Gtk.Button(label="■ Stop")
+        self.btn_stop_profile.add_css_class("ghost-btn")
+        self.btn_stop_profile.set_tooltip_text("Stop input-remapper injection for this device")
+        self.btn_stop_profile.connect("clicked", self._stop_current_profile)
+        p_row.append(self.btn_stop_profile)
         card.append(p_row)
 
         self.lbl_remap_count = Gtk.Label()
@@ -1038,25 +1046,42 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
     def _auto_load_active_profile(self):
         dev_name = self.detected_device.get("name", self.default_device_name)
         active_p = get_active_profile(dev_name)
-        if not active_p:
-            return
+        self.lbl_active_profile_status.set_text(
+            f"Last Strop profile: {active_p or 'none recorded'} · checking injection…"
+        )
+        check_profile_state_async(
+            dev_name,
+            lambda state, target=dev_name: self._on_profile_state_checked(target, state),
+            GLib.idle_add,
+        )
+        if active_p:
+            dev_dir = get_device_presets_dir(dev_name)
+            for pfile in dev_dir.glob("*.json"):
+                if pfile.stem == active_p:
+                    try:
+                        self._load_preset_file_data(str(pfile))
+                    except Exception as exc:
+                        logger.warning(f"Could not restore last Strop profile {active_p}: {exc}")
+                    break
 
-        self.lbl_active_profile_status.set_markup(f"<span color='#86efac' weight='bold'>⚡ {active_p}</span>")
-        dev_dir = get_device_presets_dir(dev_name)
-        presets = list(dev_dir.glob("*.json"))
-        for pfile in presets:
-            if pfile.stem == active_p:
-                try:
-                    self._load_preset_file_data(str(pfile))
-                except Exception:
-                    pass
-                break
+    def _on_profile_state_checked(self, device_name: str, state: str):
+        current_device = self.detected_device.get("name", self.default_device_name)
+        if device_name != current_device:
+            return
+        last_profile = get_active_profile(device_name) or "none recorded"
+        state_text = {
+            "running": "injection running", "starting": "injection starting",
+            "stopped": "injection stopped", "failed": "injection failed",
+        }.get(state, "injection state unknown")
+        self.lbl_active_profile_status.set_text(f"{state_text} · Last Strop profile: {last_profile}")
 
     def _save_preset_direct(self, preset_name: str) -> Optional[Path]:
         dev_name = self.detected_device.get("name", self.default_device_name)
         return save_device_preset(dev_name, preset_name, self.state, self.detected_device)
 
     def _apply_current_preset(self, widget):
+        if self.profile_operation_pending:
+            return
         pname = self.entry_preset_name.get_text().strip() or self.default_preset_name
         dev_name = self.detected_device.get("name", self.default_device_name)
 
@@ -1068,11 +1093,15 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
                 self.toast.show_message("Could not save preset to disk before applying.", icon="⚠️")
             return
 
-        success, msg = apply_profile(dev_name, pname)
-        if success:
-            self.lbl_active_profile_status.set_markup(f"<span color='#86efac' weight='bold'>⚡ {pname}</span>")
-        else:
-            self.lbl_active_profile_status.set_markup("<span color='#f87171' weight='bold'>⚠️ Failed</span>")
+        self.profile_operation_pending = True
+        self.btn_apply_profile.set_sensitive(False)
+        self.btn_stop_profile.set_sensitive(False)
+        self.lbl_active_profile_status.set_text(f"Applying {pname}…")
+        run_profile_operation_async(
+            "apply", dev_name,
+            lambda result: self._on_profile_operation_finished("apply", dev_name, pname, result),
+            GLib.idle_add, preset_name=pname,
+        )
 
         # Apply physical OpenRazer lighting using the user's selected color
         try:
@@ -1086,11 +1115,38 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         except Exception:
             pass
 
-        # Non-blocking smooth in-app toast notification with daemon feedback
-        if hasattr(self, "toast"):
-            icon = "⚡" if success else "⚠️"
-            self.toast.show_message(msg, icon=icon)
         self._update_all_visuals()
+
+    def _stop_current_profile(self, widget):
+        if self.profile_operation_pending:
+            return
+        device_name = self.detected_device.get("name", self.default_device_name)
+        last_profile = get_active_profile(device_name) or ""
+        self.profile_operation_pending = True
+        self.btn_apply_profile.set_sensitive(False)
+        self.btn_stop_profile.set_sensitive(False)
+        self.lbl_active_profile_status.set_text("Stopping injection…")
+        run_profile_operation_async(
+            "stop", device_name,
+            lambda result: self._on_profile_operation_finished("stop", device_name, last_profile, result),
+            GLib.idle_add,
+        )
+
+    def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
+        self.profile_operation_pending = False
+        self.btn_apply_profile.set_sensitive(True)
+        self.btn_stop_profile.set_sensitive(True)
+        if result.status == "applied":
+            status = result.message
+        elif result.status == "stopped":
+            status = result.message
+        elif result.status == "unknown":
+            status = "Injection state unknown"
+        else:
+            status = f"{operation.title()} failed"
+        self.lbl_active_profile_status.set_text(status)
+        if hasattr(self, "toast"):
+            self.toast.show_message(result.message, icon="⚡" if result.success else "⚠️")
 
 
 

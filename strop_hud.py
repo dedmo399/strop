@@ -30,7 +30,8 @@ from strop_core.x11 import pin_window_on_top
 from strop_core.device import detect_device
 from strop_core.presets import (
     get_presets_base_dir, get_device_presets_dir, list_device_presets,
-    get_active_profile, apply_profile, load_preset_file
+    get_active_profile, load_preset_file,
+    run_profile_operation_async, check_profile_state_async
 )
 from strop_core.gamepad import parse_gamepad_display_text
 
@@ -180,6 +181,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.button_widgets = {}
         self.available_presets = []
         self.current_preset_name = ""
+        self.profile_operation_pending = False
         self.opacity_levels = [0.88, 0.70, 0.50, 1.0]
         self.opacity_idx = 0
         self.is_collapsed = False
@@ -286,6 +288,22 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.preset_dropdown_handler_id = self.preset_dropdown.connect("notify::selected-item", self._on_preset_selected)
         self.preset_dropdown.set_hexpand(True)
         header.append(self.preset_dropdown)
+
+        self.lbl_profile_status = Gtk.Label(label="Injection state unknown")
+        self.lbl_profile_status.add_css_class("dim-text")
+        header.append(self.lbl_profile_status)
+
+        self.btn_profile_apply = Gtk.Button(label="⚡")
+        self.btn_profile_apply.add_css_class("hud-btn")
+        self.btn_profile_apply.set_tooltip_text("Apply the selected profile")
+        self.btn_profile_apply.connect("clicked", self._on_apply_clicked)
+        header.append(self.btn_profile_apply)
+
+        self.btn_profile_stop = Gtk.Button(label="■")
+        self.btn_profile_stop.add_css_class("hud-btn")
+        self.btn_profile_stop.set_tooltip_text("Stop injection for this device")
+        self.btn_profile_stop.connect("clicked", self._on_stop_clicked)
+        header.append(self.btn_profile_stop)
 
 
         # Opacity Cycle Button
@@ -476,6 +494,12 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
     def _scan_and_load_presets(self):
         dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
+        self.lbl_profile_status.set_text("Checking injection…")
+        check_profile_state_async(
+            dev_name,
+            lambda state, target=dev_name: self._on_profile_state_checked(target, state),
+            GLib.idle_add,
+        )
         preset_names = list_device_presets(dev_name)
         if not preset_names:
             dev_dir = get_presets_base_dir()
@@ -505,6 +529,8 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
         self.current_preset_name = preset_names[active_idx]
         self._load_preset_file(preset_names[active_idx])
+        if active_prof:
+            self.lbl_profile_status.set_text(f"Last Strop profile: {active_prof} · state checking")
 
     def _on_preset_selected(self, dropdown, param):
         selected_idx = dropdown.get_selected()
@@ -513,9 +539,63 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
             self.current_preset_name = preset_name
             self._load_preset_file(preset_name)
-            success, msg = apply_profile(dev_name, preset_name)
-            if not success:
-                print(f"[HUD] Note: Could not apply profile '{preset_name}' on {dev_name}: {msg}")
+            self.lbl_profile_status.set_text(f"Selected: {preset_name} · not applied")
+
+    def _on_profile_state_checked(self, device_name: str, state: str):
+        current_device = self.detected_device.get("name", "Razer Tartarus Pro")
+        if device_name != current_device:
+            return
+        last_profile = get_active_profile(device_name)
+        state_text = {
+            "running": "Injection running", "starting": "Injection starting",
+            "stopped": "Injection stopped", "failed": "Injection failed",
+        }.get(state, "Injection state unknown")
+        if last_profile:
+            state_text += f" · Last Strop: {last_profile}"
+        self.lbl_profile_status.set_text(state_text)
+
+    def _set_profile_controls_busy(self, busy: bool):
+        self.profile_operation_pending = busy
+        self.btn_profile_apply.set_sensitive(not busy)
+        self.btn_profile_stop.set_sensitive(not busy)
+
+    def _on_apply_clicked(self, widget):
+        if self.profile_operation_pending or not self.current_preset_name:
+            return
+        device_name = self.detected_device.get("name", "Razer Tartarus Pro")
+        preset_name = self.current_preset_name
+        self._set_profile_controls_busy(True)
+        self.lbl_profile_status.set_text(f"Applying {preset_name}…")
+        run_profile_operation_async(
+            "apply", device_name,
+            lambda result: self._on_profile_operation_finished("apply", device_name, preset_name, result),
+            GLib.idle_add, preset_name=preset_name,
+        )
+
+    def _on_stop_clicked(self, widget):
+        if self.profile_operation_pending:
+            return
+        device_name = self.detected_device.get("name", "Razer Tartarus Pro")
+        self._set_profile_controls_busy(True)
+        self.lbl_profile_status.set_text("Stopping injection…")
+        run_profile_operation_async(
+            "stop", device_name,
+            lambda result: self._on_profile_operation_finished("stop", device_name, "", result),
+            GLib.idle_add,
+        )
+
+    def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
+        self._set_profile_controls_busy(False)
+        if result.status == "applied":
+            self.lbl_profile_status.set_text(result.message)
+        elif result.status == "stopped":
+            self.lbl_profile_status.set_text(result.message)
+        elif result.status == "unknown":
+            self.lbl_profile_status.set_text("Injection state unknown")
+        else:
+            self.lbl_profile_status.set_text(f"{operation.title()} failed")
+        if not result.success:
+            print(f"[HUD] {operation.title()} profile: {result.message}")
 
 
     def _load_preset_file(self, preset_spec):

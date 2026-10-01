@@ -7,12 +7,55 @@ import os
 import json
 import subprocess
 import shutil
+import tempfile
+import time
+import threading
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
+from dataclasses import dataclass
 
 from strop_core.logger import get_logger
 
 logger = get_logger("strop.presets")
+
+
+@dataclass(frozen=True)
+class ProfileOperationResult:
+    """Outcome of an apply/stop request, including uncertain backend states."""
+
+    status: str
+    message: str
+
+    @property
+    def success(self) -> bool:
+        return self.status in ("applied", "stopped")
+
+
+def _atomic_write_json(path: Path, data: Any) -> None:
+    """Atomically replace a JSON file, preserving the prior file on write failure."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_path, path)
+        try:
+            dir_fd = os.open(str(path.parent), os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
+    except Exception:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def get_strop_config_dir() -> Path:
@@ -36,49 +79,79 @@ def get_all_active_profiles() -> Dict[str, str]:
         with open(fpath, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
-                return data
+                # Read the existing device-name -> preset-name format. Ignore
+                # malformed entries rather than propagating them to the UI.
+                return {
+                    str(device): preset
+                    for device, preset in data.items()
+                    if isinstance(device, str) and isinstance(preset, str)
+                }
     except Exception as e:
         logger.debug(f"Could not read active profiles file: {e}")
     return {}
 
 
 def get_active_profile(device_name: str) -> Optional[str]:
-    """Returns the currently active preset name for a given device, or None."""
+    """Returns Strop's last confirmed preset for a device, or None.
+
+    This is a local history record. It does not prove that another application
+    has not since changed or stopped the input-remapper injection.
+    """
     profiles = get_all_active_profiles()
     # Check exact name
     if device_name in profiles:
         return profiles[device_name]
     # Fuzzy match
     clean_target = device_name.lower().replace("razer", "").replace("_", " ").strip()
+    matches = []
     for dname, pname in profiles.items():
         clean_d = dname.lower().replace("razer", "").replace("_", " ").strip()
         if clean_target and (clean_target in clean_d or clean_d in clean_target):
-            return pname
-    return None
+            matches.append(pname)
+    return matches[0] if len(matches) == 1 else None
 
 
-def set_active_profile(device_name: str, preset_name: str) -> None:
-    """Records the active profile for a device into ~/.config/strop/active_profiles.json."""
+def set_active_profile(device_name: str, preset_name: str) -> bool:
+    """Records the last confirmed Strop profile; returns whether it persisted."""
     profiles = get_all_active_profiles()
+    matches = [
+        name for name in profiles
+        if name != device_name
+        and name.lower().replace("razer", "").replace("_", " ").strip()
+        == device_name.lower().replace("razer", "").replace("_", " ").strip()
+    ]
+    if len(matches) == 1:
+        profiles.pop(matches[0], None)
     profiles[device_name] = preset_name
-    fpath = get_active_profiles_file()
     try:
-        with open(fpath, "w", encoding="utf-8") as f:
-            json.dump(profiles, f, indent=2)
+        _atomic_write_json(get_active_profiles_file(), profiles)
+        return True
     except Exception as e:
         logger.warning(f"Failed to write active profile: {e}")
+        return False
 
 
-def clear_active_profile(device_name: str) -> None:
-    """Clears the active profile record for a device."""
+def clear_active_profile(device_name: str) -> bool:
+    """Clears the last confirmed profile record; returns whether it persisted."""
     profiles = get_all_active_profiles()
-    if device_name in profiles:
-        del profiles[device_name]
+    key = device_name if device_name in profiles else None
+    if key is None:
+        clean_target = device_name.lower().replace("razer", "").replace("_", " ").strip()
+        matches = [
+            name for name in profiles
+            if name.lower().replace("razer", "").replace("_", " ").strip() == clean_target
+        ]
+        if len(matches) == 1:
+            key = matches[0]
+    if key is not None:
+        del profiles[key]
         try:
-            with open(get_active_profiles_file(), "w", encoding="utf-8") as f:
-                json.dump(profiles, f, indent=2)
+            _atomic_write_json(get_active_profiles_file(), profiles)
+            return True
         except Exception as e:
-            logger.debug(f"Could not clear active profile: {e}")
+            logger.warning(f"Could not clear active profile: {e}")
+            return False
+    return True
 
 
 def get_presets_base_dir() -> Path:
@@ -219,8 +292,7 @@ def save_device_preset(
     target_dir = get_device_presets_dir(device_name)
     save_file = target_dir / f"{clean_pname}.json"
     try:
-        with open(save_file, "w", encoding="utf-8") as f:
-            json.dump(preset_data, f, indent=2)
+        _atomic_write_json(save_file, preset_data)
         logger.info(f"Saved preset '{clean_pname}' to {save_file}")
         return save_file
     except Exception as e:
@@ -236,103 +308,243 @@ def load_preset_file(path: Path) -> Optional[List[Dict[str, Any]]]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if isinstance(data, list):
+            if isinstance(data, list) and all(
+                isinstance(entry, dict)
+                and isinstance(entry.get("input_combination"), list)
+                and isinstance(entry.get("output_symbol"), str)
+                for entry in data
+            ):
                 return data
+            logger.error(f"Preset {path} has an invalid structure")
     except Exception as e:
         logger.error(f"Failed to load preset {path}: {e}")
     return None
 
 
-def apply_profile(device_name: str, preset_name: str) -> Tuple[bool, str]:
-    """
-    Applies a preset to the hardware via input-remapper-control and records it as active upon confirmation.
-    Returns (success: bool, message: str) without blocking the UI main loop.
-    """
+def _profile_config_dir() -> Path:
+    return get_presets_base_dir().parent
+
+
+def _list_input_remapper_devices(ctrl_bin: str) -> List[str]:
+    result = subprocess.run(
+        [ctrl_bin, "--list-devices"], capture_output=True, text=True, timeout=3.0,
+        env=dict(os.environ, PYTHONWARNINGS="ignore"),
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "Unable to enumerate input-remapper devices").strip()
+        raise RuntimeError(detail[-500:])
+    return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+
+
+def _resolve_input_remapper_device(device_name: str, group_keys: List[str]) -> Optional[str]:
+    """Resolve a Strop device name to one exact input-remapper group key."""
+    candidates = [device_name]
+    if not device_name.startswith("Razer Razer"):
+        candidates.append(f"Razer Razer {device_name.replace('Razer ', '')}")
+    if not device_name.startswith("Razer "):
+        candidates.append(f"Razer {device_name}")
+
+    for candidate in candidates:
+        exact = [key for key in group_keys if key.casefold() == candidate.casefold()]
+        if len(exact) == 1:
+            return exact[0]
+
+    normalize = lambda value: "".join(char.casefold() for char in value if char.isalnum())
+    candidate_keys = {normalize(candidate) for candidate in candidates}
+    matches = [key for key in group_keys if normalize(key) in candidate_keys]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _get_input_remapper_state(group_key: str) -> str:
+    """Read injector state from input-remapper's D-Bus API."""
+    from pydbus import SystemBus
+
+    daemon = SystemBus().get("inputremapper.Control")
+    raw_state = daemon.get_state(group_key, timeout=2)
+    state = getattr(raw_state, "value", raw_state)
+    return str(state).upper().rsplit(".", 1)[-1]
+
+
+def _wait_for_injector_state(group_key: str, expected: set, timeout: float = 4.0) -> Optional[str]:
+    """Poll D-Bus state briefly after a command; call only from a worker thread."""
+    deadline = time.monotonic() + timeout
+    last_state = None
+    while time.monotonic() < deadline:
+        try:
+            last_state = _get_input_remapper_state(group_key)
+        except Exception as exc:
+            logger.warning(f"Could not query input-remapper state: {exc}")
+            return None
+        if last_state in expected:
+            return last_state
+        if last_state in {"FAILED", "NO_GRAB", "UPGRADE_EVDEV"}:
+            return last_state
+        time.sleep(0.1)
+    return last_state
+
+
+def get_injection_state(device_name: str) -> str:
+    """Return running, stopped, or unknown using input-remapper's D-Bus state."""
+    ctrl_bin = shutil.which("input-remapper-control")
+    if not ctrl_bin:
+        return "unknown"
+    try:
+        keys = _list_input_remapper_devices(ctrl_bin)
+        group_key = _resolve_input_remapper_device(device_name, keys)
+        if not group_key:
+            return "unknown"
+        state = _get_input_remapper_state(group_key)
+        if state == "STARTING":
+            return "starting"
+        if state == "RUNNING":
+            return "running"
+        if state in {"FAILED", "NO_GRAB", "UPGRADE_EVDEV"}:
+            return "failed"
+        if state in {"STOPPED", "UNKNOWN"}:
+            return "stopped"
+    except Exception as exc:
+        logger.debug(f"Could not query injector state for {device_name}: {exc}")
+    return "unknown"
+
+
+def run_profile_operation_async(
+    operation: str,
+    device_name: str,
+    callback,
+    schedule_on_main,
+    preset_name: Optional[str] = None,
+) -> threading.Thread:
+    """Run apply/stop outside GTK's thread and deliver the result on its main loop."""
+    def worker():
+        try:
+            if operation == "apply" and preset_name:
+                result = apply_profile(device_name, preset_name)
+            elif operation == "stop":
+                result = stop_profile(device_name)
+            else:
+                result = ProfileOperationResult("failed", "Invalid profile operation.")
+        except Exception as exc:
+            logger.exception(f"Profile operation failed unexpectedly: {exc}")
+            result = ProfileOperationResult("failed", str(exc))
+
+        def deliver():
+            callback(result)
+            return False
+
+        schedule_on_main(deliver)
+
+    worker_thread = threading.Thread(target=worker, name="strop-profile-operation", daemon=True)
+    worker_thread.start()
+    return worker_thread
+
+
+def check_profile_state_async(device_name: str, callback, schedule_on_main) -> threading.Thread:
+    """Query backend injection state off-thread and deliver running/stopped/unknown."""
+    def worker():
+        state = get_injection_state(device_name)
+
+        def deliver():
+            callback(state)
+            return False
+
+        schedule_on_main(deliver)
+
+    worker_thread = threading.Thread(target=worker, name="strop-profile-state", daemon=True)
+    worker_thread.start()
+    return worker_thread
+
+
+def apply_profile(device_name: str, preset_name: str) -> ProfileOperationResult:
+    """Apply a valid saved preset and verify that its injector reaches RUNNING."""
     clean_preset = sanitize_filename(preset_name)
     if not clean_preset:
-        return False, "Preset name cannot be empty or invalid."
+        return ProfileOperationResult("failed", "Preset name cannot be empty or invalid.")
 
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
-        return False, "input-remapper-control is not installed. Install input-remapper to apply profiles to hardware."
+        return ProfileOperationResult("failed", "input-remapper-control is not installed.")
 
-    # Locate config directory
-    config_dir = None
-    if (Path.home() / ".config" / "input-remapper-2").exists():
-        config_dir = str(Path.home() / ".config" / "input-remapper-2")
-    elif (Path.home() / ".config" / "input-remapper").exists():
-        config_dir = str(Path.home() / ".config" / "input-remapper")
+    preset_path = get_device_presets_dir(device_name) / f"{clean_preset}.json"
+    if load_preset_file(preset_path) is None:
+        return ProfileOperationResult("failed", f"Preset file is missing or invalid: {preset_path.name}")
 
-    # Find best matching device name candidate for input-remapper daemon
-    dev_candidates = [device_name]
-    if not device_name.startswith("Razer Razer"):
-        dev_candidates.append(f"Razer Razer {device_name.replace('Razer ', '')}")
-    if not device_name.startswith("Razer "):
-        dev_candidates.append(f"Razer {device_name}")
+    try:
+        group_keys = _list_input_remapper_devices(ctrl_bin)
+    except Exception as exc:
+        return ProfileOperationResult("failed", f"Could not enumerate input-remapper devices: {exc}")
+    group_key = _resolve_input_remapper_device(device_name, group_keys)
+    if not group_key:
+        return ProfileOperationResult("failed", f"No unambiguous input-remapper device matched {device_name}.")
 
-    last_err = ""
-    sub_env = dict(os.environ, PYTHONWARNINGS="ignore")
+    config_dir = _profile_config_dir()
+    if not (config_dir / "config.json").is_file():
+        return ProfileOperationResult("failed", f"input-remapper configuration is missing from {config_dir}.")
 
-    for dev_cand in dev_candidates:
-        cmd = [ctrl_bin]
-        if config_dir:
-            cmd.extend(["--config-dir", config_dir])
-        cmd.extend(["--command", "start", "--device", dev_cand, "--preset", clean_preset])
+    cmd = [
+        ctrl_bin, "--config-dir", str(config_dir), "--command", "start",
+        "--device", group_key, "--preset", clean_preset,
+    ]
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=3.0,
+            env=dict(os.environ, PYTHONWARNINGS="ignore"),
+        )
+    except subprocess.TimeoutExpired:
+        return ProfileOperationResult("unknown", "Apply timed out; the backend may have started the injection, but Strop could not confirm it.")
+    except Exception as exc:
+        return ProfileOperationResult("failed", f"Could not run input-remapper-control: {exc}")
 
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=0.8, env=sub_env)
-            if res.returncode == 0:
-                # Only record as active once confirmed by daemon
-                set_active_profile(device_name, clean_preset)
-                logger.info(f"Profile '{clean_preset}' successfully started on {dev_cand}")
-                return True, f"Profile '{clean_preset}' successfully activated on {device_name}!"
-            
-            raw_output = res.stderr or res.stdout or ""
-            clean_lines = [
-                line.strip() for line in raw_output.splitlines()
-                if line.strip() and not any(w in line for w in ("UserWarning", "DeprecationWarning", "Pydantic", "pydantic", "UserWarning:"))
-            ]
-            last_err = " ".join(clean_lines).strip()
-        except subprocess.TimeoutExpired:
-            last_err = (
-                "input-remapper-control timed out; the daemon may have applied the profile, "
-                "but Strop could not confirm it."
-            )
-        except Exception as e:
-            last_err = str(e)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "Backend rejected the apply request").strip()
+        return ProfileOperationResult("failed", detail[-500:])
 
-    err_msg = f": {last_err[:120]}" if last_err else "."
-    return False, f"Could not start profile on {device_name}{err_msg}"
+    state = _wait_for_injector_state(group_key, {"RUNNING"})
+    if state != "RUNNING":
+        if state in {"FAILED", "NO_GRAB", "UPGRADE_EVDEV", "STOPPED", "UNKNOWN"}:
+            return ProfileOperationResult("failed", f"input-remapper did not start the injection (state: {state}).")
+        return ProfileOperationResult("unknown", "Apply was accepted, but Strop could not confirm that the injection is running.")
+
+    if not set_active_profile(device_name, clean_preset):
+        return ProfileOperationResult("applied", f"Injection is running with {clean_preset}, but Strop could not save its last-confirmed profile record.")
+    return ProfileOperationResult("applied", f"input-remapper reports an injection running for {device_name}; Strop last applied {clean_preset}.")
 
 
-
-def stop_profile(device_name: str) -> Tuple[bool, str]:
-    """Stops the active preset for a given device."""
+def stop_profile(device_name: str) -> ProfileOperationResult:
+    """Stop an injection and clear its local record only after backend confirmation."""
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
-        return False, "input-remapper-control is not installed; Strop could not confirm that the profile stopped."
+        return ProfileOperationResult("failed", "input-remapper-control is not installed; Strop could not confirm the profile stopped.")
 
-    dev_candidates = [device_name]
-    if not device_name.startswith("Razer Razer"):
-        dev_candidates.append(f"Razer Razer {device_name.replace('Razer ', '')}")
+    try:
+        group_keys = _list_input_remapper_devices(ctrl_bin)
+    except Exception as exc:
+        return ProfileOperationResult("failed", f"Could not enumerate input-remapper devices: {exc}")
+    group_key = _resolve_input_remapper_device(device_name, group_keys)
+    if not group_key:
+        return ProfileOperationResult("failed", f"No unambiguous input-remapper device matched {device_name}.")
 
-    sub_env = dict(os.environ, PYTHONWARNINGS="ignore")
-    stopped = False
-    for dev_cand in dev_candidates:
-        try:
-            res = subprocess.run([ctrl_bin, "--command", "stop", "--device", dev_cand], capture_output=True, timeout=0.6, env=sub_env)
-            if res.returncode == 0:
-                stopped = True
-                break
-        except Exception as e:
-            logger.debug(f"Error stopping profile on {dev_cand}: {e}")
+    try:
+        result = subprocess.run(
+            [ctrl_bin, "--command", "stop", "--device", group_key],
+            capture_output=True, text=True, timeout=3.0,
+            env=dict(os.environ, PYTHONWARNINGS="ignore"),
+        )
+    except subprocess.TimeoutExpired:
+        return ProfileOperationResult("unknown", "Stop timed out; Strop could not confirm whether the injection stopped.")
+    except Exception as exc:
+        return ProfileOperationResult("failed", f"Could not run input-remapper-control: {exc}")
 
-    if stopped:
-        clear_active_profile(device_name)
-        return True, f"Profile stopped for {device_name}."
-    else:
-        return False, f"Could not stop profile on {device_name} (daemon or device not responding)."
- 
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "Backend rejected the stop request").strip()
+        return ProfileOperationResult("failed", detail[-500:])
+
+    state = _wait_for_injector_state(group_key, {"STOPPED", "UNKNOWN", "FAILED", "NO_GRAB", "UPGRADE_EVDEV"})
+    if state not in {"STOPPED", "UNKNOWN", "FAILED", "NO_GRAB", "UPGRADE_EVDEV"}:
+        return ProfileOperationResult("unknown", "Stop was accepted, but Strop could not confirm that injection ended.")
+
+    if not clear_active_profile(device_name):
+        return ProfileOperationResult("stopped", "Injection stopped, but Strop could not clear its last-confirmed profile record.")
+    return ProfileOperationResult("stopped", f"input-remapper reports no injection running for {device_name}.")
 
 def check_daemon_status() -> Tuple[str, str]:
     """
@@ -345,9 +557,8 @@ def check_daemon_status() -> Tuple[str, str]:
 
     try:
         sub_env = dict(os.environ, PYTHONWARNINGS="ignore")
-        res = subprocess.run([ctrl_bin, "--command", "status"], capture_output=True, text=True, timeout=0.8, env=sub_env)
-        out = (res.stdout or "") + (res.stderr or "")
-        if "Host is down" in out or "Could not connect" in out or "not running" in out or res.returncode != 0:
+        res = subprocess.run([ctrl_bin, "--command", "hello"], capture_output=True, text=True, timeout=0.8, env=sub_env)
+        if res.returncode != 0:
             return "stopped", "input-remapper daemon is not running. Start with: sudo systemctl start input-remapper"
         return "running", "input-remapper daemon is active."
     except Exception as e:

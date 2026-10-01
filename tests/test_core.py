@@ -313,6 +313,32 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
         self.assertEqual(sanitize_filename("my-profile.json"), "my-profile")
         self.assertEqual(sanitize_filename("valid_name"), "valid_name")
 
+    def test_atomic_json_write_preserves_old_file_on_replace_failure(self):
+        from strop_core.presets import _atomic_write_json
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "state.json"
+            path.write_text('{"old": true}', encoding="utf-8")
+            with patch("strop_core.presets.os.replace", side_effect=OSError("injected failure")):
+                with self.assertRaises(OSError):
+                    _atomic_write_json(path, {"new": True})
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"old": True})
+            self.assertEqual(list(Path(temp_dir).glob("*.tmp")), [])
+
+    def test_load_preset_file_rejects_malformed_entries(self):
+        from strop_core.presets import load_preset_file
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "bad.json"
+            path.write_text(json.dumps([{"output_symbol": "a"}]), encoding="utf-8")
+            self.assertIsNone(load_preset_file(path))
+
+    def test_daemon_check_uses_supported_hello_command(self):
+        from strop_core.presets import check_daemon_status
+        with patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+             patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "hello", "")) as run:
+            status, _ = check_daemon_status()
+            self.assertEqual(status, "running")
+            self.assertIn("hello", run.call_args.args[0])
+
     def test_apply_profile_missing_executable_does_not_record_active_profile(self):
         from strop_core.presets import apply_profile, get_active_profile
         dev = "TestRazerDevice99"
@@ -320,9 +346,9 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
             profiles_file = Path(temp_dir) / "active_profiles.json"
             with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
                  patch("strop_core.presets.shutil.which", return_value=None):
-                success, message = apply_profile(dev, "gaming")
-                self.assertFalse(success)
-                self.assertIn("not installed", message)
+                result = apply_profile(dev, "gaming")
+                self.assertEqual(result.status, "failed")
+                self.assertIn("not installed", result.message)
                 self.assertIsNone(get_active_profile(dev))
 
     def test_apply_profile_command_failure_does_not_record_active_profile(self):
@@ -330,12 +356,20 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
         dev = "Razer Test Device"
         with tempfile.TemporaryDirectory() as temp_dir:
             profiles_file = Path(temp_dir) / "active_profiles.json"
+            preset_dir = Path(temp_dir) / "presets"
+            preset_dir.mkdir()
+            (preset_dir / "gaming.json").write_text("[]", encoding="utf-8")
+            (Path(temp_dir) / "config.json").write_text("{}", encoding="utf-8")
             with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
                  patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.get_device_presets_dir", return_value=preset_dir), \
+                 patch("strop_core.presets._profile_config_dir", return_value=Path(temp_dir)), \
+                 patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                 patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
                  patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 1, "", "apply failed")):
-                success, message = apply_profile(dev, "gaming")
-                self.assertFalse(success)
-                self.assertIn("apply failed", message)
+                result = apply_profile(dev, "gaming")
+                self.assertEqual(result.status, "failed")
+                self.assertIn("apply failed", result.message)
                 self.assertIsNone(get_active_profile(dev))
 
     def test_apply_profile_timeout_reports_unconfirmed_state(self):
@@ -343,14 +377,54 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
         dev = "Razer Test Device"
         with tempfile.TemporaryDirectory() as temp_dir:
             profiles_file = Path(temp_dir) / "active_profiles.json"
-            timeout = subprocess.TimeoutExpired("input-remapper-control", 0.8)
+            preset_dir = Path(temp_dir) / "presets"
+            preset_dir.mkdir()
+            (preset_dir / "gaming.json").write_text("[]", encoding="utf-8")
+            (Path(temp_dir) / "config.json").write_text("{}", encoding="utf-8")
+            timeout = subprocess.TimeoutExpired("input-remapper-control", 3.0)
             with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
                  patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.get_device_presets_dir", return_value=preset_dir), \
+                 patch("strop_core.presets._profile_config_dir", return_value=Path(temp_dir)), \
+                 patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                 patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
                  patch("strop_core.presets.subprocess.run", side_effect=timeout):
-                success, message = apply_profile(dev, "gaming")
-                self.assertFalse(success)
-                self.assertIn("may have applied", message)
+                result = apply_profile(dev, "gaming")
+                self.assertEqual(result.status, "unknown")
+                self.assertIn("may have started", result.message)
                 self.assertIsNone(get_active_profile(dev))
+
+    def test_apply_profile_requires_a_valid_saved_preset(self):
+        from strop_core.presets import apply_profile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            preset_dir = Path(temp_dir) / "presets"
+            preset_dir.mkdir()
+            with patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.get_device_presets_dir", return_value=preset_dir):
+                result = apply_profile("Razer Test Device", "missing")
+                self.assertEqual(result.status, "failed")
+                self.assertIn("missing or invalid", result.message)
+
+    def test_apply_profile_confirms_running_state_before_recording(self):
+        from strop_core.presets import apply_profile, get_active_profile
+        dev = "Razer Test Device"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            preset_dir = Path(temp_dir) / "presets"
+            preset_dir.mkdir()
+            (preset_dir / "gaming.json").write_text("[]", encoding="utf-8")
+            (Path(temp_dir) / "config.json").write_text("{}", encoding="utf-8")
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.get_device_presets_dir", return_value=preset_dir), \
+                 patch("strop_core.presets._profile_config_dir", return_value=Path(temp_dir)), \
+                 patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                 patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
+                 patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")), \
+                 patch("strop_core.presets._wait_for_injector_state", return_value="RUNNING"):
+                result = apply_profile(dev, "gaming")
+                self.assertEqual(result.status, "applied")
+                self.assertEqual(get_active_profile(dev), "gaming")
 
     def test_stop_profile_failure_keeps_last_recorded_profile(self):
         from strop_core.presets import stop_profile, get_active_profile
@@ -360,10 +434,28 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
             profiles_file.write_text(json.dumps({dev: "gaming"}), encoding="utf-8")
             with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
                  patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                 patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
                  patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 1, "", "stop failed")):
-                success, _ = stop_profile(dev)
-                self.assertFalse(success)
+                result = stop_profile(dev)
+                self.assertEqual(result.status, "failed")
                 self.assertEqual(get_active_profile(dev), "gaming")
+
+    def test_stop_profile_clears_record_only_after_confirmed_stopped_state(self):
+        from strop_core.presets import stop_profile, get_active_profile
+        dev = "Razer Test Device"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            profiles_file.write_text(json.dumps({dev: "gaming"}), encoding="utf-8")
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                 patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
+                 patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")), \
+                 patch("strop_core.presets._wait_for_injector_state", return_value="STOPPED"):
+                result = stop_profile(dev)
+                self.assertEqual(result.status, "stopped")
+                self.assertIsNone(get_active_profile(dev))
 
 
 class TestStropThemeAndAbout(unittest.TestCase):
