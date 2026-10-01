@@ -460,7 +460,7 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
 
     about.set_program_name("Strop")
     about.set_version(__version__)
-    about.set_comments("Putting the sharpest edge on your Razer gaming hardware on Linux.\nUnified GTK4 Remap Studios, In-Game HUDs, and Macro Composer for 230+ OpenRazer Peripherals.")
+    about.set_comments("Putting the sharpest edge on your Razer gaming hardware on Linux.\nUnified GTK4 remap studios, in-game HUDs, and macro composer. Catalog entries are layout references; see the support matrix for officially supported devices.")
     about.set_website("https://github.com/strop-linux/strop")
     about.set_website_label("GitHub Repository")
     about.set_authors(["Strop Linux Contributors <https://github.com/strop-linux/strop>"])
@@ -479,5 +479,4 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
 
     about.present()
     return about
-
 

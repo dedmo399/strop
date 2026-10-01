@@ -1,7 +1,6 @@
-"""
-OpenRazer Comprehensive Device Catalog & Archetype Classification.
-Auto-generated and statically bundled with dynamic runtime detection fallback.
-Supports all 230+ Razer Keypads, Keyboards, Mice, and Blade Laptops.
+"""OpenRazer device catalog and generic layout archetype classification.
+
+Catalog membership is reference metadata, not a claim of Strop device support.
 """
 
 from typing import List, Dict, Optional, Any
@@ -2116,7 +2115,7 @@ RAZER_DEVICE_CATALOG: List[Dict[str, Any]] = [
 
 
 def get_device_catalog() -> List[Dict[str, Any]]:
-    """Returns the complete list of all supported OpenRazer input devices."""
+    """Return the catalog of known OpenRazer device/layout entries."""
     return RAZER_DEVICE_CATALOG
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Strop — Razer Mouse Remap Studio (Native Linux GTK4 GUI)
-Modular Studio supporting all OpenRazer-compatible Razer Mice:
+Modular mouse editor with generic layout archetypes for:
 - Naga Series Interchangeable Side Plates (2-Button FPS, 7-Button Hex, and 12-Button MMO)
 - Basilisk / DeathAdder / Viper / Cobra / Mamba FPS ergonomics
 - Ambidextrous dual side button configurations
@@ -222,4 +222,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

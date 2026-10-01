@@ -166,10 +166,20 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         dev_hash = self.detected_device.get("hash", "")
         if dev_name:
             dev_badge = Gtk.Label()
-            dev_badge.set_markup(f"🟢 <b>{GLib.markup_escape_text(dev_name)}</b>")
+            is_detected = bool(self.detected_device.get("detected", False))
+            marker = "🟢" if is_detected else "🟠"
+            label_suffix = "" if is_detected else " (not detected)"
+            dev_badge.set_markup(f"{marker} <b>{GLib.markup_escape_text(dev_name + label_suffix)}</b>")
             dev_badge.add_css_class("badge-device")
             if dev_hash:
                 dev_badge.set_tooltip_text(f"Auto-generated origin_hash:\n{dev_hash}")
+            if not is_detected:
+                detail = "\n".join(self.detected_device.get("scan_diagnostics", []))
+                if not detail:
+                    detail = "Connect a supported device and check its USB connection and Linux input/HID driver."
+                dev_badge.set_tooltip_text(
+                    f"No matching physical device was detected. You can edit the generic layout, but device-specific mappings cannot be verified.\n\n{detail}"
+                )
             badges_box.append(dev_badge)
 
 

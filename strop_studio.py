@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Strop — Universal Parameterized Hardware Studio
-Dynamically dispatches and renders studio interfaces for all 230+ OpenRazer input devices.
+Dynamically dispatches studio interfaces using catalog device/layout metadata.
 Supports:
 - Keypads: Tartarus Pro, Tartarus V2, Orbweaver, Nostromo
 - Keyboards: Full ANSI, TKL Tournament, 75%, 65%, 60% Mini, and Blade Laptops
@@ -54,12 +54,12 @@ def launch_for_device(device_name: str):
 def main():
     parser = argparse.ArgumentParser(description="Strop Universal Razer Studio Launcher")
     parser.add_argument("--device", "-d", type=str, help="Device name to launch (e.g. 'Razer Naga Pro', 'Razer Huntsman Mini')")
-    parser.add_argument("--list", "-l", action="store_true", help="List all 230+ supported OpenRazer input devices")
+    parser.add_argument("--list", "-l", action="store_true", help="List catalog device/layout entries (not verified support)")
     args, unknown = parser.parse_known_args()
 
     if args.list:
         catalog = get_device_catalog()
-        print(f"🗡️ STROP — Supported OpenRazer Input Devices ({len(catalog)} total):\n")
+        print(f"🗡️ STROP — Device Catalog Layout Entries ({len(catalog)} total; not a support list):\n")
         current_cat = None
         for d in catalog:
             cat = d["category"].upper()

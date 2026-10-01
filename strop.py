@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
 Strop — Unified Razer Linux Peripheral Suite Hub
-Native Linux GTK4 Dashboard for managing Razer keypads, keyboards, mice, and in-game HUDs.
-Zero external dependencies - uses standard Python 3 and Ubuntu PyGObject (GTK4).
-Supports all 230+ OpenRazer input devices.
+Native Linux GTK4 dashboard for managing Razer keypads, keyboards, mice, and in-game HUDs.
+The catalog contains layout references; official 1.0 device support is limited to the published support matrix.
 """
 
 import sys
@@ -34,9 +33,9 @@ from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf
 
 
 class StropCatalogDialog(Gtk.Window):
-    """Dialog allowing users to browse and launch studios for all 230+ OpenRazer models."""
+    """Browse catalog layouts; catalog entries are not verified device support."""
     def __init__(self, parent):
-        super().__init__(title="OpenRazer Hardware Catalog (230+ Devices)")
+        super().__init__(title="Razer Device Catalog (layout references)")
         self.set_transient_for(parent)
         self.set_modal(True)
         self.set_default_size(700, 520)
@@ -56,7 +55,7 @@ class StropCatalogDialog(Gtk.Window):
 
         # Header
         lbl_title = Gtk.Label()
-        lbl_title.set_markup(f"<span size='medium' weight='bold' color='#f8fafc'>Supported OpenRazer Devices <span color='#22c55e'>({len(self.all_devices)} Total)</span></span>")
+        lbl_title.set_markup(f"<span size='medium' weight='bold' color='#f8fafc'>Catalog Layouts <span color='#22c55e'>({len(self.all_devices)} models)</span></span>")
         lbl_title.set_xalign(0)
         box.append(lbl_title)
 
@@ -165,7 +164,8 @@ class StropHubWindow(Gtk.ApplicationWindow):
         self.set_default_size(820, 640)
         self.add_css_class("hub-window")
 
-        self.connected_devices = scan_all_connected_devices()
+        self.device_scan_diagnostics = []
+        self.connected_devices = scan_all_connected_devices(self.device_scan_diagnostics)
         self.selected_dev_name = ""
         self.available_presets_for_selected = []
         self.profile_operation_pending = False
@@ -206,7 +206,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         lbl_title.set_xalign(0)
         title_box.append(lbl_title)
 
-        lbl_sub = Gtk.Label(label="Precision Remap Studios & In-Game HUD Overlays for all 230+ OpenRazer Peripherals")
+        lbl_sub = Gtk.Label(label="Official 1.0 hardware support is limited to the devices listed in the support matrix.")
         lbl_sub.add_css_class("dim-text")
         lbl_sub.set_xalign(0)
         title_box.append(lbl_sub)
@@ -337,7 +337,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         )
         grid.attach(c5, 1, 1, 1, 1)
 
-        # Card 6: OpenRazer Catalog Browser (230+ Devices)
+        # Card 6: Razer layout-reference catalog (not verified support)
         c6 = self._create_catalog_card()
         grid.attach(c6, 2, 1, 1, 1)
 
@@ -401,13 +401,22 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
                 badge.set_child(Gtk.Label.new(f"🟢 {dev_clean}{prof_str}"))
                 badge.add_css_class("badge-device")
-                badge.set_tooltip_text(f"Hardware:\n{dev_clean}\nLast profile applied by Strop: {active_prof or 'None recorded'}\nBackend state is shown in the profile manager.\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
+                badge.set_tooltip_text(f"Hardware detected by Strop:\n{dev_clean}\nLast profile applied by Strop: {active_prof or 'None recorded'}\nBackend state is shown in the profile manager.\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
                 badge.connect("clicked", lambda w, dev=d: self._launch_studio_for_device(dev["name"]))
                 self.hardware_box.append(badge)
         else:
             no_dev = Gtk.Label()
-            no_dev.set_markup("<span color='#94a3b8'>No Razer USB devices detected. Connect a device or browse the </span><span color='#86efac'>230+ Device Catalog</span><span color='#94a3b8'> below.</span>")
+            no_dev.set_markup("<span color='#94a3b8'>No supported Razer input device detected. Catalog layouts are reference-only and do not indicate verified support.</span>")
+            no_dev.set_wrap(True)
+            no_dev.set_xalign(0)
             self.hardware_box.append(no_dev)
+
+        for message in self.device_scan_diagnostics:
+            diagnostic = Gtk.Label(label=message)
+            diagnostic.set_xalign(0)
+            diagnostic.set_wrap(True)
+            diagnostic.add_css_class("alert-warning")
+            self.hardware_box.append(diagnostic)
 
         btn_rescan = Gtk.Button(label="⟳ Rescan")
         btn_rescan.add_css_class("ghost-btn")
@@ -554,14 +563,14 @@ class StropHubWindow(Gtk.ApplicationWindow):
         lbl_t.set_xalign(0)
         card.append(lbl_t)
 
-        lbl_d = Gtk.Label(label="Instant search & 1-click studio launch for all 230+ OpenRazer-supported input devices.")
+        lbl_d = Gtk.Label(label="Browse layout references for 230+ models. Catalog entries are not verified device support.")
         lbl_d.add_css_class("dim-text")
         lbl_d.set_wrap(True)
         lbl_d.set_xalign(0)
         lbl_d.set_vexpand(True)
         card.append(lbl_d)
 
-        btn = Gtk.Button(label="Browse 230+ Devices")
+        btn = Gtk.Button(label="Browse Catalog Layouts")
         btn.add_css_class("ghost-btn")
         btn.connect("clicked", lambda w: self._open_catalog_browser())
         card.append(btn)
@@ -623,7 +632,8 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
     def _on_rescan_clicked(self, widget):
         self._refresh_daemon_banner()
-        self.connected_devices = scan_all_connected_devices()
+        self.device_scan_diagnostics = []
+        self.connected_devices = scan_all_connected_devices(self.device_scan_diagnostics)
         self._refresh_hardware_banner()
         dev_strings = [d.get("clean_name", d["name"]) for d in self.connected_devices] or ["(No Razer devices connected)"]
         self.hub_dev_dropdown.set_model(Gtk.StringList.new(dev_strings))

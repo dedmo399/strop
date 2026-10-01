@@ -1,6 +1,7 @@
-"""
-Hardware auto-detection and capabilities hashing for Razer peripherals.
-Supports all 230+ OpenRazer input devices.
+"""Hardware auto-detection and capabilities hashing for Razer peripherals.
+
+The OpenRazer catalog supplies layout metadata; it does not imply that every
+listed model has been detected or verified with Strop.
 """
 
 from hashlib import md5
@@ -46,28 +47,39 @@ def is_razer_device(device_name: Optional[str], vendor_id: Optional[int] = None)
     return bool(get_device_by_name(device_name))
 
 
-def scan_all_connected_devices() -> List[Dict[str, Any]]:
+def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """
     Scans all /dev/input/event* devices and returns unique connected Razer devices
     along with capability origin_hashes for all sub-interfaces.
     Properly handles device permissions and releases file descriptors.
     """
     found_map = {}
+    diagnostics = diagnostics if diagnostics is not None else []
     try:
         import evdev
     except ImportError as e:
-        logger.warning(f"python-evdev is not installed; hardware auto-detection unavailable: {e}")
+        message = "Hardware discovery needs python3-evdev. Install it with: sudo apt install python3-evdev."
+        diagnostics.append(message)
+        logger.warning(f"{message} ({e})")
         return []
 
     try:
         device_paths = evdev.list_devices()
     except PermissionError as e:
-        logger.error(f"Permission denied accessing /dev/input devices. Ensure user is in 'input' group: {e}")
+        message = (
+            "Strop cannot list /dev/input devices. Check the logged-in user's device ACLs and udev rules; "
+            "the desktop user needs read access. Do not run Strop as root."
+        )
+        diagnostics.append(message)
+        logger.error(f"{message} ({e})")
         return []
     except Exception as e:
-        logger.warning(f"Failed to enumerate /dev/input devices: {e}")
+        message = f"Strop could not enumerate /dev/input devices: {e}"
+        diagnostics.append(message)
+        logger.warning(message)
         return []
 
+    denied_nodes = 0
     for path in device_paths:
         d = None
         try:
@@ -93,7 +105,8 @@ def scan_all_connected_devices() -> List[Dict[str, Any]]:
                         "vendor": vendor,
                         "num_keys": num_keys,
                         "all_hashes": {},
-                        "key_to_hash": {}
+                        "key_to_hash": {},
+                        "detected": True,
                     }
 
                 found_map[clean_name]["all_hashes"][path] = dhash
@@ -115,6 +128,7 @@ def scan_all_connected_devices() -> List[Dict[str, Any]]:
                         found_map[clean_name]["key_to_hash"][switch_code] = dhash
 
         except PermissionError as e:
+            denied_nodes += 1
             logger.warning(f"Permission denied reading device node {path}: {e}")
         except Exception as e:
             logger.warning(f"Could not read device node {path}: {e}")
@@ -125,7 +139,28 @@ def scan_all_connected_devices() -> List[Dict[str, Any]]:
                 except Exception:
                     pass
 
-    return list(found_map.values())
+    devices = list(found_map.values())
+    if denied_nodes:
+        diagnostics.append(
+            f"Strop could not read {denied_nodes} input device node(s). Check /dev/input ACLs and udev rules "
+            "for the logged-in user; do not run Strop as root."
+        )
+    if not devices:
+        if not device_paths:
+            diagnostics.append(
+                "No Linux input event devices were found. Reconnect the device and check that its kernel input/HID driver loaded."
+            )
+        elif denied_nodes:
+            diagnostics.append(
+                "No Razer devices were readable. Check USB connection, kernel input/HID drivers, and whether "
+                "input-remapper-control --list-devices can enumerate the device."
+            )
+        else:
+            diagnostics.append(
+                "No supported Razer input device was detected. Check the USB connection and Linux input/HID driver. "
+                "The catalog contains layout references; catalog entries are not verified device support."
+            )
+    return devices
 
 
 def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tartarus Pro") -> Dict[str, Any]:
@@ -135,7 +170,8 @@ def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tart
     """
     clean_def = clean_device_display_name(default_name)
     target_archetype = get_archetype_for_device(default_name)
-    all_devs = scan_all_connected_devices()
+    diagnostics: List[str] = []
+    all_devs = scan_all_connected_devices(diagnostics)
     
     # 1. Look for direct match on name_filter
     filter_low = name_filter.lower().strip()
@@ -162,7 +198,8 @@ def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tart
         "path": None,
         "archetype": target_archetype,
         "all_hashes": {},
-        "key_to_hash": {}
+        "key_to_hash": {},
+        "detected": False,
+        "scan_diagnostics": diagnostics,
     }
-
 

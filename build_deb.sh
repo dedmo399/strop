@@ -112,7 +112,7 @@ Priority: optional
 Architecture: ${ARCH}
 Installed-Size: ${INSTALLED_SIZE}
 Maintainer: Strop Linux Contributors <https://github.com/strop-linux/strop>
-Depends: python3, python3-gi, python3-evdev, gir1.2-gtk-4.0, gir1.2-gdk-4.0
+Depends: python3, python3-gi, python3-evdev, gir1.2-gtk-4.0
 Recommends: input-remapper, openrazer-meta | openrazer-daemon
 Homepage: https://github.com/strop-linux/strop
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
