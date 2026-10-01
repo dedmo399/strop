@@ -2126,18 +2126,41 @@ def _norm_name(s: str) -> str:
 
 def get_device_by_name(name: str) -> Optional[Dict[str, Any]]:
     """Finds a device by its exact, fuzzy, or normalized matching name."""
+    if not name or not isinstance(name, str):
+        return None
     name_norm = _norm_name(name)
-    if not name_norm:
+    if not name_norm or name_norm == "razer":
         return None
     # 1. Exact normalized match
     for d in RAZER_DEVICE_CATALOG:
         if _norm_name(d["name"]) == name_norm or _norm_name(d.get("class", "")) == name_norm:
             return d
-    # 2. Substring normalized match
-    for d in RAZER_DEVICE_CATALOG:
-        d_norm = _norm_name(d["name"])
-        if name_norm in d_norm or d_norm in name_norm:
-            return d
+
+    # 2. Prefer most specific catalog match contained in the query name
+    matches_contained = [
+        d for d in RAZER_DEVICE_CATALOG
+        if _norm_name(d["name"]) in name_norm
+    ]
+    if matches_contained:
+        matches_contained.sort(key=lambda d: len(_norm_name(d["name"])), reverse=True)
+        return matches_contained[0]
+
+    # 3. Query is substring of catalog device names. Prefer the most specific
+    # match deterministically instead of whichever catalog entry appears first.
+    matches_containing_query = [
+        d for d in RAZER_DEVICE_CATALOG
+        if name_norm in _norm_name(d["name"])
+    ]
+    if matches_containing_query:
+        matches_containing_query.sort(
+            key=lambda d: len(_norm_name(d["name"])), reverse=True
+        )
+        best_length = len(_norm_name(matches_containing_query[0]["name"]))
+        best_matches = [
+            d for d in matches_containing_query
+            if len(_norm_name(d["name"])) == best_length
+        ]
+        return best_matches[0] if len(best_matches) == 1 else None
     return None
 
 

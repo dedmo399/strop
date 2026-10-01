@@ -109,41 +109,54 @@ def get_dpad_button_mappings() -> Dict[str, str]:
 
 def parse_gamepad_display_text(symbol: str) -> Optional[str]:
     """Translates raw gamepad symbol into concise readable HUD/UI text."""
+    import re
     trimmed = symbol.strip()
     if not ("gamepad(" in trimmed or "ABS_" in trimmed or "BTN_" in trimmed):
         return None
 
     # Left Stick
-    if "ABS_Y, -32767" in trimmed and "ABS_X" not in trimmed:
-        return "LS↑"
-    if "ABS_Y, 32767" in trimmed and "ABS_X" not in trimmed:
-        return "LS↓"
-    if "ABS_X, -32767" in trimmed and "ABS_Y" not in trimmed:
-        return "LS←"
-    if "ABS_X, 32767" in trimmed and "ABS_Y" not in trimmed:
-        return "LS→"
-    if "ABS_X" in trimmed and "ABS_Y" in trimmed:
-        if "23170" in trimmed:
-            if "-" in trimmed.split("ABS_X")[1] and "-" in trimmed.split("ABS_Y")[1]:
-                return "LS↖"
-            if "-" not in trimmed.split("ABS_X")[1] and "-" in trimmed.split("ABS_Y")[1]:
-                return "LS↗"
-            if "-" in trimmed.split("ABS_X")[1] and "-" not in trimmed.split("ABS_Y")[1]:
-                return "LS↙"
+    m_x = re.search(r'ABS_X\s*,\s*(-?\d+)', trimmed)
+    m_y = re.search(r'ABS_Y\s*,\s*(-?\d+)', trimmed)
+    if m_x and m_y:
+        val_x = int(m_x.group(1))
+        val_y = int(m_y.group(1))
+        if val_x < 0 and val_y < 0:
+            return "LS↖"
+        elif val_x > 0 and val_y < 0:
+            return "LS↗"
+        elif val_x < 0 and val_y > 0:
+            return "LS↙"
+        elif val_x > 0 and val_y > 0:
             return "LS↘"
         return "LS"
+    elif m_y:
+        val_y = int(m_y.group(1))
+        return "LS↑" if val_y < 0 else "LS↓"
+    elif m_x:
+        val_x = int(m_x.group(1))
+        return "LS←" if val_x < 0 else "LS→"
 
     # Right Stick
-    if "ABS_RY, -32767" in trimmed and "ABS_RX" not in trimmed:
-        return "RS↑"
-    if "ABS_RY, 32767" in trimmed and "ABS_RX" not in trimmed:
-        return "RS↓"
-    if "ABS_RX, -32767" in trimmed and "ABS_RY" not in trimmed:
-        return "RS←"
-    if "ABS_RX, 32767" in trimmed and "ABS_RY" not in trimmed:
-        return "RS→"
-    if "ABS_RX" in trimmed and "ABS_RY" in trimmed:
+    m_rx = re.search(r'ABS_RX\s*,\s*(-?\d+)', trimmed)
+    m_ry = re.search(r'ABS_RY\s*,\s*(-?\d+)', trimmed)
+    if m_rx and m_ry:
+        val_rx = int(m_rx.group(1))
+        val_ry = int(m_ry.group(1))
+        if val_rx < 0 and val_ry < 0:
+            return "RS↖"
+        elif val_rx > 0 and val_ry < 0:
+            return "RS↗"
+        elif val_rx < 0 and val_ry > 0:
+            return "RS↙"
+        elif val_rx > 0 and val_ry > 0:
+            return "RS↘"
         return "RS"
+    elif m_ry:
+        val_ry = int(m_ry.group(1))
+        return "RS↑" if val_ry < 0 else "RS↓"
+    elif m_rx:
+        val_rx = int(m_rx.group(1))
+        return "RS←" if val_rx < 0 else "RS→"
 
     # Triggers & Buttons
     if "ABS_Z" in trimmed:

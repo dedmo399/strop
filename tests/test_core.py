@@ -9,7 +9,10 @@ Unit tests for Strop Core:
 
 import unittest
 import json
+import subprocess
+import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from strop_core.catalog import (
     RAZER_DEVICE_CATALOG,
@@ -60,6 +63,19 @@ class TestStropCatalog(unittest.TestCase):
         dev = get_device_by_name("Razer Tartarus Pro")
         self.assertIsNotNone(dev)
         self.assertEqual(dev["archetype"], KEYPAD_TARTARUS)
+        self.assertIsNone(get_device_by_name("Razer"))
+
+        # A short family query should resolve to its most specific catalog item,
+        # not whichever related model happens to appear first in the catalog.
+        family_match = get_device_by_name("Basilisk")
+        candidates = [
+            d for d in RAZER_DEVICE_CATALOG
+            if "basilisk" in "".join(c.lower() for c in d["name"] if c.isalnum())
+        ]
+        if candidates:
+            expected_length = max(len("".join(c.lower() for c in d["name"] if c.isalnum())) for d in candidates)
+            self.assertIsNotNone(family_match)
+            self.assertEqual(len("".join(c.lower() for c in family_match["name"] if c.isalnum())), expected_length)
 
         # Lookup by PID
         dev_by_pid = get_device_by_pid(dev["pid_int"])
@@ -249,6 +265,107 @@ class TestStropDeviceUtils(unittest.TestCase):
         self.assertTrue(is_razer_device("Some Keyboard", vendor_id=0x1532))
         self.assertTrue(is_razer_device("Razer Tartarus Pro", vendor_id=None))
         self.assertTrue(is_razer_device("Razer BlackWidow V3", vendor_id=None))
+        self.assertFalse(is_razer_device(None, vendor_id=None))
+        self.assertFalse(is_razer_device("", vendor_id=None))
+
+
+class TestStropGamepadParsing(unittest.TestCase):
+    def test_left_stick_diagonal_parsing(self):
+        from strop_core.gamepad import parse_gamepad_display_text, get_left_stick_mappings
+        maps = get_left_stick_mappings()
+        self.assertEqual(parse_gamepad_display_text(maps["n"]), "LS↑")
+        self.assertEqual(parse_gamepad_display_text(maps["ne"]), "LS↗")
+        self.assertEqual(parse_gamepad_display_text(maps["e"]), "LS→")
+        self.assertEqual(parse_gamepad_display_text(maps["se"]), "LS↘")
+        self.assertEqual(parse_gamepad_display_text(maps["s"]), "LS↓")
+        self.assertEqual(parse_gamepad_display_text(maps["sw"]), "LS↙")
+        self.assertEqual(parse_gamepad_display_text(maps["w"]), "LS←")
+        self.assertEqual(parse_gamepad_display_text(maps["nw"]), "LS↖")
+
+    def test_right_stick_diagonal_parsing(self):
+        from strop_core.gamepad import parse_gamepad_display_text, get_right_stick_mappings
+        maps = get_right_stick_mappings()
+        self.assertEqual(parse_gamepad_display_text(maps["n"]), "RS↑")
+        self.assertEqual(parse_gamepad_display_text(maps["ne"]), "RS↗")
+        self.assertEqual(parse_gamepad_display_text(maps["se"]), "RS↘")
+        self.assertEqual(parse_gamepad_display_text(maps["sw"]), "RS↙")
+        self.assertEqual(parse_gamepad_display_text(maps["nw"]), "RS↖")
+
+
+class TestStropMacroTokenizer(unittest.TestCase):
+    def test_nested_macro_preserved(self):
+        from strop_core.macros import normalize_macro_to_input_remapper, parse_dsl_sequence
+        nested = "modify(Control_L, wait(20).key(space))"
+        self.assertEqual(normalize_macro_to_input_remapper(nested), nested)
+        dsl_tokens = parse_dsl_sequence(nested)
+        self.assertEqual(dsl_tokens, [nested])
+
+    def test_run_command_with_dots_preserved(self):
+        from strop_core.macros import normalize_macro_to_input_remapper
+        cmd = 'run("echo 1.2.3")'
+        self.assertEqual(normalize_macro_to_input_remapper(cmd), cmd)
+
+
+class TestStropPresetSecurityAndState(unittest.TestCase):
+    def test_sanitize_filename(self):
+        from strop_core.presets import sanitize_filename
+        self.assertEqual(sanitize_filename("../../etc/passwd"), "passwd")
+        self.assertEqual(sanitize_filename("my-profile.json"), "my-profile")
+        self.assertEqual(sanitize_filename("valid_name"), "valid_name")
+
+    def test_apply_profile_missing_executable_does_not_record_active_profile(self):
+        from strop_core.presets import apply_profile, get_active_profile
+        dev = "TestRazerDevice99"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value=None):
+                success, message = apply_profile(dev, "gaming")
+                self.assertFalse(success)
+                self.assertIn("not installed", message)
+                self.assertIsNone(get_active_profile(dev))
+
+    def test_apply_profile_command_failure_does_not_record_active_profile(self):
+        from strop_core.presets import apply_profile, get_active_profile
+        dev = "Razer Test Device"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 1, "", "apply failed")):
+                success, message = apply_profile(dev, "gaming")
+                self.assertFalse(success)
+                self.assertIn("apply failed", message)
+                self.assertIsNone(get_active_profile(dev))
+
+    def test_apply_profile_timeout_reports_unconfirmed_state(self):
+        from strop_core.presets import apply_profile, get_active_profile
+        dev = "Razer Test Device"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            timeout = subprocess.TimeoutExpired("input-remapper-control", 0.8)
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.subprocess.run", side_effect=timeout):
+                success, message = apply_profile(dev, "gaming")
+                self.assertFalse(success)
+                self.assertIn("may have applied", message)
+                self.assertIsNone(get_active_profile(dev))
+
+    def test_stop_profile_failure_keeps_last_recorded_profile(self):
+        from strop_core.presets import stop_profile, get_active_profile
+        dev = "Razer Test Device"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            profiles_file.write_text(json.dumps({dev: "gaming"}), encoding="utf-8")
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 1, "", "stop failed")):
+                success, _ = stop_profile(dev)
+                self.assertFalse(success)
+                self.assertEqual(get_active_profile(dev), "gaming")
+
+
 class TestStropThemeAndAbout(unittest.TestCase):
     def test_show_about_dialog_callable(self):
         from strop_core.theme import show_about_dialog

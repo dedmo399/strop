@@ -9,6 +9,11 @@ from typing import List, Dict, Optional, Any
 from strop_core.catalog import get_device_by_name, get_archetype_for_device
 
 
+from strop_core.logger import get_logger
+
+logger = get_logger("strop.device")
+
+
 def clean_device_display_name(raw_name: str) -> str:
     """
     Cleans up duplicate vendor prefix (e.g. 'Razer Razer Tartarus Pro' -> 'Razer Tartarus Pro').
@@ -25,14 +30,16 @@ def clean_device_display_name(raw_name: str) -> str:
 
 def calculate_origin_hash(capabilities_str: str, name: str) -> str:
     """Computes the exact origin_hash used by input-remapper-2."""
-    s = capabilities_str + name
+    s = capabilities_str + (name or "")
     return md5(s.encode()).hexdigest().lower()
 
 
-def is_razer_device(device_name: str, vendor_id: Optional[int] = None) -> bool:
+def is_razer_device(device_name: Optional[str], vendor_id: Optional[int] = None) -> bool:
     """Checks if a device is a Razer peripheral by vendor ID (0x1532) or name matching."""
     if vendor_id == 0x1532:
         return True
+    if not device_name or not isinstance(device_name, str):
+        return False
     name_low = device_name.lower()
     if "razer" in name_low or "tartarus" in name_low or "blackwidow" in name_low or "naga" in name_low or "orbweaver" in name_low or "nostromo" in name_low or "basilisk" in name_low or "deathadder" in name_low or "huntsman" in name_low or "viper" in name_low:
         return True
@@ -43,65 +50,81 @@ def scan_all_connected_devices() -> List[Dict[str, Any]]:
     """
     Scans all /dev/input/event* devices and returns unique connected Razer devices
     along with capability origin_hashes for all sub-interfaces.
+    Properly handles device permissions and releases file descriptors.
     """
     found_map = {}
     try:
         import evdev
-        for path in evdev.list_devices():
-            try:
-                d = evdev.InputDevice(path)
-                vendor = getattr(d.info, "vendor", None) if hasattr(d, "info") else None
-                if is_razer_device(d.name, vendor):
-                    cap_str = str(d.capabilities(absinfo=False))
-                    dhash = calculate_origin_hash(cap_str, d.name)
-                    archetype = get_archetype_for_device(d.name)
-                    clean_name = clean_device_display_name(d.name)
-                    key_caps = d.capabilities().get(evdev.ecodes.EV_KEY, [])
-                    num_keys = len(key_caps)
+    except ImportError as e:
+        logger.warning(f"python-evdev is not installed; hardware auto-detection unavailable: {e}")
+        return []
 
-                    if clean_name not in found_map:
-                        found_map[clean_name] = {
-                            "name": clean_name,
-                            "clean_name": clean_name,
-                            "raw_name": d.name,
-                            "hash": dhash,
-                            "path": d.path,
-                            "archetype": archetype,
-                            "vendor": vendor,
-                            "num_keys": num_keys,
-                            "all_hashes": {},
-                            "key_to_hash": {}
-                        }
+    try:
+        device_paths = evdev.list_devices()
+    except PermissionError as e:
+        logger.error(f"Permission denied accessing /dev/input devices. Ensure user is in 'input' group: {e}")
+        return []
+    except Exception as e:
+        logger.warning(f"Failed to enumerate /dev/input devices: {e}")
+        return []
 
-                    found_map[clean_name]["all_hashes"][path] = dhash
+    for path in device_paths:
+        d = None
+        try:
+            d = evdev.InputDevice(path)
+            vendor = getattr(d.info, "vendor", None) if hasattr(d, "info") else None
+            dev_name = d.name or ""
+            if is_razer_device(dev_name, vendor):
+                cap_str = str(d.capabilities(absinfo=False))
+                dhash = calculate_origin_hash(cap_str, dev_name)
+                archetype = get_archetype_for_device(dev_name)
+                clean_name = clean_device_display_name(dev_name)
+                key_caps = d.capabilities().get(evdev.ecodes.EV_KEY, [])
+                num_keys = len(key_caps)
 
+                if clean_name not in found_map:
+                    found_map[clean_name] = {
+                        "name": clean_name,
+                        "clean_name": clean_name,
+                        "raw_name": dev_name,
+                        "hash": dhash,
+                        "path": d.path,
+                        "archetype": archetype,
+                        "vendor": vendor,
+                        "num_keys": num_keys,
+                        "all_hashes": {},
+                        "key_to_hash": {}
+                    }
 
-                    # Populate key_to_hash for every scancode supported by this sub-interface node
+                found_map[clean_name]["all_hashes"][path] = dhash
 
-                    # Primary buttons / unique sub-interfaces (like mouse event node 4a7e8e47... with codes 272-276)
-                    # or D-pad switches (3581cd25...) get recorded accurately
-                    for kc in key_caps:
-                        # Dedicated mouse buttons (272-281) or new nodes take precedence
-                        if kc not in found_map[clean_name]["key_to_hash"] or (272 <= kc <= 285):
-                            found_map[clean_name]["key_to_hash"][kc] = dhash
+                # Populate key_to_hash for every scancode supported by this sub-interface node
+                for kc in key_caps:
+                    if kc not in found_map[clean_name]["key_to_hash"] or (272 <= kc <= 285):
+                        found_map[clean_name]["key_to_hash"][kc] = dhash
 
-                    # Set primary default hash to the main matrix / largest interface
-                    if num_keys > found_map[clean_name].get("num_keys", 0):
-                        found_map[clean_name]["hash"] = dhash
-                        found_map[clean_name]["path"] = d.path
-                        found_map[clean_name]["num_keys"] = num_keys
+                # Set primary default hash to the main matrix / largest interface
+                if num_keys > found_map[clean_name].get("num_keys", 0):
+                    found_map[clean_name]["hash"] = dhash
+                    found_map[clean_name]["path"] = d.path
+                    found_map[clean_name]["num_keys"] = num_keys
 
-                    # Dedicated Tartarus D-pad switch node (3581cd...)
-                    if dhash.startswith("3581cd"):
-                        for switch_code in (56, 103, 105, 106, 108):
-                            found_map[clean_name]["key_to_hash"][switch_code] = dhash
+                # Dedicated Tartarus D-pad switch node (3581cd...)
+                if dhash.startswith("3581cd"):
+                    for switch_code in (56, 103, 105, 106, 108):
+                        found_map[clean_name]["key_to_hash"][switch_code] = dhash
 
+        except PermissionError as e:
+            logger.warning(f"Permission denied reading device node {path}: {e}")
+        except Exception as e:
+            logger.warning(f"Could not read device node {path}: {e}")
+        finally:
+            if d is not None:
+                try:
+                    d.close()
+                except Exception:
+                    pass
 
-
-            except Exception:
-                pass
-    except Exception:
-        pass
     return list(found_map.values())
 
 
@@ -141,6 +164,5 @@ def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tart
         "all_hashes": {},
         "key_to_hash": {}
     }
-
 
 

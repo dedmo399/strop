@@ -138,10 +138,12 @@ def pin_window_on_top(target_title: str = "Strop HUD Overlay", x: int = 12, y: i
         matched = False
         if status == 0 and prop.value:
             win_array = ctypes.cast(prop, ctypes.POINTER(Window))
+            target_low = target_title.lower()
             for i in range(nitems.value):
                 win_id = win_array[i]
                 t_str = get_window_title(win_id)
-                if target_title.lower() in t_str.lower() or "hud overlay" in t_str.lower() or "strop" in t_str.lower():
+                t_low = t_str.lower()
+                if target_low in t_low or ("hud" in t_low and "overlay" in t_low):
                     apply_pin(win_id)
                     matched = True
                     break
@@ -166,10 +168,12 @@ def pin_window_on_top(target_title: str = "Strop HUD Overlay", x: int = 12, y: i
             )
 
             if q_status != 0 and children_p:
+                target_low = target_title.lower()
                 for i in range(nchildren.value):
                     c_win = children_p[i]
                     t_str = get_window_title(c_win)
-                    if target_title.lower() in t_str.lower() or "hud overlay" in t_str.lower() or "strop" in t_str.lower():
+                    t_low = t_str.lower()
+                    if target_low in t_low or ("hud" in t_low and "overlay" in t_low):
                         apply_pin(c_win)
                         matched = True
                         break

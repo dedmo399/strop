@@ -93,21 +93,31 @@ def get_presets_base_dir() -> Path:
     return p1
 
 
+def sanitize_filename(name: str) -> str:
+    """Sanitizes names to prevent path traversal or invalid characters."""
+    if not name:
+        return ""
+    clean = Path(name).name.replace(".json", "").strip()
+    clean = clean.replace("/", "").replace("\\", "").replace("\0", "").strip(" .")
+    return clean
+
+
 def get_device_presets_dir(device_name: str) -> Path:
     """Returns the specific device preset subfolder, resolving existing directories or creating clean one."""
     base = get_presets_base_dir()
+    clean_dev_input = sanitize_filename(device_name) or "Razer Device"
     # 1. Exact match
-    pdir = base / device_name
+    pdir = base / clean_dev_input
     if pdir.exists():
         return pdir
     # 2. Match clean name
     from strop_core.device import clean_device_display_name
-    clean_name = clean_device_display_name(device_name)
+    clean_name = sanitize_filename(clean_device_display_name(device_name)) or clean_dev_input
     pdir_clean = base / clean_name
     if pdir_clean.exists():
         return pdir_clean
     # 3. Fuzzy search existing directories
-    clean_target = device_name.lower().replace("razer", "").replace("_", " ").strip()
+    clean_target = clean_dev_input.lower().replace("razer", "").replace("_", " ").strip()
     if base.exists():
         for sub in base.iterdir():
             if sub.is_dir():
@@ -158,11 +168,6 @@ def serialize_preset_data(
         else:
             mapping_type = "key_macro"
 
-
-
-
-
-
         # Determine origin_hash for this key
         key_hash = s.get("origin_hash")
         if not key_hash and s.get("code") in key_to_hash:
@@ -205,9 +210,13 @@ def save_device_preset(
     device_info: Dict[str, Any],
 ) -> Optional[Path]:
     """Serializes and saves a preset file directly to disk. Returns saved file Path."""
+    clean_pname = sanitize_filename(preset_name)
+    if not clean_pname:
+        logger.error("Preset name cannot be empty or invalid.")
+        return None
+
     preset_data = serialize_preset_data(state, device_info)
     target_dir = get_device_presets_dir(device_name)
-    clean_pname = preset_name.replace(".json", "").strip()
     save_file = target_dir / f"{clean_pname}.json"
     try:
         with open(save_file, "w", encoding="utf-8") as f:
@@ -236,19 +245,16 @@ def load_preset_file(path: Path) -> Optional[List[Dict[str, Any]]]:
 
 def apply_profile(device_name: str, preset_name: str) -> Tuple[bool, str]:
     """
-    Applies a preset to the hardware via input-remapper-control and records it as active.
-    Returns (success: bool, message: str) quickly without blocking the UI main loop.
+    Applies a preset to the hardware via input-remapper-control and records it as active upon confirmation.
+    Returns (success: bool, message: str) without blocking the UI main loop.
     """
-    clean_preset = preset_name.replace(".json", "").strip()
+    clean_preset = sanitize_filename(preset_name)
     if not clean_preset:
-        return False, "Preset name cannot be empty."
-
-    # Always record the active profile in Strop state
-    set_active_profile(device_name, clean_preset)
+        return False, "Preset name cannot be empty or invalid."
 
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
-        return True, f"Profile '{clean_preset}' activated in Strop."
+        return False, "input-remapper-control is not installed. Install input-remapper to apply profiles to hardware."
 
     # Locate config directory
     config_dir = None
@@ -264,7 +270,6 @@ def apply_profile(device_name: str, preset_name: str) -> Tuple[bool, str]:
     if not device_name.startswith("Razer "):
         dev_candidates.append(f"Razer {device_name}")
 
-    applied_ok = False
     last_err = ""
     sub_env = dict(os.environ, PYTHONWARNINGS="ignore")
 
@@ -275,8 +280,10 @@ def apply_profile(device_name: str, preset_name: str) -> Tuple[bool, str]:
         cmd.extend(["--command", "start", "--device", dev_cand, "--preset", clean_preset])
 
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=0.6, env=sub_env)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=0.8, env=sub_env)
             if res.returncode == 0:
+                # Only record as active once confirmed by daemon
+                set_active_profile(device_name, clean_preset)
                 logger.info(f"Profile '{clean_preset}' successfully started on {dev_cand}")
                 return True, f"Profile '{clean_preset}' successfully activated on {device_name}!"
             
@@ -287,7 +294,10 @@ def apply_profile(device_name: str, preset_name: str) -> Tuple[bool, str]:
             ]
             last_err = " ".join(clean_lines).strip()
         except subprocess.TimeoutExpired:
-            return True, f"Profile '{clean_preset}' activated in Strop."
+            last_err = (
+                "input-remapper-control timed out; the daemon may have applied the profile, "
+                "but Strop could not confirm it."
+            )
         except Exception as e:
             last_err = str(e)
 
@@ -298,25 +308,30 @@ def apply_profile(device_name: str, preset_name: str) -> Tuple[bool, str]:
 
 def stop_profile(device_name: str) -> Tuple[bool, str]:
     """Stops the active preset for a given device."""
-    clear_active_profile(device_name)
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
-        return True, "Profile stopped."
+        return False, "input-remapper-control is not installed; Strop could not confirm that the profile stopped."
 
     dev_candidates = [device_name]
     if not device_name.startswith("Razer Razer"):
         dev_candidates.append(f"Razer Razer {device_name.replace('Razer ', '')}")
 
     sub_env = dict(os.environ, PYTHONWARNINGS="ignore")
+    stopped = False
     for dev_cand in dev_candidates:
         try:
-            res = subprocess.run([ctrl_bin, "--command", "stop", "--device", dev_cand], capture_output=True, timeout=0.5, env=sub_env)
+            res = subprocess.run([ctrl_bin, "--command", "stop", "--device", dev_cand], capture_output=True, timeout=0.6, env=sub_env)
             if res.returncode == 0:
-                return True, f"Profile stopped for {device_name}."
+                stopped = True
+                break
         except Exception as e:
             logger.debug(f"Error stopping profile on {dev_cand}: {e}")
 
-    return True, f"Profile stopped for {device_name}."
+    if stopped:
+        clear_active_profile(device_name)
+        return True, f"Profile stopped for {device_name}."
+    else:
+        return False, f"Could not stop profile on {device_name} (daemon or device not responding)."
  
 
 def check_daemon_status() -> Tuple[str, str]:
@@ -337,4 +352,3 @@ def check_daemon_status() -> Tuple[str, str]:
         return "running", "input-remapper daemon is active."
     except Exception as e:
         return "unknown", f"Daemon status check error: {e}"
-

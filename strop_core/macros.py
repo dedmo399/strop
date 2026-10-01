@@ -197,21 +197,36 @@ def save_user_macros(macros: List[Dict[str, Any]]) -> bool:
 
 
 def load_all_macros() -> List[Dict[str, Any]]:
-    """Returns combined list of user custom macros and default templates."""
+    """Returns combined list of user custom macros and default templates, with user macros taking precedence."""
     user_macros = get_user_macros()
-    seen_titles = set()
-    combined = []
+    user_by_id = {m.get("id"): m for m in user_macros if m.get("id")}
+    user_by_title = {m.get("title", "").strip().lower(): m for m in user_macros if m.get("title")}
 
-    # First add official built-in templates
+    combined = []
+    seen_ids = set()
+
+    # Add templates, allowing user custom modifications to override them
     for tpl in MACRO_TEMPLATES:
-        seen_titles.add(tpl.get("title", "").strip().lower())
-        combined.append(dict(tpl))
+        t_id = tpl.get("id")
+        t_title = tpl.get("title", "").strip().lower()
+        if t_id and t_id in user_by_id:
+            combined.append(dict(user_by_id[t_id]))
+            seen_ids.add(t_id)
+        elif t_title in user_by_title:
+            user_m = user_by_title[t_title]
+            combined.append(dict(user_m))
+            if user_m.get("id"):
+                seen_ids.add(user_m["id"])
+        else:
+            combined.append(dict(tpl))
+            if t_id:
+                seen_ids.add(t_id)
 
     # Then add distinct user custom macros
     for m in user_macros:
-        title_low = m.get("title", "").strip().lower()
-        if title_low not in seen_titles:
-            seen_titles.add(title_low)
+        m_id = m.get("id")
+        if m_id and m_id not in seen_ids:
+            seen_ids.add(m_id)
             combined.append(dict(m))
 
     return combined
@@ -245,43 +260,79 @@ def delete_custom_macro(macro_id: str) -> bool:
     return save_user_macros(filtered)
 
 
+def _split_macro_tokens(s: str) -> List[str]:
+    """Splits a macro expression by '+' or '.' delimiters outside parentheses and quotes."""
+    tokens = []
+    curr = []
+    paren_depth = 0
+    in_quote = None
+
+    for c in s:
+        if in_quote:
+            curr.append(c)
+            if c == in_quote:
+                in_quote = None
+        elif c in ('"', "'"):
+            in_quote = c
+            curr.append(c)
+        elif c == '(':
+            paren_depth += 1
+            curr.append(c)
+        elif c == ')':
+            if paren_depth > 0:
+                paren_depth -= 1
+            curr.append(c)
+        elif (c == '+' or c == '.') and paren_depth == 0:
+            token = "".join(curr).strip()
+            if token:
+                tokens.append(token)
+            curr = []
+        else:
+            curr.append(c)
+
+    token = "".join(curr).strip()
+    if token:
+        tokens.append(token)
+    return tokens
+
+
 def parse_dsl_sequence(seq_str: str) -> List[str]:
     """
-    Parses a macro sequence in dotted DSL format (e.g. key_down(Control_L).wait(50).key(Up)...)
-    or standard '+'-separated string into individual steps.
+    Parses a macro sequence in dotted DSL format or '+' format into individual steps,
+    safely preserving nested functions and string arguments.
     """
     if not seq_str or not seq_str.strip():
         return []
     import re
     clean_str = seq_str.strip().replace("\n", " ")
-    pattern = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*([^)]*?)\s*\)')
-    matches = list(pattern.finditer(clean_str))
-    if not matches:
-        # Fallback to '+'-separated string
-        parts = [p.strip() for p in clean_str.split("+") if p.strip()]
-        return parts
+    raw_tokens = _split_macro_tokens(clean_str)
 
     tokens = []
-    for m in matches:
-        func = m.group(1).lower()
-        arg = m.group(2).strip().strip('"\'')
-        if func in ("wait", "sleep", "delay"):
-            val = arg if ("ms" in arg or "s" in arg) else f"{arg}ms"
-            tokens.append(val)
-        elif func in ("key", "tap", "press"):
-            tokens.append(arg)
-        elif func in ("key_down", "hold", "down"):
-            tokens.append(f"key_down({arg})" if not arg.startswith("key_down") else arg)
-        elif func in ("key_up", "release", "up"):
-            tokens.append(f"key_up({arg})" if not arg.startswith("key_up") else arg)
-        elif func in ("mouse", "click"):
-            tokens.append(f"mouse({arg})" if not arg.startswith("mouse") else arg)
-        elif func == "wheel":
-            tokens.append(f"wheel({arg})" if not arg.startswith("wheel") else arg)
-        elif func == "run":
-            tokens.append(f'run("{arg}")')
+    for tok in raw_tokens:
+        tok_clean = tok.strip()
+        m_func = re.match(r'^([a-zA-Z_]\w*)\s*\((.*)\)$', tok_clean, re.DOTALL)
+        if m_func:
+            func = m_func.group(1).lower()
+            arg = m_func.group(2).strip().strip('"\'')
+            if func in ("wait", "sleep", "delay"):
+                val = arg if ("ms" in arg or "s" in arg) else f"{arg}ms"
+                tokens.append(val)
+            elif func in ("key", "tap", "press"):
+                tokens.append(arg)
+            elif func in ("key_down", "hold", "down"):
+                tokens.append(f"key_down({arg})" if not arg.startswith("key_down") else arg)
+            elif func in ("key_up", "release", "up"):
+                tokens.append(f"key_up({arg})" if not arg.startswith("key_up") else arg)
+            elif func in ("mouse", "click"):
+                tokens.append(f"mouse({arg})" if not arg.startswith("mouse") else arg)
+            elif func == "wheel":
+                tokens.append(f"wheel({arg})" if not arg.startswith("wheel") else arg)
+            elif func == "run":
+                tokens.append(f'run("{arg}")')
+            else:
+                tokens.append(tok_clean)
         else:
-            tokens.append(f"{func}({arg})" if arg else func)
+            tokens.append(tok_clean)
 
     return tokens
 
@@ -290,13 +341,14 @@ def normalize_macro_to_input_remapper(macro_str: str) -> str:
     """
     Converts custom chained macro strings or plus syntax with macros into valid input-remapper syntax.
     e.g. 'key_down(Control_L) + 25ms + key_down(space)...' -> 'key_down(Control_L).wait(25).key_down(space)...'
+    Safely preserves commands with dots inside arguments (like run("echo 1.2.3")) and nested calls.
     """
     import re
     s = (macro_str or "").strip()
     if not s:
         return s
 
-    # If it's a single key symbol without sequence or function calls (e.g. '4', '5', 'space', 'KEY_A'):
+    # If it's a single key symbol without sequence or function calls:
     if not any(c in s for c in ("+", ".", "(", ")")) and not s.lower().endswith("ms"):
         return s
 
@@ -304,14 +356,16 @@ def normalize_macro_to_input_remapper(macro_str: str) -> str:
     if "+" in s and "(" not in s and ")" not in s and "ms" not in s:
         return s
 
+    raw_tokens = _split_macro_tokens(s)
+    if not raw_tokens:
+        return s
+
     tokens = []
-    # Split by '+' or '.'
-    raw_tokens = [p.strip() for p in re.split(r'[\+\.]', s) if p.strip()]
     for tok in raw_tokens:
         tok_clean = tok.strip()
         m_ms = re.match(r'^(\d+)\s*ms$', tok_clean, re.IGNORECASE)
         m_wait = re.match(r'^wait\(\s*(\d+)(?:ms)?\s*\)$', tok_clean, re.IGNORECASE)
-        m_func = re.match(r'^([a-zA-Z_]\w*)\s*\((.*)\)$', tok_clean)
+        m_func = re.match(r'^([a-zA-Z_]\w*)\s*\((.*)\)$', tok_clean, re.DOTALL)
 
         if m_ms:
             tokens.append(f"wait({m_ms.group(1)})")
@@ -319,7 +373,6 @@ def normalize_macro_to_input_remapper(macro_str: str) -> str:
             tokens.append(f"wait({m_wait.group(1)})")
         elif m_func:
             fn, arg = m_func.group(1), m_func.group(2).strip()
-            # If wait(25ms) strip ms
             if fn == "wait" and arg.lower().endswith("ms"):
                 arg = arg[:-2].strip()
             tokens.append(f"{fn}({arg})")

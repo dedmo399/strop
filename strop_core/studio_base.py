@@ -1061,13 +1061,18 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         dev_name = self.detected_device.get("name", self.default_device_name)
 
         # Save preset directly to disk first
-        self._save_preset_direct(pname)
+        saved_path = self._save_preset_direct(pname)
+        if not saved_path:
+            self.lbl_active_profile_status.set_markup("<span color='#f87171' weight='bold'>⚠️ Save Error</span>")
+            if hasattr(self, "toast"):
+                self.toast.show_message("Could not save preset to disk before applying.", icon="⚠️")
+            return
 
         success, msg = apply_profile(dev_name, pname)
         if success:
             self.lbl_active_profile_status.set_markup(f"<span color='#86efac' weight='bold'>⚡ {pname}</span>")
         else:
-            self.lbl_active_profile_status.set_markup(f"<span color='#f87171' weight='bold'>⚠️ Failed</span>")
+            self.lbl_active_profile_status.set_markup("<span color='#f87171' weight='bold'>⚠️ Failed</span>")
 
         # Apply physical OpenRazer lighting using the user's selected color
         try:

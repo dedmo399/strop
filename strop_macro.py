@@ -646,6 +646,11 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         if not self.selected_macro_id:
             return
 
+        current_macro = next((m for m in self.macros if m.get("id") == self.selected_macro_id), None)
+        if current_macro and current_macro.get("built_in"):
+            self.toast.show_message("Built-in templates cannot be deleted.", icon="⚠️")
+            return
+
         alert = Gtk.AlertDialog(
             message="Delete this macro?",
             detail="This will permanently remove this custom macro from your library."

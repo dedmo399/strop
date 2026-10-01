@@ -443,11 +443,17 @@ class StropHubWindow(Gtk.ApplicationWindow):
             return
 
         success, msg = apply_profile(self.selected_dev_name, chosen_preset)
-        self.lbl_profile_status.set_markup(f"<span color='#86efac'>✓ Active: <b>{chosen_preset}</b></span>")
+        if success:
+            self.lbl_profile_status.set_markup(f"<span color='#86efac'>✓ Active: <b>{chosen_preset}</b></span>")
+            alert_title = f"Applied Profile '{chosen_preset}'"
+        else:
+            self.lbl_profile_status.set_markup(f"<span color='#f87171'>⚠️ Failed: <b>{chosen_preset}</b></span>")
+            alert_title = f"Failed to Apply Profile '{chosen_preset}'"
+
         self._refresh_hardware_banner()
 
         alert = Gtk.AlertDialog(
-            message=f"Applied Profile '{chosen_preset}'",
+            message=alert_title,
             detail=msg
         )
         alert.show(self)

@@ -100,7 +100,7 @@ The central dashboard that scans all connected Razer peripherals, displays hardw
 ### Option A: Install Debian Package (.deb) (Ubuntu / Debian / Pop!_OS / Linux Mint)
 Download or build the package and install with `apt` or `dpkg`:
 ```bash
-sudo apt install ./strop_0.9.1_all.deb
+sudo apt install ./strop_0.9.2_all.deb
 ```
 
 To build fresh `.deb` and `.tar.gz` release artifacts at any time:
@@ -119,9 +119,8 @@ cp strop.desktop ~/.local/share/applications/
 
 ## 📜 Version & License
 
-- **Version**: `0.9.1`
+- **Version**: `0.9.2`
 - **License**: [GNU General Public License v3.0 (GPLv3)](LICENSE) — Free & Open Source Software.
-
 
 
 

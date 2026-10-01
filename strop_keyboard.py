@@ -234,10 +234,10 @@ class KeyboardMainWindow(BaseStudioWindow):
 
     def _bind_wasd_left_stick(self, widget):
         wasd_maps = {
-            "w": "ABS_Y:-32768",
-            "s": "ABS_Y:32767",
-            "a": "ABS_X:-32768",
-            "d": "ABS_X:32767"
+            "w": "gamepad(ABS_Y, -32767)",
+            "s": "gamepad(ABS_Y, 32767)",
+            "a": "gamepad(ABS_X, -32767)",
+            "d": "gamepad(ABS_X, 32767)"
         }
         for k_id, sym in wasd_maps.items():
             if k_id in self.state:
@@ -252,10 +252,10 @@ class KeyboardMainWindow(BaseStudioWindow):
 
     def _bind_arrows_dpad(self, widget):
         arrow_maps = {
-            "up": "BTN_DPAD_UP",
-            "down": "BTN_DPAD_DOWN",
-            "left": "BTN_DPAD_LEFT",
-            "right": "BTN_DPAD_RIGHT"
+            "up": "gamepad(BTN_DPAD_UP)",
+            "down": "gamepad(BTN_DPAD_DOWN)",
+            "left": "gamepad(BTN_DPAD_LEFT)",
+            "right": "gamepad(BTN_DPAD_RIGHT)"
         }
         for k_id, sym in arrow_maps.items():
             if k_id in self.state:

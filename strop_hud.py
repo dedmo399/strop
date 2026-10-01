@@ -166,7 +166,7 @@ dropdown button {
 
 
 class KeypadHUDOverlay(Gtk.ApplicationWindow):
-    def __init__(self, app):
+    def __init__(self, app, device_override=None):
         super().__init__(application=app, title="Strop — Keypad HUD Overlay")
         self.add_css_class("hud-window")
         
@@ -183,7 +183,13 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.opacity_levels = [0.88, 0.70, 0.50, 1.0]
         self.opacity_idx = 0
         self.is_collapsed = False
-        self.detected_device = detect_device("tartarus", default_name="Razer Tartarus Pro")
+        if device_override:
+            if isinstance(device_override, dict):
+                self.detected_device = device_override
+            else:
+                self.detected_device = detect_device(device_override, default_name=device_override)
+        else:
+            self.detected_device = detect_device("tartarus", default_name="Razer Tartarus Pro")
 
         # Initialize State Definitions
         self._init_state()
@@ -507,7 +513,9 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
             self.current_preset_name = preset_name
             self._load_preset_file(preset_name)
-            apply_profile(dev_name, preset_name)
+            success, msg = apply_profile(dev_name, preset_name)
+            if not success:
+                print(f"[HUD] Note: Could not apply profile '{preset_name}' on {dev_name}: {msg}")
 
 
     def _load_preset_file(self, preset_spec):
@@ -582,20 +590,26 @@ def on_startup(app):
 
 
 def on_activate(app):
-    win = KeypadHUDOverlay(app)
+    dev_name = getattr(app, "_device_override", None)
+    win = KeypadHUDOverlay(app, device_override=dev_name)
     win.present()
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Strop Keypad HUD Overlay")
+    parser.add_argument("--device", "-d", type=str, default=None, help="Target Razer Keypad model")
+    args, unknown = parser.parse_known_args()
+
     app = Gtk.Application(
         application_id="com.razer.strop",
         flags=Gio.ApplicationFlags.NON_UNIQUE
     )
 
-
+    app._device_override = args.device
     app.connect("startup", on_startup)
     app.connect("activate", on_activate)
-    return app.run(sys.argv)
+    return app.run([sys.argv[0]] + unknown)
 
 
 if __name__ == "__main__":
