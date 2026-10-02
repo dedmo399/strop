@@ -91,7 +91,7 @@ Before tagging 1.0:
 
 ## Suggested scope boundary
 
-The standalone `stropd` daemon and AI macro generation remain separate roadmap items unless either becomes a required part of Strop's 1.0 product definition. The 1.0 release should focus on a dependable workflow using the chosen, documented remapping backend.
+The standalone `stropd` daemon remains a separate roadmap item unless it becomes a required part of Strop's 1.0 product definition. Macro Studio focuses on manual composition and validated input-remapper macros. The 1.0 release should focus on a dependable workflow using the chosen, documented remapping backend.
 
 ## Current starting point
 

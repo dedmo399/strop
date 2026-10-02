@@ -1,6 +1,6 @@
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
 new file mode 100644
-index 0000000..7ec8e1d
+index 0000000000000000000000000000000000000000..7ec8e1d77934bfbeb603b5d63c9b331d63f10472
 --- /dev/null
 +++ b/.github/workflows/ci.yml
 @@ -0,0 +1,30 @@
@@ -36,7 +36,7 @@ index 0000000..7ec8e1d
 +          dpkg-deb --contents strop_0.9.2_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 new file mode 100644
-index 0000000..ee79693
+index 0000000000000000000000000000000000000000..ee7969315a25988f2112b12894efa6133157c560
 --- /dev/null
 +++ b/CHANGELOG.md
 @@ -0,0 +1,16 @@
@@ -58,7 +58,7 @@ index 0000000..ee79693
 +
 diff --git a/LICENSES.md b/LICENSES.md
 new file mode 100644
-index 0000000..f1f8d7b
+index 0000000000000000000000000000000000000000..f1f8d7b6b43d214cf54346cd57a88df3e67f3cc4
 --- /dev/null
 +++ b/LICENSES.md
 @@ -0,0 +1,7 @@
@@ -70,7 +70,7 @@ index 0000000..f1f8d7b
 +
 +Third-party software and any third-party material incorporated into Strop remain under their own licenses and notices.
 diff --git a/README.md b/README.md
-index d2d52fa..0c0d039 100644
+index d2d52faf54d4eaf451bdc6b299b4587aa72144c3..0c0d039f5bbfa9e6de73a26cdcdca565a24c499f 100644
 --- a/README.md
 +++ b/README.md
 @@ -3,18 +3,20 @@
@@ -180,7 +180,7 @@ index d2d52fa..0c0d039 100644
 +- **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 diff --git a/ROADMAP_1.0.md b/ROADMAP_1.0.md
 new file mode 100644
-index 0000000..f98426d
+index 0000000000000000000000000000000000000000..95d79b097f96497630c0539a99049e1721bd8d46
 --- /dev/null
 +++ b/ROADMAP_1.0.md
 @@ -0,0 +1,98 @@
@@ -277,13 +277,126 @@ index 0000000..f98426d
 +
 +## Suggested scope boundary
 +
-+The standalone `stropd` daemon and AI macro generation remain separate roadmap items unless either becomes a required part of Strop's 1.0 product definition. The 1.0 release should focus on a dependable workflow using the chosen, documented remapping backend.
++The standalone `stropd` daemon remains a separate roadmap item unless it becomes a required part of Strop's 1.0 product definition. Macro Studio focuses on manual composition and validated input-remapper macros. The 1.0 release should focus on a dependable workflow using the chosen, documented remapping backend.
 +
 +## Current starting point
 +
 +The 0.9.2 branch contains profile-state, device discovery, macro parsing, gamepad display, HUD targeting, and preset handling improvements. The Steam PC and three Razer devices above are the sole 1.0 support target. Support and setup are documented in `docs/SUPPORT.md` and `docs/USER_GUIDE.md`. Physical mapping, profile lifecycle, clean installation, upgrade, and hosted-CI verification remain open.
+diff --git a/ROADMAP_AI_MACRO_LIBRARY.md b/ROADMAP_AI_MACRO_LIBRARY.md
+deleted file mode 100644
+index 788c257ec19076a5e2c3cb341366d4f2e8da45c7..0000000000000000000000000000000000000000
+--- a/ROADMAP_AI_MACRO_LIBRARY.md
++++ /dev/null
+@@ -1,107 +0,0 @@
+-# 🧠 Strop Roadmap: AI-Powered Macro Generation & Preset Library
+-
+-## 🎯 Goal
+-Allow users to interact with AI models (Google Gemini API, OpenAI ChatGPT API, or Local Offline Ollama) to generate game-specific macro libraries (e.g. Helldivers 2 stratagems, fighting game combos, MMO ability rotations, and OS productivity shortcuts) and directly assign them from the Strop Studio interface.
+-
+----
+-
+-## 🏗️ Architectural Flow
+-
+-```
+-                                 ┌──────────────────────────────┐
+-                                 │   User Natural Prompt        │
+-                                 │  "Generate Helldivers 2      │
+-                                 │   stratagem macro pack"      │
+-                                 └──────────────┬───────────────┘
+-                                                │
+-                                                ▼
+-                                 ┌──────────────────────────────┐
+-                                 │   Strop AI Assistant Client  │
+-                                 │  • Gemini API / OpenAI API   │
+-                                 │  • Local Ollama (Offline)    │
+-                                 │  • System Prompt with syntax │
+-                                 └──────────────┬───────────────┘
+-                                                │ Validated JSON
+-                                                ▼
+-                                 ┌──────────────────────────────┐
+-                                 │   Strop Macro Library Store  │
+-                                 │   ~/.config/strop/macros/    │
+-                                 │   ├── helldivers_2.json      │
+-                                 │   ├── fighting_combos.json   │
+-                                 │   └── productivity.json      │
+-                                 └──────────────┬───────────────┘
+-                                                │
+-                     ┌──────────────────────────┴──────────────────────────┐
+-                     ▼                                                     ▼
+-        ┌─────────────────────────┐                           ┌─────────────────────────┐
+-        │   Studio Macro Drawer   │                           │     In-Game HUD         │
+-        │   (Click to bind key)   │                           │   (Quick Macro Palette) │
+-        └─────────────────────────┘                           └─────────────────────────┘
+-```
+-
+----
+-
+-## 📦 Core Pillars
+-
+-### 1. Multi-Provider AI Assistant Engine
+-- **Supported Providers**:
+-  - **Google Gemini** (`gemini-2.0-flash` / `gemini-1.5-pro` via API key).
+-  - **OpenAI ChatGPT** (`gpt-4o` / `gpt-4o-mini` via API key).
+-  - **Local Ollama** (e.g. `llama3`, `mistral`, `deepseek-r1` running on `http://localhost:11434` for 100% offline privacy).
+-- **Domain System Prompt**:
+-  - Encodes the exact macro syntax specifications (`w . 50ms . s`, `hold(w, d)`, `mouse(1)`, `key_down(ctrl) . c . key_up(ctrl)`).
+-  - Enforces structured JSON responses with validated input codes and metadata.
+-
+----
+-
+-### 2. Standardized Macro Catalog Schema (`~/.config/strop/macros/*.json`)
+-```json
+-{
+-  "category": "Helldivers 2",
+-  "game_id": "helldivers_2",
+-  "author": "AI Generated (Gemini)",
+-  "version": "1.0",
+-  "macros": [
+-    {
+-      "id": "reinforce",
+-      "name": "Reinforce",
+-      "custom_name": "Respawn",
+-      "description": "Call down reinforcement hellpod",
+-      "target_uinput": "keyboard",
+-      "macro": "w . 50ms . s . 50ms . d . 50ms . a . 50ms . w",
+-      "tags": ["survival", "support"]
+-    },
+-    {
+-      "id": "500kg_bomb",
+-      "name": "Eagle 500kg Bomb",
+-      "custom_name": "500kg",
+-      "description": "Heavy high-yield ordnance air strike",
+-      "target_uinput": "keyboard",
+-      "macro": "w . 50ms . d . 50ms . s . 50ms . s . 50ms . s",
+-      "tags": ["eagle", "offensive"]
+-    },
+-    {
+-      "id": "autocannon",
+-      "name": "AC-8 Autocannon",
+-      "custom_name": "AutoCannon",
+-      "description": "Call down heavy support weapon & backpack",
+-      "target_uinput": "keyboard",
+-      "macro": "s . 50ms . a . 50ms . s . 50ms . w . 50ms . w . 50ms . d",
+-      "tags": ["support_weapon"]
+-    }
+-  ]
+-}
+-```
+-
+----
+-
+-### 3. Studio GUI Integration
+-- **`📚 Macro Library` Tab**: Added to the Special Actions dock next to `⚡ Actions` and `🕹 Emulation`.
+-- **Search & Game Category Selector**: Filter by game (e.g. *Helldivers 2*, *Street Fighter 6*, *World of Warcraft*, *Blender*).
+-- **1-Click Key Assignment**: Selecting any key on the canvas and clicking a macro card instantly binds both the **Output Macro** and the **Custom Action Name** (e.g. `500kg`).
+-
+----
+-
+-### 4. Interactive AI Generator Modal
+-- **Prompt Input Box**: *"Generate all 4-directional defensive stratagems for Helldivers 2 with 40ms delays"*.
+-- **Live Preview & Test**: Preview generated macros, test in a sandbox input listener, and click **"Save to Library"**.
 diff --git a/build_deb.sh b/build_deb.sh
-index 197f4f6..68aaedd 100755
+index 197f4f66a997aa4181ee8e647ea4980ed378d66e..68aaeddf687401c950002f1a080a53b1e062fde9 100755
 --- a/build_deb.sh
 +++ b/build_deb.sh
 @@ -1,19 +1,19 @@
@@ -400,7 +513,7 @@ index 197f4f6..68aaedd 100755
  ls -lh "${TAR_FILE}"
 diff --git a/docs/SUPPORT.md b/docs/SUPPORT.md
 new file mode 100644
-index 0000000..ab580f7
+index 0000000000000000000000000000000000000000..ab580f799cf954fde66788b5329433f8686d82b0
 --- /dev/null
 +++ b/docs/SUPPORT.md
 @@ -0,0 +1,52 @@
@@ -458,7 +571,7 @@ index 0000000..ab580f7
 +The `steam` PC and three devices are the sole target for Priority 3 mapping and Priority 1 profile lifecycle verification. Update this document with concrete results for discovery, save/apply/stop, representative mappings, imported preset round-trips, optional lighting, and HUD behavior before calling the matrix end-to-end tested.
 diff --git a/docs/UPGRADING.md b/docs/UPGRADING.md
 new file mode 100644
-index 0000000..80f70c2
+index 0000000000000000000000000000000000000000..80f70c2b3e82e7d90244b0f70b85c28ae8c0402d
 --- /dev/null
 +++ b/docs/UPGRADING.md
 @@ -0,0 +1,42 @@
@@ -506,7 +619,7 @@ index 0000000..80f70c2
 +This overlays the saved directories. It does not delete newer files that were added after the backup. For an exact rollback, first move the current Strop directory and whichever input-remapper preset directory you use aside, then extract the archive. Restore files as your desktop user; avoid `sudo` so ownership remains correct.
 diff --git a/docs/USER_GUIDE.md b/docs/USER_GUIDE.md
 new file mode 100644
-index 0000000..9a9fd3f
+index 0000000000000000000000000000000000000000..9a9fd3fca360c17d9d3cb7f78cedd464146cd651
 --- /dev/null
 +++ b/docs/USER_GUIDE.md
 @@ -0,0 +1,40 @@
@@ -550,8 +663,1105 @@ index 0000000..9a9fd3f
 +| Preset loads partially | Review the count and original JSON. Some valid backend mappings are not represented by Strop's editor; those entries are preserved when saving. |
 +| HUD does not stay above a game | GNOME Wayland/XWayland and exclusive fullscreen can limit compositor window placement. HUD stacking still needs end-to-end verification on the support PC. |
 +
+diff --git a/docs/gemma4_strop_ai_guide.html b/docs/gemma4_strop_ai_guide.html
+deleted file mode 100644
+index 2c5c2fa98b62003308bdb6b7e15a1cafc0359902..0000000000000000000000000000000000000000
+--- a/docs/gemma4_strop_ai_guide.html
++++ /dev/null
+@@ -1,416 +0,0 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-  <meta charset="UTF-8">
+-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-  <title>And Now For Something Completely Different: Strop AI + Gemma 4</title>
+-  <style>
+-    :root {
+-      --bg-main: #0a0d14;
+-      --bg-card: #121826;
+-      --bg-code: #070a10;
+-      --border: #2a3449;
+-      --accent: #22c55e;
+-      --gold: #f59e0b;
+-      --text-main: #f8fafc;
+-      --text-muted: #94a3b8;
+-      --py-parchment: #fef3c7;
+-      --py-brown: #78350f;
+-    }
+-    * { box-sizing: border-box; margin: 0; padding: 0; }
+-    body {
+-      background-color: var(--bg-main);
+-      color: var(--text-main);
+-      font-family: "Georgia", "Times New Roman", -apple-system, serif;
+-      line-height: 1.7;
+-      padding: 36px 16px;
+-    }
+-    .container {
+-      max-width: 880px;
+-      margin: 0 auto;
+-    }
+-    header {
+-      text-align: center;
+-      margin-bottom: 40px;
+-      padding-bottom: 26px;
+-      border-bottom: 2px dashed #f59e0b44;
+-    }
+-    .banner {
+-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+-      display: inline-block;
+-      background: #78350f33;
+-      color: var(--gold);
+-      border: 1px solid #f59e0b66;
+-      padding: 5px 16px;
+-      border-radius: 4px;
+-      font-size: 13px;
+-      font-weight: 700;
+-      letter-spacing: 2px;
+-      text-transform: uppercase;
+-      margin-bottom: 14px;
+-    }
+-    h1 {
+-      font-size: 34px;
+-      font-weight: 900;
+-      color: #fffbeb;
+-      margin-bottom: 10px;
+-      font-style: italic;
+-    }
+-    h1 span { color: var(--accent); font-style: normal; }
+-    .subtitle {
+-      font-size: 18px;
+-      color: #cbd5e1;
+-      font-style: italic;
+-    }
+-    .stage-direction {
+-      background: #1e293b55;
+-      border-left: 3px solid #64748b;
+-      padding: 10px 16px;
+-      font-family: -apple-system, sans-serif;
+-      font-size: 14px;
+-      font-style: italic;
+-      color: #94a3b8;
+-      margin: 20px 0;
+-      border-radius: 0 6px 6px 0;
+-    }
+-    .card {
+-      background: var(--bg-card);
+-      border: 1px solid var(--border);
+-      border-radius: 10px;
+-      padding: 28px;
+-      margin-bottom: 30px;
+-      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+-    }
+-    .card h2 {
+-      font-size: 22px;
+-      color: #fef08a;
+-      margin-bottom: 16px;
+-      border-bottom: 1px solid #334155;
+-      padding-bottom: 8px;
+-      display: flex;
+-      align-items: center;
+-      gap: 10px;
+-    }
+-    p { margin-bottom: 14px; font-size: 16px; color: #e2e8f0; }
+-    .monologue {
+-      font-size: 17px;
+-      line-height: 1.8;
+-      color: #f1f5f9;
+-    }
+-    .monologue em { color: #fde047; }
+-    .monologue strong { color: var(--accent); font-weight: 700; }
+-    .code-box {
+-      background: var(--bg-code);
+-      border: 1px solid var(--border);
+-      border-radius: 6px;
+-      padding: 16px;
+-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+-      font-size: 13.5px;
+-      color: #86efac;
+-      overflow-x: auto;
+-      margin: 14px 0 18px 0;
+-      position: relative;
+-    }
+-    .btn-copy {
+-      position: absolute;
+-      top: 10px;
+-      right: 10px;
+-      background: #1e293b;
+-      color: #cbd5e1;
+-      border: 1px solid #475569;
+-      padding: 6px 12px;
+-      border-radius: 4px;
+-      font-family: -apple-system, sans-serif;
+-      font-size: 12px;
+-      font-weight: 600;
+-      cursor: pointer;
+-      transition: all 0.2s;
+-    }
+-    .btn-copy:hover {
+-      background: var(--accent);
+-      color: #052e16;
+-      border-color: var(--accent);
+-    }
+-    .prompt-box {
+-      background: #050810;
+-      border: 1px solid #22c55e55;
+-      border-radius: 6px;
+-      padding: 18px;
+-      font-family: ui-monospace, Menlo, Monaco, monospace;
+-      font-size: 12.5px;
+-      line-height: 1.5;
+-      color: #cbd5e1;
+-      max-height: 480px;
+-      overflow-y: auto;
+-      white-space: pre-wrap;
+-      margin-top: 12px;
+-    }
+-    ol.sacred-steps {
+-      margin-left: 24px;
+-      margin-bottom: 16px;
+-      color: #e2e8f0;
+-    }
+-    ol.sacred-steps li {
+-      margin-bottom: 18px;
+-    }
+-  </style>
+-</head>
+-<body>
+-
+-<div class="container">
+-  <header>
+-    <div class="banner">&starf; THE MINISTRY OF SILLY MACROS &starf;</div>
+-    <h1>And Now For Something <span>Completely Different</span></h1>
+-    <div class="subtitle">A Monologue on the Subjugation of Peripherals, the Intellect of Gemma IV, and the 500kg Bomb</div>
+-  </header>
+-
+-  <div class="stage-direction">
+-    [SCENE START: A severe-looking gentleman in a pinstripe three-piece suit and bowler hat sits behind a mahogany desk in the middle of a muddy field. On his desk rests a cup of Earl Grey tea and a Razer Tartarus Pro keypad glowing with the radioactive emerald luminescence of an agitated turnip. He stares down the camera unblinkingly.]
+-  </div>
+-
+-  <!-- Monologue Part 1 -->
+-  <div class="card">
+-    <h2>Chapter the First: The Folly of Mortal Digits</h2>
+-    <div class="monologue">
+-      <p>
+-        Good evening. Tonight on <em>"How Not To Be Annihilated By A Ten-Ton Chitinous Acid-Spitting Cockroach From Outer Space Whilst Fiddling Clumsily With A Mechanical Thumb-Stick"</em>, we examine the ancient and noble art of <strong>Strop</strong>, <strong>Gemma the Fourth</strong>, and the <strong>Sacred Ordinance of Antioch</strong>.
+-      </p>
+-      <p>
+-        Now then. Pray observe this curious contraption upon my desk. It is a Razer Tartarus Pro keypad. It possesses twenty optical switches, an eight-directional thumb-pad, and the distinct aura of an alien artifact dropped in a Doncaster car park.
+-      </p>
+-      <p>
+-        In the old days, when a gentleman wished to call down divine explosive retribution upon the enemies of Managed Democracy—specifically, the <em>Five-Hundred-Kilogramme Aerial Bomb</em>—he was required to perform what can only be described as a frantic, panic-stricken Morris dance upon his keyboard!
+-      </p>
+-      <p>
+-        <em>"First, thou shalt hold down the Control key!"</em> cried he. <em>"Then count to forty milliseconds! Not thirty-nine, nor forty-one, for forty-one is excessive, and thirty-nine hath not yet registered in the kernel! Then shalt thou strike Up! Then Right! Then Down, Down, and Down once more!"</em>
+-      </p>
+-      <p>
+-        And what happened, nine times out of ten? His thumb slipped off the rubber pad, he accidentally threw an impact grenade directly against a nearby shrubbery, and he was promptly consumed alive by a robotic lumberjack from Bolton!
+-      </p>
+-      <p>
+-        This, you will agree, is <strong>no way to run an interstellar empire</strong>.
+-      </p>
+-    </div>
+-  </div>
+-
+-  <!-- Monologue Part 2: The Two Characters -->
+-  <div class="card">
+-    <h2>Chapter the Second: Enter Strop and the Scholar Gemma</h2>
+-    <div class="monologue">
+-      <p>
+-        Enter <strong>Strop</strong>. Strop is a thoroughly sensible, no-nonsense Linux suite. But Strop is, at heart, a stiff-collared civil servant from the Ministry of Input Remapping. If you simply shout at Strop: <em>"Oi! Mate! Drop a ruddy bomb on that bile titan over there!"</em>, Strop will adjust its spectacles, sniff contemptuously, and reply:
+-      </p>
+-      <blockquote style="border-left: 3px solid var(--gold); padding-left: 14px; font-style: italic; color: #fef08a; margin: 12px 0;">
+-        "I am terribly sorry, sir, but statutory regulation 42 requires the macro to be submitted in triplicate using dotted input-remapper DSL syntax, or the department cannot authorize the explosion."
+-      </blockquote>
+-      <p>
+-        And this brings us to <strong>Gemma the Fourth</strong>.
+-      </p>
+-      <p>
+-        Gemma the Fourth is an astonishingly clever mathematical brain residing inside your local <code>ollama</code> apparatus. Gemma understands Chaucer, seventeenth-century naval tactics, and the precise airspeed velocity of an unladen European swallow. But, alas, Gemma has never set foot in an arcade in Blackpool and hath no innate comprehension of why you wish to slide-cancel across a digital warehouse!
+-      </p>
+-      <p>
+-        Therefore, to turn this towering polymath into your personal macro-smith, we must present Gemma with... <strong>The Sacred Edict. The Royal Charter. The System Prompt!</strong>
+-      </p>
+-    </div>
+-  </div>
+-
+-  <!-- The 3 Sacred Steps -->
+-  <div class="card">
+-    <h2>Chapter the Third: The Three Sacred Steps to Subjugate Ollama</h2>
+-    <p>Assuming your Ollama vessel is already steaming away with Gemma 4, follow these instructions to the letter:</p>
+-
+-    <ol class="sacred-steps">
+-      <li>
+-        <strong>Step the First: Thou Shalt Inscribe a <code>Modelfile</code>.</strong><br>
+-        Create a file named <code>Modelfile</code> upon your local filing system:
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('modelfile-snippet', this)">Copy Modelfile</button>
+-          <code id="modelfile-snippet">FROM gemma4
+-
+-# Low temperature ensures deterministic, syntactically valid macro DSL outputs
+-PARAMETER temperature 0.2
+-PARAMETER top_p 0.9
+-
+-SYSTEM """
+-[PASTE SYSTEM PROMPT FROM CHAPTER 4 HERE]
+-"""</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Step the Second: Thou Shalt Command the Daemon.</strong><br>
+-        Open your terminal and compile the model:
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('create-cmd', this)">Copy Command</button>
+-          <code id="create-cmd">ollama create strop-ai -f Modelfile</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Step the Third: Thou Shalt Speak Unto It in the Queen's English.</strong><br>
+-        Query the model for your target macro sequence:
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('run-cmd', this)">Copy Command</button>
+-          <code id="run-cmd">ollama run strop-ai "Create a Helldivers 2 500kg bomb macro for Keypad Key 04 with 40ms inter-key delays"</code>
+-        </div>
+-      </li>
+-    </ol>
+-  </div>
+-
+-  <!-- The Sacred System Prompt -->
+-  <div class="card">
+-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+-      <h2>Chapter the Fourth: The Sacred Edict (System Prompt)</h2>
+-      <button class="btn-copy" style="position: static;" onclick="copyText('prompt-text', this)">Copy System Prompt</button>
+-    </div>
+-    <p>Copy the entirety of this configuration and paste it directly into the <code>SYSTEM """ ... """</code> block of your <code>Modelfile</code>:</p>
+-
+-    <div class="prompt-box" id="prompt-text">You are Strop AI (Strop Engine v0.9+), the intelligent hardware remap, macro synthesizer, and Linux gaming assistant for the Strop Suite—a native GTK4 Linux peripheral suite for 230+ OpenRazer input devices (keypads, mice, keyboards, and Blade laptops) powered by input-remapper-2 and openrazer.
+-
+-Your primary mission is to translate natural language gaming and productivity intents into rock-solid, syntactically valid Strop/input-remapper macro expressions, preset configurations, and hardware key mappings.
+-
+----
+-
+-### 1. MACRO SYNTAX & GRAMMAR RULES (input-remapper-2 DSL)
+-
+-All generated macros MUST strictly conform to the input-remapper-2 macro engine. Macros are chained using dot-notation (`.`) or plus-notation (`+` for simple modifier combos).
+-
+-Supported primitives:
+-- `key(symbol)`: Instant keypress and release (e.g., `key(e)`, `key(space)`, `key(1)`).
+-- `key_down(symbol)`: Press and hold a key down (e.g., `key_down(Control_L)`).
+-- `key_up(symbol)`: Release a held key (e.g., `key_up(Control_L)`).
+-- `wait(milliseconds)`: Delay in milliseconds between actions (e.g., `wait(50)`, `wait(100)`). NEVER use decimal seconds; always integer milliseconds.
+-- `repeat(count, sequence)`: Loops an action sequence `count` times (e.g., `repeat(3, key(space).wait(50))`).
+-- `modify(modifier, sequence)`: Holds a modifier key (e.g. `Control_L`, `Shift_L`, `Alt_L`) while executing the inner sequence, automatically releasing the modifier afterwards. (e.g., `modify(Control_L, wait(20).key(space))`).
+-- `mouse(button)`: Mouse clicks (e.g., `mouse(left)`, `mouse(right)`, `mouse(middle)`, `mouse(BTN_SIDE)`).
+-- `wheel(delta)`: Scroll wheel tick (e.g., `wheel(1)`, `wheel(-1)`).
+-- `run("command")`: Spawns a shell command (e.g., `run("notify-send 'Profile Switched'")`).
+-- Modifier Hotkeys: Simple simultaneous chords can use `+` without dots: `Control_L + Shift_L + m`.
+-
+-Key Names & Symbols (evdev / X11 / XKB standard):
+-- Modifiers: `Control_L`, `Control_R`, `Shift_L`, `Shift_R`, `Alt_L`, `Alt_R`, `Super_L`
+-- Navigation: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `Page_Up`, `Page_Down`
+-- Common: `space`, `Return`, `BackSpace`, `Tab`, `Escape`, `Caps_Lock`, `Delete`
+-- Alphanumeric: Lowercase single letters (`a`–`z`), digits (`0`–`9`), function keys (`F1`–`F24`).
+-
+----
+-
+-### 2. HARDWARE CATALOG & ARCHETYPES
+-
+-Strop supports over 230 Razer input devices grouped into archetypes:
+-1. Keypads:
+-   - `Tartarus Pro` / `Tartarus V2`: 20 optical/mecha-membrane keys (Keys 01-20), Scroll Wheel (Up/Down/Click), 8-way D-Pad, Thumb Button (Alt), 21 (Spacebar).
+-   - `Orbweaver`: 20 mechanical keys, 8-way thumb stick, 2 thumb buttons.
+-   - `Nostromo`: 15 keys, D-pad, thumb button, scroll wheel.
+-2. Mice:
+-   - `Naga MMO` (Trinity / Pro / V2): 12-button thumb grid (`btn_1` through `btn_12`), tilt wheel, DPI toggles.
+-   - `Naga Hex` / `Hex V2`: 6 or 7 circular thumb buttons.
+-   - `Basilisk FPS`: DPI clutch / sniper paddle, tilt wheel.
+-   - `Viper` / `DeathAdder`: Standard 5 to 8 button configurations.
+-3. Keyboards:
+-   - Full ANSI (BlackWidow / Huntsman Pro / Ornata / Cynosa)
+-   - TKL (Tournament Edition)
+-   - 75% / 65% (BlackWidow V4 75%, BlackWidow V3 Mini)
+-   - 60% Mini (Huntsman Mini)
+-   - Razer Blade Laptops (Stealth, 14, 15, 16, 17, 18)
+-
+----
+-
+-### 3. OUTPUT FORMATS
+-
+-When the user asks for a macro or preset, format your response in one of these standard representations:
+-
+-#### A. Single Macro String (DSL)
+-Provide the raw one-line macro ready to paste into Strop:
+-```
+-key_down(Control_L).wait(25).key_down(space).wait(100).key_up(space).key_up(Control_L)
+-```
+-
+-#### B. Strop Custom Macro JSON (`~/.config/strop/macros.json`)
+-```json
+-{
+-  "id": "macro_<unique_id>",
+-  "category": "Gaming",
+-  "title": "<Descriptive Title>",
+-  "icon": "⚡",
+-  "macro": "<Normalized Macro String>",
+-  "label": "<Short 10-char HUD Label>",
+-  "desc": "<Detailed explanation of timing and actions>",
+-  "mapping_type": "macro"
+-}
+-```
+-
+----
+-
+-### 4. SPECIALIZED GAMING PRESETS (FEW-SHOT EXAMPLES)
+-
+-- **Helldivers 2 - Reinforce Stratagem** (Ctrl hold -> Up -> Down -> Right -> Left -> Up):
+-  `modify(Control_L, wait(40).key(Up).wait(40).key(Down).wait(40).key(Right).wait(40).key(Left).wait(40).key(Up))`
+-
+-- **Helldivers 2 - 500kg Bomb** (Ctrl hold -> Up -> Right -> Down -> Down -> Down):
+-  `modify(Control_L, wait(40).key(Up).wait(40).key(Right).wait(40).key(Down).wait(40).key(Down).wait(40).key(Down))`
+-
+-- **Warframe - Bullet Jump** (Crouch + Jump combo):
+-  `modify(Control_L, wait(20).key_down(space).wait(100).key_up(space))`
+-
+-- **CS2 / Source - Jump Throw** (Jump + Release Grenade):
+-  `key_down(space).wait(15).mouse(left).wait(20).key_up(space)`
+-
+-- **Rapid Fire / Auto Clicker** (5x Left Click with 40ms interval):
+-  `repeat(5, mouse(left).wait(40))`
+-
+-- **Discord Mute / Deafen Toggle**:
+-  `Control_L + Shift_L + m`
+-
+----
+-
+-### 5. CORE BEHAVIOR & GUIDELINES
+-
+-1. **Deterministic & Syntactically Safe**: Never invent fictional macro functions. Only use `key`, `key_down`, `key_up`, `wait`, `repeat`, `modify`, `mouse`, `wheel`, `run`.
+-2. **Realistic Delays**: Always include realistic inter-key delays (typically 25ms to 50ms) so games register distinct input events. Zero-delay sequences are often dropped by game engines.
+-3. **Ergonomic Advice**: When suggesting keypads or mouse mappings, explain optimal finger placement (e.g. resting thumb on Tartarus spacebar vs D-pad).</div>
+-  </div>
+-
+-  <!-- How to apply it -->
+-  <div class="card">
+-    <h2>Chapter the Fifth: Bestowing the Blessing upon Thy Hardware</h2>
+-    <div class="monologue">
+-      <p>
+-        When Gemma hands you the sacred incantation, e.g.:
+-      </p>
+-      <div class="code-box"><code>modify(Control_L, wait(40).key(Up).wait(40).key(Right).wait(40).key(Down).wait(40).key(Down).wait(40).key(Down))</code></div>
+-      <p>
+-        Thou shalt simply open thy <strong>Strop Studio</strong>, click upon thy keypad switch with righteous dignity, paste the code into <strong>Custom Macro</strong>, and press <strong>⚡ Apply Settings</strong>.
+-      </p>
+-      <p>
+-        Whereupon thy thumb shall press the switch, the heavens shall part, five hundred kilogrammes of high explosive shall descend upon the wicked, and thou shalt partake of a celebratory spam fritter.
+-      </p>
+-    </div>
+-  </div>
+-
+-  <div class="stage-direction">
+-    [SCENE END: The gentleman nods curtly, adjusts his bowler hat, and is abruptly crushed by a falling 16-ton weight. Organ music plays as the screen cuts to black.]
+-  </div>
+-</div>
+-
+-<script>
+-function copyText(id, btn) {
+-  const elem = document.getElementById(id);
+-  const text = elem.innerText || elem.textContent;
+-  navigator.clipboard.writeText(text).then(() => {
+-    const orig = btn.innerText;
+-    btn.innerText = "✓ Copied!";
+-    btn.style.background = "#22c55e";
+-    btn.style.color = "#052e16";
+-    setTimeout(() => {
+-      btn.innerText = orig;
+-      btn.style.background = "";
+-      btn.style.color = "";
+-    }, 2000);
+-  });
+-}
+-</script>
+-
+-</body>
+-</html>
+diff --git a/docs/strop_dev_assistant_gemma4_guide.html b/docs/strop_dev_assistant_gemma4_guide.html
+deleted file mode 100644
+index 28137ce0bfdc2ea145f608e9354a6d1851223e06..0000000000000000000000000000000000000000
+--- a/docs/strop_dev_assistant_gemma4_guide.html
++++ /dev/null
+@@ -1,323 +0,0 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-  <meta charset="UTF-8">
+-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-  <title>Strop Pair Programmer &bull; Gemma 4:12B Ollama Setup Guide</title>
+-  <style>
+-    :root {
+-      --bg-main: #0b0f19;
+-      --bg-card: #131b2e;
+-      --bg-code: #070a12;
+-      --border: #1e293b;
+-      --accent: #22c55e;
+-      --accent-glow: rgba(34, 197, 94, 0.2);
+-      --text-main: #f8fafc;
+-      --text-muted: #94a3b8;
+-      --text-dim: #64748b;
+-    }
+-    * { box-sizing: border-box; margin: 0; padding: 0; }
+-    body {
+-      background-color: var(--bg-main);
+-      color: var(--text-main);
+-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+-      line-height: 1.6;
+-      padding: 32px 16px;
+-    }
+-    .container {
+-      max-width: 880px;
+-      margin: 0 auto;
+-    }
+-    header {
+-      text-align: center;
+-      margin-bottom: 36px;
+-      padding-bottom: 24px;
+-      border-bottom: 1px solid var(--border);
+-    }
+-    .badge {
+-      display: inline-block;
+-      background: rgba(34, 197, 94, 0.15);
+-      color: var(--accent);
+-      border: 1px solid rgba(34, 197, 94, 0.4);
+-      padding: 4px 12px;
+-      border-radius: 9999px;
+-      font-size: 13px;
+-      font-weight: 600;
+-      margin-bottom: 12px;
+-      letter-spacing: 0.5px;
+-    }
+-    h1 {
+-      font-size: 30px;
+-      font-weight: 800;
+-      color: #ffffff;
+-      margin-bottom: 8px;
+-    }
+-    h1 span { color: var(--accent); }
+-    p.lead {
+-      font-size: 16px;
+-      color: var(--text-muted);
+-    }
+-    .card {
+-      background: var(--bg-card);
+-      border: 1px solid var(--border);
+-      border-radius: 12px;
+-      padding: 24px;
+-      margin-bottom: 26px;
+-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+-    }
+-    .card h2 {
+-      font-size: 20px;
+-      font-weight: 700;
+-      margin-bottom: 14px;
+-      display: flex;
+-      align-items: center;
+-      gap: 10px;
+-      color: #ffffff;
+-      border-bottom: 1px solid #1e293b;
+-      padding-bottom: 8px;
+-    }
+-    p { margin-bottom: 12px; color: var(--text-muted); }
+-    ol, ul {
+-      margin-left: 24px;
+-      color: var(--text-muted);
+-      margin-bottom: 16px;
+-    }
+-    li { margin-bottom: 10px; }
+-    .step-num {
+-      display: inline-flex;
+-      align-items: center;
+-      justify-content: center;
+-      width: 24px;
+-      height: 24px;
+-      background: var(--accent);
+-      color: #052e16;
+-      font-weight: 700;
+-      border-radius: 50%;
+-      font-size: 13px;
+-      margin-right: 6px;
+-    }
+-    .code-box {
+-      background: var(--bg-code);
+-      border: 1px solid var(--border);
+-      border-radius: 8px;
+-      padding: 16px;
+-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+-      font-size: 13.5px;
+-      color: #e2e8f0;
+-      overflow-x: auto;
+-      margin: 10px 0 16px 0;
+-      position: relative;
+-    }
+-    .code-box code { display: block; white-space: pre; }
+-    .btn-copy {
+-      position: absolute;
+-      top: 10px;
+-      right: 10px;
+-      background: #1e293b;
+-      color: #94a3b8;
+-      border: 1px solid #334155;
+-      padding: 5px 10px;
+-      border-radius: 6px;
+-      font-size: 12px;
+-      cursor: pointer;
+-      transition: all 0.2s;
+-    }
+-    .btn-copy:hover {
+-      background: var(--accent);
+-      color: #052e16;
+-      border-color: var(--accent);
+-    }
+-    .prompt-box {
+-      background: #060911;
+-      border: 1px solid #22c55e44;
+-      border-radius: 8px;
+-      padding: 18px;
+-      font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+-      font-size: 12.5px;
+-      line-height: 1.5;
+-      color: #cbd5e1;
+-      max-height: 480px;
+-      overflow-y: auto;
+-      white-space: pre-wrap;
+-      margin-top: 10px;
+-    }
+-    .rule-box {
+-      background: rgba(15, 23, 42, 0.6);
+-      border-left: 3px solid var(--accent);
+-      padding: 12px 16px;
+-      border-radius: 0 6px 6px 0;
+-      margin-bottom: 14px;
+-    }
+-    .rule-box strong { color: #ffffff; }
+-  </style>
+-</head>
+-<body>
+-
+-<div class="container">
+-  <header>
+-    <div class="badge">STROP SUITE &bull; DEVELOPMENT TOOLING</div>
+-    <h1>Strop Pair Programmer &bull; <span>Gemma 4:12B</span></h1>
+-    <p class="lead">Step-by-step setup for running a dedicated Strop development assistant in Ollama.</p>
+-  </header>
+-
+-  <!-- Overview -->
+-  <div class="card">
+-    <h2>🎯 Overview</h2>
+-    <p>
+-      This configuration packages the architecture, constraints, testing practices, and packaging rules of the <strong>Strop</strong> project into a custom local model in <strong>Ollama</strong> using <strong>gemma4:12b</strong>.
+-    </p>
+-    <div class="rule-box">
+-      <strong>Core Enforcement:</strong> The assistant is strictly instructed to prompt before compiling or building Debian packages, maintain zero external runtime dependencies, prevent GTK3/GTK4 test collisions, and keep code comments professional and technical.
+-    </div>
+-  </div>
+-
+-  <!-- Setup Steps -->
+-  <div class="card">
+-    <h2>🛠️ Setup Instructions (Ollama + Modelfile)</h2>
+-    <ol>
+-      <li>
+-        <strong>Ensure Base Model is Pulled:</strong>
+-        <p>Verify or download the <code>gemma4:12b</code> base weights:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('pull-cmd', this)">Copy Command</button>
+-          <code id="pull-cmd">ollama pull gemma4:12b</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Create the <code>Modelfile</code>:</strong>
+-        <p>In your project root or working directory, create a file named <code>Modelfile</code>:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('modelfile-content', this)">Copy Modelfile</button>
+-          <code id="modelfile-content">FROM gemma4:12b
+-
+-# Configure parameters for technical programming accuracy and deterministic outputs
+-PARAMETER temperature 0.2
+-PARAMETER top_p 0.9
+-
+-# Set 8k context window for managing multi-file diffs and catalog references
+-PARAMETER num_ctx 8192
+-
+-SYSTEM """
+-[PASTE SYSTEM PROMPT FROM SECTION 3 BELOW HERE]
+-"""</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Build the Custom Model:</strong>
+-        <p>Compile the specialized model in Ollama named <code>strop-dev</code>:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('build-cmd', this)">Copy Command</button>
+-          <code id="build-cmd">ollama create strop-dev -f Modelfile</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Run and Interact:</strong>
+-        <p>Start a pairing session in your terminal or integrate with your editor:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('run-cmd', this)">Copy Command</button>
+-          <code id="run-cmd">ollama run strop-dev "Review strop_core/theme.py for headless display initialization safety"</code>
+-        </div>
+-      </li>
+-    </ol>
+-  </div>
+-
+-  <!-- System Prompt -->
+-  <div class="card">
+-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+-      <h2>📜 Section 3: System Prompt to Paste into Modelfile</h2>
+-      <button class="btn-copy" style="position: static;" onclick="copyText('system-prompt-text', this)">Copy System Prompt</button>
+-    </div>
+-    <p>Copy the entire block below and paste it inside the <code>SYSTEM """ ... """</code> quotes in your <code>Modelfile</code>:</p>
+-
+-    <div class="prompt-box" id="system-prompt-text">You are an expert Linux Systems and GTK4 Software Engineer pair-programming with the user on "Strop" (strop-linux)—a native, high-performance Linux peripheral configuration suite and in-game HUD overlay system for all 230+ OpenRazer input devices (keypads, keyboards, mice, and Blade laptops).
+-
+-You are deeply familiar with the Linux input subsystem (evdev, uinput), PyGObject (GTK4), input-remapper-2, systemd services, and Debian packaging.
+-
+----
+-
+-### 1. ABSOLUTE CONSTRAINTS & USER RULES
+-
+-1. **PROMPT BEFORE COMPILING / PACKAGING**:
+-   - NEVER run compilation commands or execute `./build_deb.sh` autonomously.
+-   - Always prepare the changes, verify the code and test suite, and explicitly ask the user for permission before building packages.
+-
+-2. **CODE DISCIPLINE & ZERO DEPENDENCY BLOAT**:
+-   - Zero external PyPI runtime dependencies: use Python standard library and system PyGObject (`gi.repository.Gtk`, `Gdk`, `GLib`, `Gio`).
+-   - Keep Debian packages lean (~1.5 MB). Never check in or package unneeded mockup images, scratch binaries, or temporary test assets.
+-   - Write clean, PEP 8 compliant, type-annotated code with defensive error handling (e.g., graceful fallback when running headless without an active display).
+-
+-3. **TONE & SEPARATION OF HUMOR**:
+-   - In code, configuration files, terminal scripts, and inline comments: **STRICTLY TECHNICAL, CLEAR, AND PROFESSIONAL**. Zero jokes or silly placeholders in actual code blocks.
+-   - In conversational dialogue / explanations: Engaging, direct, adaptable, and capable of ELI5 analogies or dry wit when requested by the user, while always remaining technically exact.
+-
+----
+-
+-### 2. CODEBASE ARCHITECTURE & KEY COMPONENTS
+-
+-- **Root Entrypoints**:
+-  - `strop.py`: Main Hub application (`StropHubWindow`, OpenRazer catalog browser, active profile manager, daemon monitor, About dialog).
+-  - `strop_studio.py`: Universal hardware dispatcher loading target studios based on archetype.
+-  - `strop_hud.py`: Floating, transparent, frameless, pinned-always-on-top in-game HUD overlay (X11/Wayland).
+-  - Entrypoint studios: `strop_keypad.py`, `strop_keyboard.py`, `strop_mouse.py`.
+-
+-- **Core Framework (`strop_core/`)**:
+-  - `catalog.py`: Database of 230+ Razer models, USB PIDs, device classifications, and archetype resolvers.
+-  - `device.py`: Hardware discovery (`evdev`, sysfs), device name cleaning, and deterministic `origin_hash` calculation.
+-  - `presets.py`: Serialization and management of `input-remapper-2` JSON preset files (`~/.config/input-remapper-2/presets/`), systemd daemon status detection (`check_daemon_status`).
+-  - `macros.py`: Macro library, templates, and parser/normalizer for the `input-remapper-2` DSL (`key`, `key_down`, `key_up`, `wait`, `modify`, `repeat`, `mouse`, `wheel`).
+-  - `theme.py`: Global GTK4 CSS theme engine (dark slate & emerald palette) and native `show_about_dialog()` implementation.
+-  - `studio_base.py`: Universal `BaseStudioWindow` containing the responsive 3-column bottom dock (Key Inspector, Special Actions Palette, Presets/Remaps).
+-
+-- **Automated Test Suite (`tests/test_core.py`)**:
+-  - Comprehensive unit testing for catalog integrity, macro DSL normalization, preset validation, and headless display safety.
+-  - **CRITICAL**: Keep `input-remapper-2` (which imports GTK3) isolated in subprocess executions during test runs to prevent `ValueError: Namespace Gtk already requires version 3.0` conflicts with Strop's GTK4.
+-
+----
+-
+-### 3. PROJECT ROADMAP CONTEXT
+-
+-- **v0.9.0 (Current Public Preview)**:
+-  - Interim public release with rock-solid `input-remapper-2` integration, unified dock icons (`StartupWMClass=com.razer.strop`), GTK4 About dialog, daemon health monitoring, and automated test suite.
+-- **v1.0.0**:
+-  - Full production release with polished documentation and multi-device ergonomics.
+-- **v1.1.0**:
+-  - AI-powered Natural Language Macro & Stratagem Generator (local Ollama / Gemma 4 integration).
+-- **v2.0.0**:
+-  - Native `stropd` standalone daemon eliminating third-party daemon dependencies.
+-
+----
+-
+-### 4. WORKFLOW & VERIFICATION
+-
+-When making changes:
+-1. Make targeted, minimal edits preserving existing functionality.
+-2. Ensure headless display safety (`Gdk.Display.get_default() is None` guards).
+-3. Run the automated test suite (`python3 -m unittest discover -s tests -p "test_*.py"`).
+-4. Summarize changes concisely with clickable file links.
+-5. Prompt the user before building the `.deb` package.</div>
+-  </div>
+-</div>
+-
+-<script>
+-function copyText(id, btn) {
+-  const elem = document.getElementById(id);
+-  const text = elem.innerText || elem.textContent;
+-  navigator.clipboard.writeText(text).then(() => {
+-    const orig = btn.innerText;
+-    btn.innerText = "✓ Copied!";
+-    btn.style.background = "#22c55e";
+-    btn.style.color = "#052e16";
+-    setTimeout(() => {
+-      btn.innerText = orig;
+-      btn.style.background = "";
+-      btn.style.color = "";
+-    }, 2000);
+-  });
+-}
+-</script>
+-
+-</body>
+-</html>
+diff --git a/docs/strop_macro_assistant_gemma4_guide.html b/docs/strop_macro_assistant_gemma4_guide.html
+deleted file mode 100644
+index 56623e1be9d420812a02cf4753b1bc9832e44d02..0000000000000000000000000000000000000000
+--- a/docs/strop_macro_assistant_gemma4_guide.html
++++ /dev/null
+@@ -1,340 +0,0 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-  <meta charset="UTF-8">
+-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-  <title>Strop Macro Assistant &bull; Gemma 4:12B Ollama Setup Guide</title>
+-  <style>
+-    :root {
+-      --bg-main: #0b0f19;
+-      --bg-card: #131b2e;
+-      --bg-code: #070a12;
+-      --border: #1e293b;
+-      --accent: #22c55e;
+-      --accent-glow: rgba(34, 197, 94, 0.2);
+-      --text-main: #f8fafc;
+-      --text-muted: #94a3b8;
+-      --text-dim: #64748b;
+-    }
+-    * { box-sizing: border-box; margin: 0; padding: 0; }
+-    body {
+-      background-color: var(--bg-main);
+-      color: var(--text-main);
+-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+-      line-height: 1.6;
+-      padding: 32px 16px;
+-    }
+-    .container {
+-      max-width: 880px;
+-      margin: 0 auto;
+-    }
+-    header {
+-      text-align: center;
+-      margin-bottom: 36px;
+-      padding-bottom: 24px;
+-      border-bottom: 1px solid var(--border);
+-    }
+-    .badge {
+-      display: inline-block;
+-      background: rgba(34, 197, 94, 0.15);
+-      color: var(--accent);
+-      border: 1px solid rgba(34, 197, 94, 0.4);
+-      padding: 4px 12px;
+-      border-radius: 9999px;
+-      font-size: 13px;
+-      font-weight: 600;
+-      margin-bottom: 12px;
+-      letter-spacing: 0.5px;
+-    }
+-    h1 {
+-      font-size: 30px;
+-      font-weight: 800;
+-      color: #ffffff;
+-      margin-bottom: 8px;
+-    }
+-    h1 span { color: var(--accent); }
+-    p.lead {
+-      font-size: 16px;
+-      color: var(--text-muted);
+-    }
+-    .card {
+-      background: var(--bg-card);
+-      border: 1px solid var(--border);
+-      border-radius: 12px;
+-      padding: 24px;
+-      margin-bottom: 26px;
+-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+-    }
+-    .card h2 {
+-      font-size: 20px;
+-      font-weight: 700;
+-      margin-bottom: 14px;
+-      display: flex;
+-      align-items: center;
+-      gap: 10px;
+-      color: #ffffff;
+-      border-bottom: 1px solid #1e293b;
+-      padding-bottom: 8px;
+-    }
+-    p { margin-bottom: 12px; color: var(--text-muted); }
+-    ol, ul {
+-      margin-left: 24px;
+-      color: var(--text-muted);
+-      margin-bottom: 16px;
+-    }
+-    li { margin-bottom: 10px; }
+-    .code-box {
+-      background: var(--bg-code);
+-      border: 1px solid var(--border);
+-      border-radius: 8px;
+-      padding: 16px;
+-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+-      font-size: 13px;
+-      color: #e2e8f0;
+-      overflow-x: auto;
+-      margin: 10px 0 16px 0;
+-      position: relative;
+-    }
+-    .code-box.large {
+-      max-height: 540px;
+-      overflow-y: auto;
+-      line-height: 1.5;
+-    }
+-    .code-box code { display: block; white-space: pre; }
+-    .btn-copy {
+-      position: absolute;
+-      top: 10px;
+-      right: 10px;
+-      background: #1e293b;
+-      color: #94a3b8;
+-      border: 1px solid #334155;
+-      padding: 5px 12px;
+-      border-radius: 6px;
+-      font-size: 12px;
+-      cursor: pointer;
+-      transition: all 0.2s;
+-      z-index: 10;
+-    }
+-    .btn-copy:hover {
+-      background: var(--accent);
+-      color: #052e16;
+-      border-color: var(--accent);
+-    }
+-    .rule-box {
+-      background: rgba(15, 23, 42, 0.6);
+-      border-left: 3px solid var(--accent);
+-      padding: 12px 16px;
+-      border-radius: 0 6px 6px 0;
+-      margin-bottom: 14px;
+-    }
+-    .rule-box strong { color: #ffffff; }
+-  </style>
+-</head>
+-<body>
+-
+-<div class="container">
+-  <header>
+-    <div class="badge">STROP SUITE &bull; GAMING MACRO ENGINE</div>
+-    <h1>Strop Macro Assistant &bull; <span>Gemma 4:12B</span></h1>
+-    <p class="lead">Step-by-step setup for running the Strop Natural Language Macro Generator in Ollama.</p>
+-  </header>
+-
+-  <!-- Overview -->
+-  <div class="card">
+-    <h2>🎯 Overview</h2>
+-    <p>
+-      This configuration packages the <strong>Strop Macro Synthesizer</strong> into a dedicated local model in <strong>Ollama</strong> using <strong>gemma4:12b</strong>.
+-    </p>
+-    <div class="rule-box">
+-      <strong>Core Capability:</strong> Translates plain English gaming requests (Helldivers 2 stratagems, Warframe bullet jumps, fighting combos, FPS rapid-fire, Discord hotkeys) directly into syntactically valid <code>input-remapper-2</code> macro expressions and Strop JSON presets with safe inter-key timings.
+-    </div>
+-  </div>
+-
+-  <!-- Setup Steps -->
+-  <div class="card">
+-    <h2>🛠️ Setup Instructions (Ollama + Modelfile)</h2>
+-    <ol>
+-      <li>
+-        <strong>Ensure Base Model is Pulled:</strong>
+-        <p>Verify or download the <code>gemma4:12b</code> base weights:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('pull-cmd', this)">Copy Command</button>
+-          <code id="pull-cmd">ollama pull gemma4:12b</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Create the <code>Modelfile</code>:</strong>
+-        <p>In your working directory, create a file named <code>Modelfile</code> with the complete definition below:</p>
+-        <div class="code-box large">
+-          <button class="btn-copy" onclick="copyText('modelfile-content', this)">Copy Complete Modelfile</button>
+-          <code id="modelfile-content">FROM gemma4:12b
+-
+-# Low temperature ensures deterministic, syntactically valid macro DSL outputs
+-PARAMETER temperature 0.2
+-PARAMETER top_p 0.9
+-
+-# Allocate 8k context window for complex combo sequences and multi-key presets
+-PARAMETER num_ctx 8192
+-
+-SYSTEM """
+-You are Strop AI (Strop Engine v0.9+), the intelligent hardware remap, macro synthesizer, and Linux gaming assistant for the Strop Suite—a native GTK4 Linux peripheral suite for 230+ OpenRazer input devices (keypads, mice, keyboards, and Blade laptops) powered by input-remapper-2 and openrazer.
+-
+-Your primary mission is to translate natural language gaming and productivity intents into rock-solid, syntactically valid Strop/input-remapper macro expressions, preset configurations, and hardware key mappings.
+-
+----
+-
+-### 1. MACRO SYNTAX & GRAMMAR RULES (input-remapper-2 DSL)
+-
+-All generated macros MUST strictly conform to the input-remapper-2 macro engine. Macros are chained using dot-notation (`.`) or plus-notation (`+` for simple modifier combos).
+-
+-Supported primitives:
+-- `key(symbol)`: Instant keypress and release (e.g., `key(e)`, `key(space)`, `key(1)`).
+-- `key_down(symbol)`: Press and hold a key down (e.g., `key_down(Control_L)`).
+-- `key_up(symbol)`: Release a held key (e.g., `key_up(Control_L)`).
+-- `wait(milliseconds)`: Delay in milliseconds between actions (e.g., `wait(50)`, `wait(100)`). NEVER use decimal seconds; always integer milliseconds.
+-- `repeat(count, sequence)`: Loops an action sequence `count` times (e.g., `repeat(3, key(space).wait(50))`).
+-- `modify(modifier, sequence)`: Holds a modifier key (e.g. `Control_L`, `Shift_L`, `Alt_L`) while executing the inner sequence, automatically releasing the modifier afterwards. (e.g., `modify(Control_L, wait(20).key(space))`).
+-- `mouse(button)`: Mouse clicks (e.g., `mouse(left)`, `mouse(right)`, `mouse(middle)`, `mouse(BTN_SIDE)`).
+-- `wheel(delta)`: Scroll wheel tick (e.g., `wheel(1)`, `wheel(-1)`).
+-- `run("command")`: Spawns a shell command (e.g., `run("notify-send 'Profile Switched'")`).
+-- Modifier Hotkeys: Simple simultaneous chords can use `+` without dots: `Control_L + Shift_L + m`.
+-
+-Key Names & Symbols (evdev / X11 / XKB standard):
+-- Modifiers: `Control_L`, `Control_R`, `Shift_L`, `Shift_R`, `Alt_L`, `Alt_R`, `Super_L`
+-- Navigation: `Up`, `Down`, `Left`, `Right`, `Home`, `End`, `Page_Up`, `Page_Down`
+-- Common: `space`, `Return`, `BackSpace`, `Tab`, `Escape`, `Caps_Lock`, `Delete`
+-- Alphanumeric: Lowercase single letters (`a`–`z`), digits (`0`–`9`), function keys (`F1`–`F24`).
+-
+----
+-
+-### 2. HARDWARE CATALOG & ARCHETYPES
+-
+-Strop supports over 230 Razer input devices grouped into archetypes:
+-1. Keypads:
+-   - `Tartarus Pro` / `Tartarus V2`: 20 optical/mecha-membrane keys (Keys 01-20), Scroll Wheel (Up/Down/Click), 8-way D-Pad, Thumb Button (Alt), 21 (Spacebar).
+-   - `Orbweaver`: 20 mechanical keys, 8-way thumb stick, 2 thumb buttons.
+-   - `Nostromo`: 15 keys, D-pad, thumb button, scroll wheel.
+-2. Mice:
+-   - `Naga MMO` (Trinity / Pro / V2): 12-button thumb grid (`btn_1` through `btn_12`), tilt wheel, DPI toggles.
+-   - `Naga Hex` / `Hex V2`: 6 or 7 circular thumb buttons.
+-   - `Basilisk FPS`: DPI clutch / sniper paddle, tilt wheel.
+-   - `Viper` / `DeathAdder`: Standard 5 to 8 button configurations.
+-3. Keyboards:
+-   - Full ANSI (BlackWidow / Huntsman Pro / Ornata / Cynosa)
+-   - TKL (Tournament Edition)
+-   - 75% / 65% (BlackWidow V4 75%, BlackWidow V3 Mini)
+-   - 60% Mini (Huntsman Mini)
+-   - Razer Blade Laptops (Stealth, 14, 15, 16, 17, 18)
+-
+----
+-
+-### 3. OUTPUT FORMATS
+-
+-When the user asks for a macro or preset, format your response in one of these standard representations:
+-
+-#### A. Single Macro String (DSL)
+-Provide the raw one-line macro ready to paste into Strop:
+-```
+-key_down(Control_L).wait(25).key_down(space).wait(100).key_up(space).key_up(Control_L)
+-```
+-
+-#### B. Strop Custom Macro JSON (`~/.config/strop/macros.json`)
+-```json
+-{
+-  "id": "macro_<unique_id>",
+-  "category": "Gaming",
+-  "title": "<Descriptive Title>",
+-  "icon": "⚡",
+-  "macro": "<Normalized Macro String>",
+-  "label": "<Short 10-char HUD Label>",
+-  "desc": "<Detailed explanation of timing and actions>",
+-  "mapping_type": "macro"
+-}
+-```
+-
+----
+-
+-### 4. SPECIALIZED GAMING PRESETS
+-
+-- **Helldivers 2 - Reinforce Stratagem** (Ctrl hold -> Up -> Down -> Right -> Left -> Up):
+-  `modify(Control_L, wait(40).key(Up).wait(40).key(Down).wait(40).key(Right).wait(40).key(Left).wait(40).key(Up))`
+-
+-- **Helldivers 2 - 500kg Bomb** (Ctrl hold -> Up -> Right -> Down -> Down -> Down):
+-  `modify(Control_L, wait(40).key(Up).wait(40).key(Right).wait(40).key(Down).wait(40).key(Down).wait(40).key(Down))`
+-
+-- **Warframe - Bullet Jump** (Crouch + Jump combo):
+-  `modify(Control_L, wait(20).key_down(space).wait(100).key_up(space))`
+-
+-- **CS2 / Source - Jump Throw** (Jump + Release Grenade):
+-  `key_down(space).wait(15).mouse(left).wait(20).key_up(space)`
+-
+-- **Rapid Fire / Auto Clicker** (5x Left Click with 40ms interval):
+-  `repeat(5, mouse(left).wait(40))`
+-
+-- **Discord Mute / Deafen Toggle**:
+-  `Control_L + Shift_L + m`
+-
+----
+-
+-### 5. CORE BEHAVIOR & GUIDELINES
+-
+-1. **Deterministic & Syntactically Safe**: Never invent fictional macro functions. Only use `key`, `key_down`, `key_up`, `wait`, `repeat`, `modify`, `mouse`, `wheel`, `run`.
+-2. **Realistic Delays**: Always include realistic inter-key delays (typically 25ms to 50ms) so games register distinct input events. Zero-delay sequences are often dropped by game engines.
+-3. **Ergonomic Advice**: When suggesting keypads or mouse mappings, explain optimal finger placement (e.g. resting thumb on Tartarus spacebar vs D-pad).
+-"""</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Build the Custom Model:</strong>
+-        <p>Compile the specialized macro generator in Ollama named <code>strop-ai</code>:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('build-cmd', this)">Copy Command</button>
+-          <code id="build-cmd">ollama create strop-ai -f Modelfile</code>
+-        </div>
+-      </li>
+-
+-      <li>
+-        <strong>Query for Gaming Macros:</strong>
+-        <p>Request any macro or stratagem directly from the command line:</p>
+-        <div class="code-box">
+-          <button class="btn-copy" onclick="copyText('run-cmd', this)">Copy Command</button>
+-          <code id="run-cmd">ollama run strop-ai "Create a Helldivers 2 500kg bomb macro for Keypad Key 04 with 40ms inter-key delays"</code>
+-        </div>
+-      </li>
+-    </ol>
+-  </div>
+-
+-  <!-- Workflow in Strop -->
+-  <div class="card">
+-    <h2>🎮 How to Apply the Output in Strop</h2>
+-    <ol>
+-      <li>Copy the single-line macro string returned by <code>strop-ai</code> (e.g. <code>modify(Control_L, wait(40).key(Up)...)</code>).</li>
+-      <li>Open your target <strong>Strop Studio</strong> (Keypad, Keyboard, or Mouse).</li>
+-      <li>Click on the physical button you wish to bind (e.g. <strong>Key 04</strong>, <strong>Thumb Button</strong>, or <strong>Side Grid 1</strong>).</li>
+-      <li>In the bottom dock, select <strong>Special Actions &gt; Custom Macro</strong>, paste the macro string, and click <strong>⚡ Apply Settings</strong>.</li>
+-    </ol>
+-  </div>
+-</div>
+-
+-<script>
+-function copyText(id, btn) {
+-  const elem = document.getElementById(id);
+-  const text = elem.innerText || elem.textContent;
+-  navigator.clipboard.writeText(text).then(() => {
+-    const orig = btn.innerText;
+-    btn.innerText = "✓ Copied!";
+-    btn.style.background = "#22c55e";
+-    btn.style.color = "#052e16";
+-    setTimeout(() => {
+-      btn.innerText = orig;
+-      btn.style.background = "";
+-      btn.style.color = "";
+-    }, 2000);
+-  });
+-}
+-</script>
+-
+-</body>
+-</html>
 diff --git a/strop.desktop b/strop.desktop
-index 50bf6de..974eabe 100644
+index 50bf6def1daf7dd0a64d99135503af0bdfba7ae6..974eabe6945780f8917e13fae4f49a6311609f37 100644
 --- a/strop.desktop
 +++ b/strop.desktop
 @@ -1,11 +1,10 @@
@@ -571,7 +1781,7 @@ index 50bf6de..974eabe 100644
 -
 +StartupWMClass=com.razer.strop
 diff --git a/strop.py b/strop.py
-index 017409a..7acbf41 100755
+index 017409a57a104b1591613c4eaba8247f297bd0fb..7acbf415d8b39479088a45983dc49719c821e175 100755
 --- a/strop.py
 +++ b/strop.py
 @@ -1,9 +1,8 @@
@@ -832,7 +2042,7 @@ index 017409a..7acbf41 100755
          dev_strings = [d.get("clean_name", d["name"]) for d in self.connected_devices] or ["(No Razer devices connected)"]
          self.hub_dev_dropdown.set_model(Gtk.StringList.new(dev_strings))
 diff --git a/strop_core/__init__.py b/strop_core/__init__.py
-index a756424..e0f02ce 100644
+index a7564247922197365f18339f1e2f8aa62143ff34..e0f02ce8f9b7a7808fbb1dd3fac775265130d678 100644
 --- a/strop_core/__init__.py
 +++ b/strop_core/__init__.py
 @@ -8,8 +8,7 @@ if "GSK_RENDERER" not in os.environ:
@@ -846,7 +2056,7 @@ index a756424..e0f02ce 100644
  
  
 diff --git a/strop_core/catalog.py b/strop_core/catalog.py
-index 9b69821..a4f806a 100644
+index 9b69821bed2bdb121b4a7e72e47ab9d4383a3923..a4f806a49b7e21c26bf1c03b83bc753abeab8403 100644
 --- a/strop_core/catalog.py
 +++ b/strop_core/catalog.py
 @@ -1,7 +1,6 @@
@@ -918,7 +2128,7 @@ index 9b69821..a4f806a 100644
  
  
 diff --git a/strop_core/device.py b/strop_core/device.py
-index 30b81b2..c8f0a8f 100644
+index 30b81b263451df388d24c1f7ec038b6914c8f195..c8f0a8f0452496fefbcf950d82a5fca5490f265b 100644
 --- a/strop_core/device.py
 +++ b/strop_core/device.py
 @@ -1,6 +1,7 @@
@@ -1163,7 +2373,7 @@ index 30b81b2..c8f0a8f 100644
 -
 -
 diff --git a/strop_core/gamepad.py b/strop_core/gamepad.py
-index 427cfe2..32b68aa 100644
+index 427cfe2cde7e5ba5da11808ef3150ad5226b8edc..32b68aa10f72d3f800c352f43f1c4114d6324c80 100644
 --- a/strop_core/gamepad.py
 +++ b/strop_core/gamepad.py
 @@ -5,6 +5,17 @@ and input-remapper-2 gamepad target serializers.
@@ -1316,7 +2526,7 @@ index 427cfe2..32b68aa 100644
 -
      return "PAD"
 diff --git a/strop_core/macros.py b/strop_core/macros.py
-index 863069b..966f3aa 100644
+index 863069bc22f0dc61c6db975ec065f13218a0c5ca..966f3aa51d6d907bb6fbfe07de97a30f829af136 100644
 --- a/strop_core/macros.py
 +++ b/strop_core/macros.py
 @@ -6,6 +6,9 @@ JSON storage management, and serializers compatible with input-remapper-2.
@@ -1664,7 +2874,7 @@ index 863069b..966f3aa 100644
 -
 -
 diff --git a/strop_core/presets.py b/strop_core/presets.py
-index 4ba7e63..f713ba4 100644
+index 4ba7e6383ef3c6cf2bb4fcc40c2b46663015628c..f713ba4f59e7c100cbcd8762aaea63fa51894f7b 100644
 --- a/strop_core/presets.py
 +++ b/strop_core/presets.py
 @@ -7,14 +7,59 @@ import os
@@ -2353,7 +3563,7 @@ index 4ba7e63..f713ba4 100644
          return "unknown", f"Daemon status check error: {e}"
 -
 diff --git a/strop_core/studio_base.py b/strop_core/studio_base.py
-index 49d9ef3..97aef0a 100644
+index 49d9ef3aa9858f533be37c0b722a33b65997a7bd..97aef0abd3bf9c3b2f15deba51388e67c63a2813 100644
 --- a/strop_core/studio_base.py
 +++ b/strop_core/studio_base.py
 @@ -11,7 +11,6 @@ Provides:
@@ -2706,7 +3916,7 @@ index 49d9ef3..97aef0a 100644
                  alert.show(self)
              except Exception as e:
 diff --git a/strop_core/theme.py b/strop_core/theme.py
-index e5169b7..c24737c 100644
+index e5169b70f41842586682afe42ffcb3455c07004a..c24737c5b31dfab2ebf5318ce21ce1c4f654be42 100644
 --- a/strop_core/theme.py
 +++ b/strop_core/theme.py
 @@ -460,12 +460,16 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
@@ -2736,7 +3946,7 @@ index e5169b7..c24737c 100644
 -
 -
 diff --git a/strop_core/x11.py b/strop_core/x11.py
-index 4773ea6..3634392 100644
+index 4773ea64aaeca6eaf2e554bba0c32bd9b608d79f..3634392dfb72bc628f1b24094c68861dd877d628 100644
 --- a/strop_core/x11.py
 +++ b/strop_core/x11.py
 @@ -138,10 +138,12 @@ def pin_window_on_top(target_title: str = "Strop HUD Overlay", x: int = 12, y: i
@@ -2768,7 +3978,7 @@ index 4773ea6..3634392 100644
                          matched = True
                          break
 diff --git a/strop_hud.py b/strop_hud.py
-index e8b6798..0ef433c 100755
+index e8b6798f3d8a7ee18bd23342f00d9f0af26d3c86..0ef433ce015cb8ffececcd5f0678ec46b6c864f4 100755
 --- a/strop_hud.py
 +++ b/strop_hud.py
 @@ -29,10 +29,11 @@ if str(script_dir) not in sys.path:
@@ -3010,7 +4220,7 @@ index e8b6798..0ef433c 100755
  
  if __name__ == "__main__":
 diff --git a/strop_keyboard.py b/strop_keyboard.py
-index 2e9d08d..a723eb0 100755
+index 2e9d08ddfcd5dc8a085392485399070b322f6401..a723eb0fbffd9e5dea4530a694e0e835f2e62c28 100755
 --- a/strop_keyboard.py
 +++ b/strop_keyboard.py
 @@ -17,7 +17,6 @@ if str(script_dir) not in sys.path:
@@ -3077,7 +4287,7 @@ index 2e9d08d..a723eb0 100755
      sys.exit(main())
 -
 diff --git a/strop_keypad.py b/strop_keypad.py
-index 1d633ba..6febce4 100755
+index 1d633ba3e6f351209c854de609a83c7a76c580c8..6febce47d8b63979505c4e91e8d77cd523827292 100755
 --- a/strop_keypad.py
 +++ b/strop_keypad.py
 @@ -18,9 +18,7 @@ from strop_core.device import detect_device
@@ -3171,7 +4381,7 @@ index 1d633ba..6febce4 100755
      sys.exit(main())
 -
 diff --git a/strop_macro.py b/strop_macro.py
-index d81ffcc..bad6a84 100755
+index d81ffcc7ac019fc91cff78bc26acf9106f78701b..bad6a84ce63d7e464f2dc2c5b6898bf8516742d6 100755
 --- a/strop_macro.py
 +++ b/strop_macro.py
 @@ -156,7 +156,11 @@ class MacroWizardDialog(Gtk.Window):
@@ -3232,7 +4442,7 @@ index d81ffcc..bad6a84 100755
                      self._load_macros_and_select_first()
                      self.toast.show_message("Deleted macro from library", icon="🗑")
 diff --git a/strop_mouse.py b/strop_mouse.py
-index 0cd8683..10f9028 100755
+index 0cd86831ed5e6013332c8eb4cdd0aec339522737..10f9028f2f96abdeac280fd357c96a442e0c354a 100755
 --- a/strop_mouse.py
 +++ b/strop_mouse.py
 @@ -1,7 +1,7 @@
@@ -3250,7 +4460,7 @@ index 0cd8683..10f9028 100755
      sys.exit(main())
 -
 diff --git a/strop_studio.py b/strop_studio.py
-index d64d98f..be76270 100755
+index d64d98fa6f676676fd2159d6a67c360d50b6b7d0..be76270d7ce1be1b6a008fe4bb0f09164d16740e 100755
 --- a/strop_studio.py
 +++ b/strop_studio.py
 @@ -1,7 +1,7 @@
@@ -3278,7 +4488,7 @@ index d64d98f..be76270 100755
          for d in catalog:
              cat = d["category"].upper()
 diff --git a/tests/test_core.py b/tests/test_core.py
-index 9a6ded1..c933307 100644
+index 9a6ded19220d530080e873c01f824cc525114733..c933307512cc4ad19c69b49617fa4bbe4409dccb 100644
 --- a/tests/test_core.py
 +++ b/tests/test_core.py
 @@ -9,7 +9,10 @@ Unit tests for Strop Core:
