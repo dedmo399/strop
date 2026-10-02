@@ -11,7 +11,6 @@ Provides:
 
 import sys
 import os
-import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -23,7 +22,7 @@ from gi.repository import Gtk, Gdk, GLib, Gio
 from strop_core.device import clean_device_display_name
 from strop_core.presets import (
     get_device_presets_dir, get_active_profile, apply_profile,
-    save_device_preset, load_preset_file,
+    save_device_preset, load_preset_file, validate_preset_data,
     run_profile_operation_async, check_profile_state_async
 )
 from strop_core.theme import apply_theme, show_about_dialog
@@ -995,12 +994,22 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
     # Preset Matching, Loading, Direct Saving, and Applying
     # ------------------------------------------------------------------
-    def _match_preset_key(self, code: Optional[int], name: str) -> Optional[str]:
+    def _match_preset_key(self, code: Optional[int], name: str, origin_hash: Optional[str] = None) -> Optional[str]:
         """Robustly matches an input-remapper JSON mapping to a state key."""
         if code is not None:
-            for kid, s in self.state.items():
-                if s.get("code") == code:
-                    return kid
+            candidates = [
+                kid for kid, state in self.state.items()
+                if state.get("code") == code
+            ]
+            if origin_hash:
+                hash_matches = [
+                    kid for kid in candidates
+                    if (self.state[kid].get("origin_hash") or self.detected_device.get("key_to_hash", {}).get(code) or "").casefold() == origin_hash.casefold()
+                ]
+                if len(hash_matches) == 1:
+                    return hash_matches[0]
+            if len(candidates) == 1:
+                return candidates[0]
 
         if name:
             clean_name = str(name).strip().lower().replace("_", " ").replace("-", " ")
@@ -1013,37 +1022,53 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         return None
 
     def _load_preset_file_data(self, load_path: str) -> Tuple[int, int]:
-        with open(load_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        if not isinstance(data, list):
-            raise ValueError("File is not a valid input-remapper JSON list.")
+        data = load_preset_file(Path(load_path))
+        if data is None:
+            raise ValueError("File is not a valid input-remapper preset.")
 
         for s in self.state.values():
             s["output"] = ""
             s["target"] = "keyboard"
+            s["custom_name"] = ""
+            s.pop("combo", None)
 
         matched_count = 0
+        unrepresented_entries = []
         for item in data:
-            if not isinstance(item, dict):
+            # Strop currently edits key outputs. Keep valid backend mappings
+            # outside that model untouched in the file and report them as
+            # unmapped instead of silently pretending they round-tripped.
+            combination = item["input_combination"]
+            if any(input_item.get("type") != 1 or input_item.get("analog_threshold") is not None for input_item in combination):
+                unrepresented_entries.append(item)
                 continue
-            input_comb = item.get("input_combination", [])
-            if not input_comb or not isinstance(input_comb, list):
+            output_sym = item.get("output_symbol")
+            if not isinstance(output_sym, str) or not output_sym.strip():
+                unrepresented_entries.append(item)
                 continue
-            first_input = input_comb[0]
-            code = first_input.get("code")
-            output_sym = item.get("output_symbol", "")
-            target = item.get("target_uinput", "keyboard")
+            first_input = combination[0]
+            code = first_input["code"]
+            target = item["target_uinput"]
             name = item.get("name", "")
-            custom_name = item.get("custom_name", "")
+            custom_name = item.get("custom_name") or ""
 
-            matched_key = self._match_preset_key(code, name)
+            matched_key = self._match_preset_key(code, name, first_input.get("origin_hash"))
             if matched_key:
+                # One Strop key state represents one input combination. Do
+                # not silently overwrite another mapping with the same key.
+                if self.state[matched_key].get("output"):
+                    unrepresented_entries.append(item)
+                    continue
                 self.state[matched_key]["output"] = output_sym
                 self.state[matched_key]["target"] = target
                 self.state[matched_key]["custom_name"] = custom_name
+                if len(combination) > 1:
+                    self.state[matched_key]["combo"] = [entry["code"] for entry in combination]
                 matched_count += 1
+            else:
+                unrepresented_entries.append(item)
 
+        self.unrepresented_preset_entries = unrepresented_entries
 
         preset_name = Path(load_path).stem
         self.entry_preset_name.set_text(preset_name)
@@ -1087,7 +1112,10 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
     def _save_preset_direct(self, preset_name: str) -> Optional[Path]:
         dev_name = self.detected_device.get("name", self.default_device_name)
-        return save_device_preset(dev_name, preset_name, self.state, self.detected_device)
+        return save_device_preset(
+            dev_name, preset_name, self.state, self.detected_device,
+            preserved_entries=getattr(self, "unrepresented_preset_entries", None),
+        )
 
     def _apply_current_preset(self, widget):
         if self.profile_operation_pending:
@@ -1186,9 +1214,10 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
                     return
                 load_path = gfile.get_path()
                 matched, total = self._load_preset_file_data(load_path)
+                message = "Preset Loaded" if matched == total else "Preset Partially Loaded"
                 alert = Gtk.AlertDialog(
-                    message="Preset Loaded Successfully!",
-                    detail=f"Loaded: {Path(load_path).name}\n{matched}/{total} input(s) mapped."
+                    message=message,
+                    detail=f"Loaded: {Path(load_path).name}\n{matched}/{total} mapping(s) editable in Strop. Other valid mappings are preserved when saved."
                 )
                 alert.show(self)
             except Exception as e:

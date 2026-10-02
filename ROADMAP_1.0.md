@@ -12,11 +12,11 @@ This roadmap defines the work needed to make Strop 1.0 reliable to install, use,
 ## Priority 1: Stabilize profile lifecycle
 
 - [ ] Confirm save, apply, stop, and active-profile status match the input-remapper backend result.
-- [ ] Validate preset data before saving or applying it.
-- [ ] Write profile and state files atomically to avoid corruption from interrupted writes.
-- [ ] Preserve the last confirmed state when apply or stop fails; show uncertain state after timeouts.
-- [ ] Handle missing input-remapper, daemon failures, permission problems, device disconnects, and stale state with actionable messages.
-- [ ] Verify imported presets round-trip through Strop without losing mappings, labels, or target information.
+- [x] Validate preset data before saving or applying it.
+- [x] Write profile and state files atomically to avoid corruption from interrupted writes.
+- [x] Preserve the last confirmed state when apply or stop fails; show uncertain state after timeouts.
+- [x] Handle missing input-remapper, daemon failures, permission problems, device disconnects, and stale state with actionable messages.
+- [x] Verify imported presets round-trip through Strop without losing mappings, labels, or target information for mappings Strop can edit; preserve other valid mappings on save.
 
 ## Priority 2: Define supported hardware and platforms
 

@@ -331,6 +331,111 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
             path.write_text(json.dumps([{"output_symbol": "a"}]), encoding="utf-8")
             self.assertIsNone(load_preset_file(path))
 
+    def test_validate_preset_data_checks_nested_inputs_and_backend_fields(self):
+        from strop_core.presets import validate_preset_data
+        valid = [{
+            "input_combination": [{"type": 1, "code": 30, "origin_hash": "abc"}],
+            "target_uinput": "keyboard", "output_symbol": "a", "name": "A",
+            "mapping_type": "key_macro", "custom_name": "Alpha",
+        }]
+        self.assertIsNone(validate_preset_data(valid))
+        invalid = json.loads(json.dumps(valid))
+        invalid[0]["input_combination"] = [{"type": True, "code": 30}]
+        self.assertIn("integer type", validate_preset_data(invalid))
+        invalid = json.loads(json.dumps(valid))
+        invalid[0]["target_uinput"] = "analog"
+        self.assertIn("unsupported target_uinput", validate_preset_data(invalid))
+
+    def test_save_rejects_invalid_serialized_data_without_overwriting(self):
+        from strop_core.presets import save_device_preset
+        with tempfile.TemporaryDirectory() as temp_dir:
+            preset_dir = Path(temp_dir)
+            existing = preset_dir / "gaming.json"
+            existing.write_text('[{"existing": true}]', encoding="utf-8")
+            state = {"key": {"code": 30, "output": "a", "name": "A", "target": "unsupported"}}
+            with patch("strop_core.presets.get_device_presets_dir", return_value=preset_dir):
+                self.assertIsNone(save_device_preset("Razer Test", "gaming", state, {}))
+            self.assertEqual(existing.read_text(encoding="utf-8"), '[{"existing": true}]')
+
+    def test_save_preserves_valid_entries_strop_cannot_edit(self):
+        from strop_core.presets import save_device_preset
+        preserved = [{
+            "input_combination": [{"type": 3, "code": 0, "analog_threshold": 50}],
+            "target_uinput": "gamepad", "output_symbol": "a", "name": "Axis",
+            "mapping_type": "key_macro", "backend_extension": {"keep": True},
+        }]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("strop_core.presets.get_device_presets_dir", return_value=Path(temp_dir)):
+                saved = save_device_preset("Razer Test", "gaming", {}, {}, preserved_entries=preserved)
+            self.assertIsNotNone(saved)
+            self.assertEqual(json.loads(saved.read_text(encoding="utf-8")), preserved)
+
+    def test_profile_import_round_trips_combo_label_and_target(self):
+        from types import SimpleNamespace
+        from strop_core.studio_base import BaseStudioWindow
+        from strop_core.presets import serialize_preset_data
+
+        original = [{
+            "input_combination": [
+                {"type": 1, "code": 30, "origin_hash": "device-a"},
+                {"type": 1, "code": 31, "origin_hash": "device-b"},
+            ],
+            "target_uinput": "mouse", "output_symbol": "b", "name": "A",
+            "custom_name": "quick action", "mapping_type": "key_macro",
+        }]
+
+        class Entry:
+            def set_text(self, _text):
+                pass
+
+        state = {"key_a": {
+            "code": 30, "origin_hash": "device-a", "name": "A", "label": "A",
+            "output": "", "target": "keyboard",
+        }}
+        fake_studio = SimpleNamespace(
+            state=state, detected_device={"key_to_hash": {30: "device-a", 31: "device-b"}},
+            selected_key_id=None, entry_preset_name=Entry(),
+            _update_all_visuals=lambda: None,
+        )
+        fake_studio._match_preset_key = lambda code, name, origin_hash=None: BaseStudioWindow._match_preset_key(
+            fake_studio, code, name, origin_hash
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "roundtrip.json"
+            path.write_text(json.dumps(original), encoding="utf-8")
+            matched, total = BaseStudioWindow._load_preset_file_data(fake_studio, str(path))
+
+        self.assertEqual((matched, total), (1, 1))
+        exported = serialize_preset_data(state, {"key_to_hash": {30: "device-a", 31: "device-b"}})
+        self.assertEqual(exported, original)
+
+    def test_profile_import_leaves_unrepresented_mapping_counted_as_unmapped(self):
+        from types import SimpleNamespace
+        from strop_core.studio_base import BaseStudioWindow
+
+        data = [{
+            "input_combination": [{"type": 3, "code": 0, "origin_hash": "device-a", "analog_threshold": 50}],
+            "target_uinput": "gamepad", "output_symbol": "a", "name": "Axis",
+            "mapping_type": "key_macro",
+        }]
+        state = {"axis": {"code": 0, "name": "Axis", "output": "old", "target": "keyboard"}}
+        fake_studio = SimpleNamespace(
+            state=state, detected_device={"key_to_hash": {}}, selected_key_id=None,
+            entry_preset_name=SimpleNamespace(set_text=lambda _text: None),
+            _update_all_visuals=lambda: None,
+        )
+        fake_studio._match_preset_key = lambda code, name, origin_hash=None: BaseStudioWindow._match_preset_key(
+            fake_studio, code, name, origin_hash
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "unsupported.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            matched, total = BaseStudioWindow._load_preset_file_data(fake_studio, str(path))
+        self.assertEqual((matched, total), (0, 1))
+        self.assertEqual(state["axis"]["output"], "")
+        self.assertEqual(fake_studio.unrepresented_preset_entries, data)
+
     def test_daemon_check_uses_supported_hello_command(self):
         from strop_core.presets import check_daemon_status
         with patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
@@ -456,6 +561,40 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
                 result = stop_profile(dev)
                 self.assertEqual(result.status, "stopped")
                 self.assertIsNone(get_active_profile(dev))
+
+    def test_stop_profile_clears_record_when_backend_has_no_injector(self):
+        from strop_core.presets import stop_profile, get_active_profile
+        dev = "Razer Test Device"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profiles_file = Path(temp_dir) / "active_profiles.json"
+            profiles_file.write_text(json.dumps({dev: "gaming"}), encoding="utf-8")
+            with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                 patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                 patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                 patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
+                 patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")), \
+                 patch("strop_core.presets._wait_for_injector_state", return_value="UNKNOWN"):
+                result = stop_profile(dev)
+                self.assertEqual(result.status, "stopped")
+                self.assertIsNone(get_active_profile(dev))
+
+    def test_stop_profile_backend_errors_preserve_last_confirmed_profile(self):
+        from strop_core.presets import stop_profile, get_active_profile
+        dev = "Razer Test Device"
+        for backend_state in ("FAILED", "NO_GRAB", "UPGRADE_EVDEV"):
+            with self.subTest(state=backend_state), tempfile.TemporaryDirectory() as temp_dir:
+                profiles_file = Path(temp_dir) / "active_profiles.json"
+                profiles_file.write_text(json.dumps({dev: "gaming"}), encoding="utf-8")
+                with patch("strop_core.presets.get_active_profiles_file", return_value=profiles_file), \
+                     patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+                     patch("strop_core.presets._list_input_remapper_devices", return_value=[dev]), \
+                     patch("strop_core.presets._resolve_input_remapper_device", return_value=dev), \
+                     patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")), \
+                     patch("strop_core.presets._wait_for_injector_state", return_value=backend_state):
+                    result = stop_profile(dev)
+                    self.assertEqual(result.status, "failed")
+                    self.assertIn(backend_state, result.message)
+                    self.assertEqual(get_active_profile(dev), "gaming")
 
 
 class TestStropThemeAndAbout(unittest.TestCase):

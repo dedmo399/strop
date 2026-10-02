@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import time
 import threading
+import copy
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
@@ -102,12 +103,9 @@ def get_active_profile(device_name: str) -> Optional[str]:
     if device_name in profiles:
         return profiles[device_name]
     # Fuzzy match
-    clean_target = device_name.lower().replace("razer", "").replace("_", " ").strip()
-    matches = []
-    for dname, pname in profiles.items():
-        clean_d = dname.lower().replace("razer", "").replace("_", " ").strip()
-        if clean_target and (clean_target in clean_d or clean_d in clean_target):
-            matches.append(pname)
+    normalize = lambda value: " ".join(value.casefold().replace("razer", "").replace("_", " ").split())
+    clean_target = normalize(device_name)
+    matches = [pname for dname, pname in profiles.items() if normalize(dname) == clean_target]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -253,7 +251,11 @@ def serialize_preset_data(
                 {
                     "type": 1,
                     "code": c_code,
-                    "origin_hash": s.get("origin_hash") or key_to_hash.get(c_code, dev_hash)
+                    "origin_hash": (
+                        key_to_hash.get(c_code)
+                        or (s.get("origin_hash") if c_code == s.get("code") else None)
+                        or dev_hash
+                    ),
                 }
                 for c_code in s["combo"]
             ]
@@ -276,11 +278,71 @@ def serialize_preset_data(
     return preset_data
 
 
+def validate_preset_data(data: Any) -> Optional[str]:
+    """Return a useful error for malformed or backend-incompatible preset JSON."""
+    if not isinstance(data, list):
+        return "Preset must be a JSON list."
+
+    # These are input-remapper's KnownUinput and MappingType values. Keep the
+    # check independent of its GUI imports so headless validation cannot load
+    # GTK 3 into Strop's GTK 4 process.
+    valid_targets = {"keyboard", "mouse", "gamepad", "keyboard + mouse"}
+    valid_mapping_types = {"key_macro", "analog"}
+
+    for index, entry in enumerate(data):
+        prefix = f"Mapping {index + 1}"
+        if not isinstance(entry, dict):
+            return f"{prefix} must be an object."
+        combination = entry.get("input_combination")
+        if not isinstance(combination, list) or not combination:
+            return f"{prefix} must have a non-empty input_combination list."
+        for input_index, input_item in enumerate(combination):
+            input_prefix = f"{prefix}, input {input_index + 1}"
+            if not isinstance(input_item, dict):
+                return f"{input_prefix} must be an object."
+            for field in ("type", "code"):
+                value = input_item.get(field)
+                if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                    return f"{input_prefix} must have a non-negative integer {field}."
+            origin_hash = input_item.get("origin_hash")
+            if origin_hash is not None and not isinstance(origin_hash, str):
+                return f"{input_prefix} origin_hash must be text or null."
+            threshold = input_item.get("analog_threshold")
+            if threshold is not None and (not isinstance(threshold, int) or isinstance(threshold, bool)):
+                return f"{input_prefix} analog_threshold must be an integer or null."
+
+        target = entry.get("target_uinput")
+        if not isinstance(target, str) or target not in valid_targets:
+            return f"{prefix} has an unsupported target_uinput."
+        output = entry.get("output_symbol")
+        output_type = entry.get("output_type")
+        output_code = entry.get("output_code")
+        if output is not None and not isinstance(output, str):
+            return f"{prefix} output_symbol must be text or null."
+        if output_type is not None and (not isinstance(output_type, int) or isinstance(output_type, bool)):
+            return f"{prefix} output_type must be an integer."
+        if output_code is not None and (not isinstance(output_code, int) or isinstance(output_code, bool)):
+            return f"{prefix} output_code must be an integer."
+        if not (isinstance(output, str) and output.strip()) and (output_type is None or output_code is None):
+            return f"{prefix} must define an output_symbol or both output_type and output_code."
+        mapping_type = entry.get("mapping_type")
+        if mapping_type is not None and (
+            not isinstance(mapping_type, str) or mapping_type not in valid_mapping_types
+        ):
+            return f"{prefix} has an unsupported mapping_type."
+        for field in ("name", "custom_name"):
+            value = entry.get(field)
+            if value is not None and not isinstance(value, str):
+                return f"{prefix} {field} must be text or null."
+    return None
+
+
 def save_device_preset(
     device_name: str,
     preset_name: str,
     state: Dict[str, Dict[str, Any]],
     device_info: Dict[str, Any],
+    preserved_entries: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Path]:
     """Serializes and saves a preset file directly to disk. Returns saved file Path."""
     clean_pname = sanitize_filename(preset_name)
@@ -288,7 +350,17 @@ def save_device_preset(
         logger.error("Preset name cannot be empty or invalid.")
         return None
 
-    preset_data = serialize_preset_data(state, device_info)
+    try:
+        preset_data = serialize_preset_data(state, device_info)
+        if preserved_entries:
+            preset_data.extend(copy.deepcopy(preserved_entries))
+    except Exception as e:
+        logger.error(f"Could not serialize preset '{clean_pname}': {e}")
+        return None
+    validation_error = validate_preset_data(preset_data)
+    if validation_error:
+        logger.error(f"Could not save preset '{clean_pname}': {validation_error}")
+        return None
     target_dir = get_device_presets_dir(device_name)
     save_file = target_dir / f"{clean_pname}.json"
     try:
@@ -308,14 +380,10 @@ def load_preset_file(path: Path) -> Optional[List[Dict[str, Any]]]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if isinstance(data, list) and all(
-                isinstance(entry, dict)
-                and isinstance(entry.get("input_combination"), list)
-                and isinstance(entry.get("output_symbol"), str)
-                for entry in data
-            ):
+            validation_error = validate_preset_data(data)
+            if validation_error is None:
                 return data
-            logger.error(f"Preset {path} has an invalid structure")
+            logger.error(f"Preset {path} is invalid: {validation_error}")
     except Exception as e:
         logger.error(f"Failed to load preset {path}: {e}")
     return None
@@ -474,7 +542,10 @@ def apply_profile(device_name: str, preset_name: str) -> ProfileOperationResult:
         return ProfileOperationResult("failed", f"Could not enumerate input-remapper devices: {exc}")
     group_key = _resolve_input_remapper_device(device_name, group_keys)
     if not group_key:
-        return ProfileOperationResult("failed", f"No unambiguous input-remapper device matched {device_name}.")
+        return ProfileOperationResult(
+            "failed",
+            f"No unique input-remapper device matched {device_name}; check that it is connected and visible to input-remapper.",
+        )
 
     config_dir = _profile_config_dir()
     if not (config_dir / "config.json").is_file():
@@ -490,7 +561,10 @@ def apply_profile(device_name: str, preset_name: str) -> ProfileOperationResult:
             env=dict(os.environ, PYTHONWARNINGS="ignore"),
         )
     except subprocess.TimeoutExpired:
-        return ProfileOperationResult("unknown", "Apply timed out; the backend may have started the injection, but Strop could not confirm it.")
+        return ProfileOperationResult(
+            "unknown",
+            "Apply timed out; the backend may have started the injection, but Strop could not confirm it. Check the input-remapper daemon and device connection, then refresh the profile state.",
+        )
     except Exception as exc:
         return ProfileOperationResult("failed", f"Could not run input-remapper-control: {exc}")
 
@@ -502,7 +576,10 @@ def apply_profile(device_name: str, preset_name: str) -> ProfileOperationResult:
     if state != "RUNNING":
         if state in {"FAILED", "NO_GRAB", "UPGRADE_EVDEV", "STOPPED", "UNKNOWN"}:
             return ProfileOperationResult("failed", f"input-remapper did not start the injection (state: {state}).")
-        return ProfileOperationResult("unknown", "Apply was accepted, but Strop could not confirm that the injection is running.")
+        return ProfileOperationResult(
+            "unknown",
+            "Apply was accepted, but Strop could not confirm that the injection is running. Check the input-remapper daemon and device connection, then refresh the profile state.",
+        )
 
     if not set_active_profile(device_name, clean_preset):
         return ProfileOperationResult("applied", f"Injection is running with {clean_preset}, but Strop could not save its last-confirmed profile record.")
@@ -521,7 +598,10 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
         return ProfileOperationResult("failed", f"Could not enumerate input-remapper devices: {exc}")
     group_key = _resolve_input_remapper_device(device_name, group_keys)
     if not group_key:
-        return ProfileOperationResult("failed", f"No unambiguous input-remapper device matched {device_name}.")
+        return ProfileOperationResult(
+            "failed",
+            f"No unique input-remapper device matched {device_name}; check that it is connected and visible to input-remapper.",
+        )
 
     try:
         result = subprocess.run(
@@ -530,7 +610,10 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
             env=dict(os.environ, PYTHONWARNINGS="ignore"),
         )
     except subprocess.TimeoutExpired:
-        return ProfileOperationResult("unknown", "Stop timed out; Strop could not confirm whether the injection stopped.")
+        return ProfileOperationResult(
+            "unknown",
+            "Stop timed out; Strop could not confirm whether the injection stopped. Check the input-remapper daemon and device connection, then refresh the profile state.",
+        )
     except Exception as exc:
         return ProfileOperationResult("failed", f"Could not run input-remapper-control: {exc}")
 
@@ -538,9 +621,17 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
         detail = (result.stderr or result.stdout or "Backend rejected the stop request").strip()
         return ProfileOperationResult("failed", detail[-500:])
 
-    state = _wait_for_injector_state(group_key, {"STOPPED", "UNKNOWN", "FAILED", "NO_GRAB", "UPGRADE_EVDEV"})
-    if state not in {"STOPPED", "UNKNOWN", "FAILED", "NO_GRAB", "UPGRADE_EVDEV"}:
-        return ProfileOperationResult("unknown", "Stop was accepted, but Strop could not confirm that injection ended.")
+    state = _wait_for_injector_state(group_key, {"STOPPED", "UNKNOWN"})
+    if state in {"FAILED", "NO_GRAB", "UPGRADE_EVDEV"}:
+        return ProfileOperationResult(
+            "failed",
+            f"input-remapper could not confirm a clean stop (state: {state}); the last confirmed profile is retained.",
+        )
+    if state not in {"STOPPED", "UNKNOWN"}:
+        return ProfileOperationResult(
+            "unknown",
+            "Stop was accepted, but Strop could not confirm that injection ended. Check the input-remapper daemon and device connection, then refresh the profile state.",
+        )
 
     if not clear_active_profile(device_name):
         return ProfileOperationResult("stopped", "Injection stopped, but Strop could not clear its last-confirmed profile record.")
