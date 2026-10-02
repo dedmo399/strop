@@ -71,7 +71,7 @@ OpenRazer 3.12.4 is installed and its per-user daemon is active; its system serv
 
 ## Priority 5: Add release checks and documentation
 
-- [ ] Run the core test suite in CI for the exact supported Python and dependency versions. A baseline Ubuntu 24.04 CI workflow has been added; it still needs a hosted run.
+- [ ] Run the core test suite in CI for the supported Python and dependency versions. The workflow now targets Ubuntu 26.04; it still needs a hosted run and validation against the Steam PC's exact runtime versions.
 - [x] Add Python compilation, desktop-entry, package-build, and package-content checks to CI.
 - [ ] Publish the 1.0 changelog and upgrade notes with release results; development drafts are in `CHANGELOG.md` and `docs/UPGRADING.md`.
 - [x] Add installation, first-run, device permissions, profile management, and troubleshooting documentation.
