@@ -17,7 +17,6 @@ if str(script_dir) not in sys.path:
 from strop_core.device import detect_device, clean_device_display_name
 from strop_core.theme import apply_theme
 from strop_core.studio_base import BaseStudioWindow
-from strop_core.gamepad import get_left_stick_mappings, get_right_stick_mappings
 
 
 import gi
@@ -217,10 +216,10 @@ class KeyboardMainWindow(BaseStudioWindow):
 
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
-        btn_wasd_ls = Gtk.Button(label="🕹 Map WASD -> Left Stick (LS)")
+        btn_wasd_ls = Gtk.Button(label="🕹 WASD -> Left Stick (unavailable)")
         btn_wasd_ls.add_css_class("quick-tag")
-        btn_wasd_ls.set_tooltip_text("Maps W, A, S, D keys to 360 Left Analog Stick")
-        btn_wasd_ls.connect("clicked", self._bind_wasd_left_stick)
+        btn_wasd_ls.set_tooltip_text("input-remapper 2.2.0 does not support digital inputs mapped directly to analog axes")
+        btn_wasd_ls.set_sensitive(False)
         row.append(btn_wasd_ls)
 
         btn_arrows_dpad = Gtk.Button(label="🎮 Map Arrows -> Gamepad D-Pad")
@@ -233,20 +232,9 @@ class KeyboardMainWindow(BaseStudioWindow):
         return page_box
 
     def _bind_wasd_left_stick(self, widget):
-        wasd_maps = {
-            "w": "gamepad(ABS_Y, -32767)",
-            "s": "gamepad(ABS_Y, 32767)",
-            "a": "gamepad(ABS_X, -32767)",
-            "d": "gamepad(ABS_X, 32767)"
-        }
-        for k_id, sym in wasd_maps.items():
-            if k_id in self.state:
-                self.state[k_id]["output"] = sym
-                self.state[k_id]["target"] = "gamepad"
-        self._update_all_visuals()
         alert = Gtk.AlertDialog(
-            message="WASD Mapped to Left Analog Stick",
-            detail="Keys W, A, S, D are now configured for Left Stick (LS) movement in game controllers."
+            message="Digital-to-stick mapping is not supported by input-remapper",
+            detail="input-remapper 2.2.0 rejects keyboard inputs mapped directly to analog axes. Use the gamepad D-pad buttons for supported digital output."
         )
         alert.show(self)
 
@@ -299,4 +287,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

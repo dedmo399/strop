@@ -16,6 +16,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
 from strop_core.logger import get_logger
+from strop_core.gamepad import parse_gamepad_button_output
 
 logger = get_logger("strop.presets")
 
@@ -227,7 +228,13 @@ def serialize_preset_data(
     for kid, s in state.items():
         out_sym = (s.get("output") or "").strip()
         custom_name = (s.get("custom_name") or "").strip()
-        if not out_sym and not custom_name:
+        output_event = parse_gamepad_button_output(out_sym)
+        output_type = s.get("output_type")
+        output_code = s.get("output_code")
+        if output_event:
+            output_type, output_code = output_event
+            out_sym = ""
+        if not out_sym and not custom_name and (output_type is None or output_code is None):
             continue
 
         from strop_core.macros import normalize_macro_to_input_remapper
@@ -270,6 +277,9 @@ def serialize_preset_data(
             "name": s["name"],
             "mapping_type": mapping_type
         }
+        if output_type is not None and output_code is not None:
+            entry_dict["output_type"] = output_type
+            entry_dict["output_code"] = output_code
         if custom_name:
             entry_dict["custom_name"] = custom_name
 
@@ -325,6 +335,8 @@ def validate_preset_data(data: Any) -> Optional[str]:
             return f"{prefix} output_code must be an integer."
         if not (isinstance(output, str) and output.strip()) and (output_type is None or output_code is None):
             return f"{prefix} must define an output_symbol or both output_type and output_code."
+        if isinstance(output, str) and "gamepad(" in output and not parse_gamepad_button_output(output):
+            return f"{prefix} uses an unsupported gamepad macro; this backend supports gamepad buttons, not digital-to-axis or combined-button macro outputs."
         mapping_type = entry.get("mapping_type")
         if mapping_type is not None and (
             not isinstance(mapping_type, str) or mapping_type not in valid_mapping_types

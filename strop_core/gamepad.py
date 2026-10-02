@@ -5,6 +5,17 @@ and input-remapper-2 gamepad target serializers.
 """
 
 from typing import Dict, List, Any, Optional
+import re
+
+EV_KEY = 1
+
+GAMEPAD_BUTTON_CODES = {
+    "BTN_SOUTH": 304, "BTN_EAST": 305, "BTN_NORTH": 307, "BTN_WEST": 308,
+    "BTN_TL": 310, "BTN_TR": 311, "BTN_SELECT": 314, "BTN_START": 315,
+    "BTN_MODE": 316, "BTN_THUMBL": 317, "BTN_THUMBR": 318,
+    "BTN_DPAD_UP": 544, "BTN_DPAD_DOWN": 545,
+    "BTN_DPAD_LEFT": 546, "BTN_DPAD_RIGHT": 547,
+}
 
 # Standard Linux Gamepad Event Codes (evdev/uinput)
 # Axes
@@ -58,6 +69,28 @@ def format_gamepad_output_symbol(action: str, value: Optional[int] = None) -> st
     return f"gamepad({action})"
 
 
+def parse_gamepad_button_output(symbol: str) -> Optional[tuple[int, int]]:
+    """Translate Strop's button shorthand to input-remapper event fields."""
+    match = re.fullmatch(
+        r"\s*(?:gamepad\(\s*(BTN_[A-Z0-9_]+)\s*\)|(BTN_[A-Z0-9_]+))\s*",
+        symbol or "",
+    )
+    if not match:
+        return None
+    code = GAMEPAD_BUTTON_CODES.get(match.group(1) or match.group(2))
+    return (EV_KEY, code) if code is not None else None
+
+
+def format_gamepad_button_output(output_type: Optional[int], output_code: Optional[int]) -> Optional[str]:
+    """Translate an input-remapper gamepad key event into Strop's display form."""
+    if output_type != EV_KEY or output_code is None:
+        return None
+    for name, code in GAMEPAD_BUTTON_CODES.items():
+        if code == output_code:
+            return format_gamepad_output_symbol(name)
+    return None
+
+
 def get_left_stick_mappings() -> Dict[str, str]:
     """
     Returns 8-way directional mapping for Left Analog Stick (LS Movement).
@@ -109,7 +142,6 @@ def get_dpad_button_mappings() -> Dict[str, str]:
 
 def parse_gamepad_display_text(symbol: str) -> Optional[str]:
     """Translates raw gamepad symbol into concise readable HUD/UI text."""
-    import re
     trimmed = symbol.strip()
     if not ("gamepad(" in trimmed or "ABS_" in trimmed or "BTN_" in trimmed):
         return None
@@ -158,6 +190,20 @@ def parse_gamepad_display_text(symbol: str) -> Optional[str]:
         val_rx = int(m_rx.group(1))
         return "RS←" if val_rx < 0 else "RS→"
 
+    # A diagonal D-pad mapping contains two button events.
+    dpad = {
+        name for name in ("BTN_DPAD_UP", "BTN_DPAD_DOWN", "BTN_DPAD_LEFT", "BTN_DPAD_RIGHT")
+        if re.search(rf"\b{name}\b", trimmed)
+    }
+    vertical = "up" if "BTN_DPAD_UP" in dpad else "down" if "BTN_DPAD_DOWN" in dpad else None
+    horizontal = "right" if "BTN_DPAD_RIGHT" in dpad else "left" if "BTN_DPAD_LEFT" in dpad else None
+    if vertical and horizontal:
+        return "D" + {("up", "right"): "↗", ("down", "right"): "↘", ("down", "left"): "↙", ("up", "left"): "↖"}[(vertical, horizontal)]
+    if vertical:
+        return "D↑" if vertical == "up" else "D↓"
+    if horizontal:
+        return "D→" if horizontal == "right" else "D←"
+
     # Triggers & Buttons
     if "ABS_Z" in trimmed:
         return "LT"
@@ -183,13 +229,4 @@ def parse_gamepad_display_text(symbol: str) -> Optional[str]:
         return "START"
     if "BTN_SELECT" in trimmed:
         return "SELECT"
-    if "BTN_DPAD_UP" in trimmed:
-        return "D↑"
-    if "BTN_DPAD_DOWN" in trimmed:
-        return "D↓"
-    if "BTN_DPAD_LEFT" in trimmed:
-        return "D←"
-    if "BTN_DPAD_RIGHT" in trimmed:
-        return "D→"
-
     return "PAD"

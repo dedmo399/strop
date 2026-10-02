@@ -18,9 +18,7 @@ from strop_core.device import detect_device
 from strop_core.theme import apply_theme
 from strop_core.studio_base import BaseStudioWindow
 from strop_core.catalog import get_archetype_for_device
-from strop_core.gamepad import (
-    get_left_stick_mappings, get_right_stick_mappings, get_dpad_button_mappings
-)
+from strop_core.gamepad import get_dpad_button_mappings, parse_gamepad_button_output
 
 
 import gi
@@ -295,13 +293,15 @@ class KeypadMainWindow(BaseStudioWindow):
 
         btn_ls = Gtk.Button(label="🕹 Left Stick (LS)")
         btn_ls.add_css_class("quick-tag")
-        btn_ls.set_tooltip_text("Map all 8 D-pad directions to Left Analog Stick (ABS_X, ABS_Y) with diagonal blending")
+        btn_ls.set_tooltip_text("Unavailable: input-remapper does not accept digital-to-axis mappings")
+        btn_ls.set_sensitive(False)
         btn_ls.connect("clicked", self._bind_dpad_to_left_stick)
         emu_row.append(btn_ls)
 
         btn_rs = Gtk.Button(label="🕹 Right Stick (RS)")
         btn_rs.add_css_class("quick-tag")
-        btn_rs.set_tooltip_text("Map all 8 D-pad directions to Right Analog Stick (ABS_RX, ABS_RY)")
+        btn_rs.set_tooltip_text("Unavailable: input-remapper does not accept digital-to-axis mappings")
+        btn_rs.set_sensitive(False)
         btn_rs.connect("clicked", self._bind_dpad_to_right_stick)
         emu_row.append(btn_rs)
 
@@ -379,40 +379,24 @@ class KeypadMainWindow(BaseStudioWindow):
 
 
     def _bind_dpad_to_left_stick(self, widget):
-        ls_maps = get_left_stick_mappings()
-        for dir_key, sym in ls_maps.items():
-            kid = f"dpad-{dir_key}"
-            if kid in self.state:
-                self.state[kid]["output"] = sym
-                self.state[kid]["target"] = "gamepad"
-        if self.selected_key_id and self.selected_key_id.startswith("dpad-"):
-            self.entry_output.set_text(self.state[self.selected_key_id]["output"])
-        self._update_all_visuals()
         alert = Gtk.AlertDialog(
-            message="Mapped to Left Analog Stick (LS)",
-            detail="All 8 D-pad directions mapped to Xbox 360 Left Analog Stick (ABS_X, ABS_Y) with smooth diagonal blending!"
+            message="Digital-to-stick mapping is not supported by input-remapper",
+            detail="input-remapper 2.2.0 rejects D-pad keys mapped directly to analog axes. No mappings were changed."
         )
         alert.show(self)
 
     def _bind_dpad_to_right_stick(self, widget):
-        rs_maps = get_right_stick_mappings()
-        for dir_key, sym in rs_maps.items():
-            kid = f"dpad-{dir_key}"
-            if kid in self.state:
-                self.state[kid]["output"] = sym
-                self.state[kid]["target"] = "gamepad"
-        if self.selected_key_id and self.selected_key_id.startswith("dpad-"):
-            self.entry_output.set_text(self.state[self.selected_key_id]["output"])
-        self._update_all_visuals()
         alert = Gtk.AlertDialog(
-            message="Mapped to Right Analog Stick (RS)",
-            detail="All 8 D-pad directions mapped to Xbox 360 Right Analog Stick (ABS_RX, ABS_RY)!"
+            message="Digital-to-stick mapping is not supported by input-remapper",
+            detail="input-remapper 2.2.0 rejects D-pad keys mapped directly to analog axes. No mappings were changed."
         )
         alert.show(self)
 
     def _bind_dpad_to_gamepad_hat(self, widget):
         dpad_maps = get_dpad_button_mappings()
         for dir_key, sym in dpad_maps.items():
+            if not parse_gamepad_button_output(sym):
+                continue
             kid = f"dpad-{dir_key}"
             if kid in self.state:
                 self.state[kid]["output"] = sym
@@ -422,7 +406,7 @@ class KeypadMainWindow(BaseStudioWindow):
         self._update_all_visuals()
         alert = Gtk.AlertDialog(
             message="Mapped to Gamepad D-Pad Buttons",
-            detail="All 8 D-pad directions mapped to standard gamepad D-pad buttons (BTN_DPAD_*)!"
+            detail="The four cardinal D-pad directions were mapped to gamepad buttons. Diagonal output pairs are not supported by input-remapper 2.2.0 and were left unchanged."
         )
         alert.show(self)
 
@@ -458,4 +442,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

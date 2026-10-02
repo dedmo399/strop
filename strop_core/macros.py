@@ -6,6 +6,9 @@ JSON storage management, and serializers compatible with input-remapper-2.
 
 import json
 import os
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
@@ -163,6 +166,48 @@ def get_macros_file_path() -> Path:
     return p
 
 
+def _validate_macro_library(data: Any) -> Optional[str]:
+    if not isinstance(data, list):
+        return "macro library must be a JSON list"
+    seen = set()
+    for index, record in enumerate(data):
+        if not isinstance(record, dict):
+            return f"macro {index + 1} must be an object"
+        for field in ("id", "title", "macro"):
+            if not isinstance(record.get(field), str) or not record[field].strip():
+                return f"macro {index + 1} has an invalid {field}"
+        if record["id"] in seen:
+            return f"duplicate macro ID: {record['id']}"
+        seen.add(record["id"])
+    return None
+
+
+def validate_macro_expression(macro: str) -> Optional[str]:
+    """Validate balanced syntax locally and, when installed, with input-remapper."""
+    if not isinstance(macro, str) or not macro.strip():
+        return "Macro expression cannot be empty."
+    try:
+        _split_macro_tokens(macro)
+    except ValueError as exc:
+        return str(exc)
+    validator = (
+        "import json,sys\n"
+        "try:\n from inputremapper.injection.macros.parse import Parser\n"
+        "except ImportError:\n sys.exit(42)\n"
+        "value=json.load(sys.stdin)\n"
+        "if Parser.is_this_a_macro(value): Parser.parse(value, verbose=False)\n"
+    )
+    try:
+        result = subprocess.run([sys.executable, "-c", validator], input=json.dumps(macro),
+                                text=True, capture_output=True, timeout=3)
+    except (OSError, subprocess.TimeoutExpired):
+        return "Could not validate macro with input-remapper."
+    if result.returncode in (0, 42):
+        return None
+    detail = (result.stderr or result.stdout).strip().splitlines()
+    return detail[-1][-300:] if detail else "input-remapper rejected this macro."
+
+
 def get_user_macros() -> List[Dict[str, Any]]:
     """Reads custom user macros from ~/.config/strop/macros.json."""
     fpath = get_macros_file_path()
@@ -171,12 +216,23 @@ def get_user_macros() -> List[Dict[str, Any]]:
     try:
         with open(fpath, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if isinstance(data, list):
-                # Ensure all macros have valid input-remapper normalized strings
-                for m in data:
-                    if isinstance(m, dict) and "macro" in m:
-                        m["macro"] = normalize_macro_to_input_remapper(m["macro"])
-                return data
+            error = _validate_macro_library(data)
+            if error:
+                logger.warning(f"Ignoring invalid macro library: {error}")
+                return []
+            reserved_ids = {macro["id"] for macro in MACRO_TEMPLATES}
+            macros = []
+            for record in data:
+                macro = dict(record)
+                if macro["id"] in reserved_ids:
+                    macro["id"] = f"customized_{macro['id']}"
+                    macro["built_in"] = False
+                macro["macro"] = normalize_macro_to_input_remapper(macro["macro"])
+                macros.append(macro)
+            if len({macro["id"] for macro in macros}) != len(macros):
+                logger.warning("Ignoring macro library with duplicate IDs after built-in migration.")
+                return []
+            return macros
     except Exception as e:
         logger.warning(f"Failed to read custom macros: {e}")
     return []
@@ -187,9 +243,28 @@ def get_user_macros() -> List[Dict[str, Any]]:
 def save_user_macros(macros: List[Dict[str, Any]]) -> bool:
     """Saves user custom macros list to ~/.config/strop/macros.json."""
     fpath = get_macros_file_path()
+    error = _validate_macro_library(macros)
+    if error:
+        logger.error(f"Refusing to save invalid macro library: {error}")
+        return False
     try:
-        with open(fpath, "w", encoding="utf-8") as f:
-            json.dump(macros, f, indent=2)
+        if fpath.exists():
+            with fpath.open("r", encoding="utf-8") as existing:
+                prior = json.load(existing)
+            if _validate_macro_library(prior):
+                logger.error("Refusing to replace an invalid existing macro library.")
+                return False
+        fd, temp_name = tempfile.mkstemp(prefix=f".{fpath.name}.", dir=str(fpath.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(macros, f, indent=2)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_name, fpath)
+        finally:
+            if os.path.exists(temp_name):
+                os.unlink(temp_name)
         return True
     except Exception as e:
         logger.error(f"Failed to save custom macros: {e}")
@@ -197,49 +272,27 @@ def save_user_macros(macros: List[Dict[str, Any]]) -> bool:
 
 
 def load_all_macros() -> List[Dict[str, Any]]:
-    """Returns combined list of user custom macros and default templates, with user macros taking precedence."""
-    user_macros = get_user_macros()
-    user_by_id = {m.get("id"): m for m in user_macros if m.get("id")}
-    user_by_title = {m.get("title", "").strip().lower(): m for m in user_macros if m.get("title")}
-
-    combined = []
-    seen_ids = set()
-
-    # Add templates, allowing user custom modifications to override them
-    for tpl in MACRO_TEMPLATES:
-        t_id = tpl.get("id")
-        t_title = tpl.get("title", "").strip().lower()
-        if t_id and t_id in user_by_id:
-            combined.append(dict(user_by_id[t_id]))
-            seen_ids.add(t_id)
-        elif t_title in user_by_title:
-            user_m = user_by_title[t_title]
-            combined.append(dict(user_m))
-            if user_m.get("id"):
-                seen_ids.add(user_m["id"])
-        else:
-            combined.append(dict(tpl))
-            if t_id:
-                seen_ids.add(t_id)
-
-    # Then add distinct user custom macros
-    for m in user_macros:
-        m_id = m.get("id")
-        if m_id and m_id not in seen_ids:
-            seen_ids.add(m_id)
-            combined.append(dict(m))
-
-    return combined
+    """Returns immutable built-ins followed by user-owned macros."""
+    return [dict(m) for m in MACRO_TEMPLATES] + [dict(m) for m in get_user_macros()]
 
 
 
 def save_or_update_macro(macro_dict: Dict[str, Any]) -> bool:
     """Saves a new macro or updates an existing one in user storage."""
+    if not isinstance(macro_dict, dict):
+        return False
+    macro_dict = dict(macro_dict)
+    macro_dict["macro"] = normalize_macro_to_input_remapper(macro_dict.get("macro", ""))
+    if validate_macro_expression(macro_dict["macro"]):
+        return False
     user_macros = get_user_macros()
     m_id = macro_dict.get("id")
     if not m_id:
         m_id = "macro_" + os.urandom(4).hex()
         macro_dict["id"] = m_id
+    if m_id in {macro["id"] for macro in MACRO_TEMPLATES} or macro_dict.get("built_in"):
+        logger.error("Refusing to overwrite a built-in macro.")
+        return False
 
     updated = False
     for i, m in enumerate(user_macros):
@@ -255,6 +308,10 @@ def save_or_update_macro(macro_dict: Dict[str, Any]) -> bool:
 
 def delete_custom_macro(macro_id: str) -> bool:
     """Deletes a custom macro by ID from user storage."""
+    if not isinstance(macro_id, str) or not macro_id:
+        return False
+    if macro_id in {macro["id"] for macro in MACRO_TEMPLATES}:
+        return False
     user_macros = get_user_macros()
     filtered = [m for m in user_macros if m.get("id") != macro_id]
     return save_user_macros(filtered)
@@ -266,11 +323,16 @@ def _split_macro_tokens(s: str) -> List[str]:
     curr = []
     paren_depth = 0
     in_quote = None
+    escaped = False
 
     for c in s:
         if in_quote:
             curr.append(c)
-            if c == in_quote:
+            if escaped:
+                escaped = False
+            elif c == "\\":
+                escaped = True
+            elif c == in_quote:
                 in_quote = None
         elif c in ('"', "'"):
             in_quote = c
@@ -279,8 +341,9 @@ def _split_macro_tokens(s: str) -> List[str]:
             paren_depth += 1
             curr.append(c)
         elif c == ')':
-            if paren_depth > 0:
-                paren_depth -= 1
+            if paren_depth == 0:
+                raise ValueError("Unmatched closing parenthesis in macro expression.")
+            paren_depth -= 1
             curr.append(c)
         elif (c == '+' or c == '.') and paren_depth == 0:
             token = "".join(curr).strip()
@@ -290,6 +353,10 @@ def _split_macro_tokens(s: str) -> List[str]:
         else:
             curr.append(c)
 
+    if in_quote:
+        raise ValueError("Unclosed quote in macro expression.")
+    if paren_depth:
+        raise ValueError("Unclosed parenthesis in macro expression.")
     token = "".join(curr).strip()
     if token:
         tokens.append(token)
@@ -313,7 +380,9 @@ def parse_dsl_sequence(seq_str: str) -> List[str]:
         m_func = re.match(r'^([a-zA-Z_]\w*)\s*\((.*)\)$', tok_clean, re.DOTALL)
         if m_func:
             func = m_func.group(1).lower()
-            arg = m_func.group(2).strip().strip('"\'')
+            arg = m_func.group(2).strip()
+            if len(arg) >= 2 and arg[0] == arg[-1] and arg[0] in ('"', "'"):
+                arg = arg[1:-1]
             if func in ("wait", "sleep", "delay"):
                 val = arg if ("ms" in arg or "s" in arg) else f"{arg}ms"
                 tokens.append(val)
@@ -328,7 +397,7 @@ def parse_dsl_sequence(seq_str: str) -> List[str]:
             elif func == "wheel":
                 tokens.append(f"wheel({arg})" if not arg.startswith("wheel") else arg)
             elif func == "run":
-                tokens.append(f'run("{arg}")')
+                tokens.append(tok_clean)
             else:
                 tokens.append(tok_clean)
         else:
@@ -347,6 +416,7 @@ def normalize_macro_to_input_remapper(macro_str: str) -> str:
     s = (macro_str or "").strip()
     if not s:
         return s
+    raw_tokens = _split_macro_tokens(s)
 
     # If it's a single key symbol without sequence or function calls:
     if not any(c in s for c in ("+", ".", "(", ")")) and not s.lower().endswith("ms"):
@@ -356,7 +426,6 @@ def normalize_macro_to_input_remapper(macro_str: str) -> str:
     if "+" in s and "(" not in s and ")" not in s and "ms" not in s:
         return s
 
-    raw_tokens = _split_macro_tokens(s)
     if not raw_tokens:
         return s
 
@@ -409,5 +478,3 @@ def build_macro_string(steps: List[str]) -> str:
 def parse_macro_steps(macro_str: str) -> List[str]:
     """Parses a macro string into individual components using DSL or '+' separators."""
     return parse_dsl_sequence(macro_str)
-
-

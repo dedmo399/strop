@@ -29,7 +29,9 @@ from strop_core.theme import apply_theme, show_about_dialog
 from strop_core.toast import StropToast
 from strop_core.logger import get_logger
 from strop_core.gamepad import (
-    GAMEPAD_BUTTON_PRESETS, parse_gamepad_display_text
+    GAMEPAD_BUTTON_PRESETS, parse_gamepad_display_text,
+    parse_gamepad_button_output, format_gamepad_button_output,
+    format_gamepad_output_symbol,
 )
 from strop_core.lighting import get_lighting_engine, COLOR_PALETTE
 from strop_core.macros import load_all_macros, MACRO_TEMPLATES
@@ -657,10 +659,18 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
     def _on_gamepad_btn_clicked(self, widget, symbol_str):
         if not self.selected_key_id:
             return
+        if not parse_gamepad_button_output(symbol_str):
+            if hasattr(self, "toast"):
+                self.toast.show_message(
+                    "Input-remapper cannot map a digital key directly to an analog gamepad trigger.",
+                    icon="⚠️",
+                )
+            return
         if self.is_recording_input:
             self._stop_recording(cancelled=True)
-        self.entry_output.set_text(symbol_str)
-        self.state[self.selected_key_id]["output"] = symbol_str
+        output = format_gamepad_output_symbol(symbol_str)
+        self.entry_output.set_text(output)
+        self.state[self.selected_key_id]["output"] = output
         self.state[self.selected_key_id]["target"] = "gamepad"
         self._update_all_visuals()
 
@@ -1044,6 +1054,8 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
                 continue
             output_sym = item.get("output_symbol")
             if not isinstance(output_sym, str) or not output_sym.strip():
+                output_sym = format_gamepad_button_output(item.get("output_type"), item.get("output_code"))
+            if not output_sym:
                 unrepresented_entries.append(item)
                 continue
             first_input = combination[0]

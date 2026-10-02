@@ -51,12 +51,14 @@ OpenRazer 3.12.4 is installed and its per-user daemon is active; its system serv
 
 ## Priority 3: Verify mapping correctness
 
-- [ ] Cover representative keyboard, mouse, keypad, macro, and gamepad mappings with regression tests.
-- [ ] Verify analog stick cardinal and diagonal directions, right-stick mappings, triggers, and D-pad actions.
-- [ ] Verify macro parsing for nested calls, delays, quoted arguments, and supported input-remapper syntax.
-- [ ] Verify preset import/export compatibility with each supported backend version.
-- [ ] Confirm the HUD reflects the selected device and the profile state Strop can confirm.
-- [ ] Protect built-in actions and user data from accidental deletion or malformed input.
+- [x] Add regression coverage for representative keyboard/mouse preset serialization, gamepad button event serialization, stick display directions, and macro tokenization.
+- [ ] Verify mappings on the supported physical keyboard, mouse, and keypad. Gamepad hardware is not in the 1.0 support matrix.
+- [ ] Verify analog stick cardinal and diagonal directions, right-stick mappings, triggers, and D-pad actions on supported hardware. Current input-remapper 2.2.0 does not accept the digital-to-axis or compound-button macro outputs Strop previously generated; the UI now disables unsupported stick binds and emits single D-pad buttons only.
+- [x] Add parser checks for balanced nested syntax and escaped quoted arguments; validate saved macros with the installed input-remapper parser when available.
+- [ ] Verify preset import/export compatibility through round trips on the supported devices and backend.
+- [x] Restrict HUD preset loading and active-profile labels to the selected device, and clear stale mapping state for empty presets.
+- [x] Protect built-in macro templates and atomically validate user macro-library writes.
+- [ ] Confirm mapping behavior and HUD updates during end-to-end use on `steam`.
 
 ## Priority 4: Make installation and upgrades repeatable
 

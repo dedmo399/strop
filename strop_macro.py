@@ -156,7 +156,11 @@ class MacroWizardDialog(Gtk.Window):
         end_iter = self.seq_buffer.get_end_iter()
         seq_text = self.seq_buffer.get_text(start_iter, end_iter, False).strip()
 
-        steps = parse_dsl_sequence(seq_text)
+        try:
+            steps = parse_dsl_sequence(seq_text)
+        except ValueError as exc:
+            self.parent_win.toast.show_message(f"Invalid macro syntax: {exc}", icon="⚠️")
+            return
         if not steps:
             steps = ["space", "50ms", "mouse(1)"]
 
@@ -172,7 +176,9 @@ class MacroWizardDialog(Gtk.Window):
             "built_in": False
         }
 
-        save_or_update_macro(macro_dict)
+        if not save_or_update_macro(macro_dict):
+            self.parent_win.toast.show_message("Could not save this macro; check its syntax and storage.", icon="❌")
+            return
         self.parent_win._load_macros_and_select_id(macro_dict["id"])
         self.parent_win.toast.show_message(f"Created macro '{title}' via Wizard!", icon="🪄")
         self.close()
@@ -621,7 +627,8 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
             return
 
         macro_data = {
-            "id": self.selected_macro_id or f"macro_{os.urandom(4).hex()}",
+            "id": (None if any(m.get("id") == self.selected_macro_id and m.get("built_in") for m in self.macros)
+                   else self.selected_macro_id or f"macro_{os.urandom(4).hex()}"),
             "title": title,
             "label": self.entry_badge.get_text().strip() or title,
             "category": self.entry_category.get_text().strip() or "Custom",
@@ -663,7 +670,9 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
             try:
                 choice = dialog.choose_finish(result)
                 if choice == 1:
-                    delete_custom_macro(self.selected_macro_id)
+                    if not delete_custom_macro(self.selected_macro_id):
+                        self.toast.show_message("Could not delete this macro.", icon="❌")
+                        return
                     self.macros = load_all_macros()
                     self._load_macros_and_select_first()
                     self.toast.show_message("Deleted macro from library", icon="🗑")

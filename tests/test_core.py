@@ -291,6 +291,17 @@ class TestStropGamepadParsing(unittest.TestCase):
         self.assertEqual(parse_gamepad_display_text(maps["sw"]), "RS↙")
         self.assertEqual(parse_gamepad_display_text(maps["nw"]), "RS↖")
 
+    def test_gamepad_button_conversion_and_preset_serialization(self):
+        from strop_core.gamepad import parse_gamepad_button_output, format_gamepad_button_output
+        from strop_core.presets import serialize_preset_data
+        self.assertEqual(parse_gamepad_button_output("gamepad(BTN_DPAD_UP)"), (1, 544))
+        self.assertEqual(format_gamepad_button_output(1, 547), "gamepad(BTN_DPAD_RIGHT)")
+        data = serialize_preset_data({"up": {"code": 17, "name": "Up", "output": "gamepad(BTN_DPAD_UP)", "target": "gamepad"}},
+                                    {"name": "test pad", "hash": "abc", "key_to_hash": {17: "keyhash"}})
+        mapping = data[0]
+        self.assertEqual(mapping["output_type"], 1)
+        self.assertEqual(mapping["output_code"], 544)
+
 
 class TestStropMacroTokenizer(unittest.TestCase):
     def test_nested_macro_preserved(self):
@@ -304,6 +315,26 @@ class TestStropMacroTokenizer(unittest.TestCase):
         from strop_core.macros import normalize_macro_to_input_remapper
         cmd = 'run("echo 1.2.3")'
         self.assertEqual(normalize_macro_to_input_remapper(cmd), cmd)
+
+    def test_escaped_quote_and_malformed_delimiters(self):
+        from strop_core.macros import _split_macro_tokens
+        self.assertEqual(_split_macro_tokens('run("echo \\\"a.b\\\"").key(c)'), ['run("echo \\\"a.b\\\"")', 'key(c)'])
+        for malformed in ('key(a', 'key(a))', 'run("unfinished)'):
+            with self.subTest(malformed=malformed), self.assertRaises(ValueError):
+                _split_macro_tokens(malformed)
+
+    def test_built_in_macro_cannot_be_overwritten(self):
+        from strop_core.macros import save_or_update_macro, load_all_macros, MACRO_TEMPLATES
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "macros.json"
+            with patch("strop_core.macros.get_macros_file_path", return_value=path):
+                result = save_or_update_macro({
+                    "id": MACRO_TEMPLATES[0]["id"], "title": "Changed", "macro": "space",
+                    "built_in": False,
+                })
+                self.assertFalse(result)
+                self.assertEqual(load_all_macros()[0]["title"], MACRO_TEMPLATES[0]["title"])
+                self.assertFalse(path.exists())
 
 
 class TestStropPresetSecurityAndState(unittest.TestCase):

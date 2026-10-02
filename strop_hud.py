@@ -29,11 +29,11 @@ if str(script_dir) not in sys.path:
 from strop_core.x11 import pin_window_on_top
 from strop_core.device import detect_device
 from strop_core.presets import (
-    get_presets_base_dir, get_device_presets_dir, list_device_presets,
+    get_device_presets_dir, list_device_presets,
     get_active_profile, load_preset_file,
     run_profile_operation_async, check_profile_state_async
 )
-from strop_core.gamepad import parse_gamepad_display_text
+from strop_core.gamepad import parse_gamepad_display_text, format_gamepad_button_output
 
 
 
@@ -477,7 +477,12 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         return trimmed
 
 
-    def _match_preset_key(self, code, name):
+    def _match_preset_key(self, code, name, combination=None):
+        if combination and len(combination) > 1:
+            preset_codes = sorted(item.get("code") for item in combination)
+            for direction, data in DPAD_DATA.items():
+                if sorted(data.get("combo", [])) == preset_codes:
+                    return f"dpad-{direction}"
         if code is not None:
             for kid, s in self.state.items():
                 if s.get("code") == code:
@@ -502,10 +507,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         )
         preset_names = list_device_presets(dev_name)
         if not preset_names:
-            dev_dir = get_presets_base_dir()
-            preset_names = [f.stem for f in dev_dir.glob("**/*.json")]
-
-        if not preset_names:
+            self.available_presets = []
             return
 
         self.available_presets = preset_names
@@ -517,7 +519,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         new_model = Gtk.StringList.new(preset_names)
         self.preset_dropdown.set_model(new_model)
 
-        active_prof = get_active_profile(dev_name) or get_active_profile("Razer Tartarus Pro") or get_active_profile("Razer Razer Tartarus Pro")
+        active_prof = get_active_profile(dev_name)
         active_idx = 0
         if active_prof and active_prof in preset_names:
             active_idx = preset_names.index(active_prof)
@@ -586,14 +588,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
     def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
         self._set_profile_controls_busy(False)
-        if result.status == "applied":
-            self.lbl_profile_status.set_text(result.message)
-        elif result.status == "stopped":
-            self.lbl_profile_status.set_text(result.message)
-        elif result.status == "unknown":
-            self.lbl_profile_status.set_text("Injection state unknown")
-        else:
-            self.lbl_profile_status.set_text(f"{operation.title()} failed")
+        self.lbl_profile_status.set_text(result.message)
         if not result.success:
             print(f"[HUD] {operation.title()} profile: {result.message}")
 
@@ -614,7 +609,8 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
 
             data = load_preset_file(p)
-            if not data or not isinstance(data, list):
+            if data is None:
+                self.lbl_profile_status.set_text(f"Could not read preset: {p.name}")
                 return
 
             for s in self.state.values():
@@ -624,15 +620,15 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             for item in data:
                 if not isinstance(item, dict):
                     continue
-                input_comb = item.get("input_combination", [])
-                if not input_comb or not isinstance(input_comb, list):
-                    continue
-                code = input_comb[0].get("code")
+                input_comb = item["input_combination"]
+                code = input_comb[0]["code"]
                 out_sym = item.get("output_symbol", "")
                 name = item.get("name", "")
-                custom_name = item.get("custom_name", "")
+                custom_name = item.get("custom_name") or ""
+                if not out_sym:
+                    out_sym = format_gamepad_button_output(item.get("output_type"), item.get("output_code")) or ""
 
-                matched_key = self._match_preset_key(code, name)
+                matched_key = self._match_preset_key(code, name, input_comb)
                 if matched_key:
                     self.state[matched_key]["output"] = out_sym
                     self.state[matched_key]["custom_name"] = custom_name
