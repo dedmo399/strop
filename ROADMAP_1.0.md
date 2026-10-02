@@ -34,7 +34,7 @@ Strop 1.0 will officially support only the Steam PC configuration below. Other L
 | --- | --- |
 | OS / architecture | Ubuntu 26.04.1 LTS (Resolute), amd64 |
 | Kernel | 7.0.0-34-generic |
-| Desktop | GNOME 50.1 on Wayland; GTK 3.24.52 |
+| Desktop | GNOME 50.1 on Wayland; GTK 4.22.4 |
 | Python | 3.14.4 |
 | Remapping backend | input-remapper 2.2.0; daemon active and reachable |
 | Host hardware | ASUS ROG STRIX B550-F GAMING WIFI II; AMD Ryzen 7 5800X3D; 64 GiB RAM; PowerColor Radeon RX 9070 XT |
@@ -63,18 +63,19 @@ OpenRazer 3.12.4 is installed and its per-user daemon is active; its system serv
 ## Priority 4: Make installation and upgrades repeatable
 
 - [ ] Build and install the Debian package in a clean supported environment.
-- [ ] Verify desktop launchers, icons, permissions, package dependencies, and uninstall behavior.
+- [x] Add local Debian package build/inspection checks and validate the source desktop entry. A clean install/uninstall and launcher runtime check is still pending.
 - [ ] Test upgrades from 0.9.1 and confirm user presets and macros remain intact.
-- [ ] Provide a backup and recovery path for profiles and macro data.
-- [ ] Ensure package metadata and installation instructions match the generated artifacts.
+- [x] Document backup and recovery for profiles and macro data; exercise restore on the support PC before release.
+- [x] Align README installation instructions, desktop entry, package contents, and package data permissions. Clean install/uninstall behavior remains pending.
+- [ ] Finalize and verify maintainer contact and package metadata before publishing the package.
 
 ## Priority 5: Add release checks and documentation
 
-- [ ] Run the core test suite in CI for supported Python and dependency versions.
-- [ ] Add import/startup and package-build checks to catch missing files and broken entry points.
-- [ ] Publish a 1.0 changelog and upgrade notes.
-- [ ] Complete installation, first-run, device permissions, profile management, and troubleshooting guides.
-- [ ] State the tested hardware matrix and known limitations in the README.
+- [ ] Run the core test suite in CI for the exact supported Python and dependency versions. A baseline Ubuntu 24.04 CI workflow has been added; it still needs a hosted run.
+- [x] Add Python compilation, desktop-entry, package-build, and package-content checks to CI.
+- [ ] Publish the 1.0 changelog and upgrade notes with release results; development drafts are in `CHANGELOG.md` and `docs/UPGRADING.md`.
+- [x] Add installation, first-run, device permissions, profile management, and troubleshooting documentation.
+- [x] State the intended hardware matrix and known limitations in the README.
 
 ## Release verification checklist
 
@@ -94,4 +95,4 @@ The standalone `stropd` daemon and AI macro generation remain separate roadmap i
 
 ## Current starting point
 
-The 0.9.2 branch contains profile-state, device discovery, macro parsing, gamepad display, HUD targeting, and preset handling improvements. The Steam PC and three Razer devices above are the sole 1.0 support target. Priority 2 support scope and diagnostic guidance are recorded in `docs/SUPPORT.md`; end-to-end mapping and profile lifecycle verification remain for Priorities 1 and 3.
+The 0.9.2 branch contains profile-state, device discovery, macro parsing, gamepad display, HUD targeting, and preset handling improvements. The Steam PC and three Razer devices above are the sole 1.0 support target. Support and setup are documented in `docs/SUPPORT.md` and `docs/USER_GUIDE.md`. Physical mapping, profile lifecycle, clean installation, upgrade, and hosted-CI verification remain open.

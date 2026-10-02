@@ -16,7 +16,7 @@ Strop's catalog contains 230+ device entries and generic layout archetypes. Cata
 
 Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardware remapping requires **input-remapper**; OpenRazer is optional for supported lighting integration. The Debian package declares these runtime dependencies. Follow the [support and setup notes](docs/SUPPORT.md) for device permissions and session limitations.
 
-- **Macro Studio & Composer**: Built-in gaming combos (Turbo Autofire, Slide-Jump, Ability Combos) and productivity shortcuts with custom millisecond delay composition.
+- **Macro Studio & Composer**: Built-in gaming combos such as Bullet Jump and Ability Combos, plus productivity shortcuts with custom millisecond delays.
 - Polychromatic dark slate & emerald theme design language.
 
 
@@ -29,7 +29,7 @@ The central dashboard scans connected Razer input devices and launches the studi
 
 ### 2. **Strop Keypad Studio** (`./strop_keypad.py` or `./keypad.sh`)
 - **Keypad Matrix**: Physical 1:1 layout (Keys 01–19, Scroll Up, Scroll Down, 8-Way D-pad, Thumb Button, Spacebar) for Tartarus Pro, Tartarus V2, Orbweaver, and Nostromo.
-- **Analog Stick & Gamepad Emulation**: 1-Click mapping of D-pad to Xbox 360 Left Analog Stick (LS) or Right Analog Stick (RS) with smooth diagonal blending.
+- **Gamepad button outputs**: Bind keypad keys to supported single gamepad buttons. Analog stick and trigger binding from digital keys is unavailable with the supported input-remapper backend.
 - **Auto-Detection on Execution**: Scans USB devices and calculates hardware capabilities `origin_hash`.
 - **Live Key Recording / Input Capture (`[ 🔴 Capture Input ]`)**: Record physical key combinations directly.
 - **Preset Importer & Exporter**: Direct integration with `input-remapper-2`.
@@ -37,7 +37,7 @@ The central dashboard scans connected Razer input devices and launches the studi
 ### 3. **Strop Keyboard Studio** (`./strop_keyboard.py` or `./keyboard.sh`)
 - **Full-Size Mechanical Keyboard Diagram (108 Keys)**: Complete ANSI 60% matrix, navigation/editing cluster, arrow keys, numpad, and digital multi-function media roller.
 - **Layout archetypes**: Full-size, Tenkeyless (TKL), 75%, 65%, 60% Mini, and Blade laptop layouts. These are catalog/layout references; see the support matrix for verified device scope.
-- **WASD Analog Stick Mapping**: 1-Click mapping of WASD to Left Analog Stick (LS).
+- **Gamepad button outputs**: Assign supported single gamepad buttons to keyboard keys. Digital-to-analog stick and trigger mappings are unavailable with the supported input-remapper backend.
 - **Full Studio Dock**: Key inspector, input recorder, gamepad palette, and input-remapper-2 preset management.
 
 ### 4. **Strop Mouse Studio** (`./strop_mouse.py` or `./mouse.sh`)
@@ -46,7 +46,7 @@ The central dashboard scans connected Razer input devices and launches the studi
   - **Naga Hex & Radial Side Plate** (Naga Trinity Hex, Naga Hex V2).
   - **FPS & Ergonomic Side Plate** with Multi-Function DPI Clutch & Tilt-Wheel (Basilisk V3 / Pro, DeathAdder V2 / V3, Viper, Cobra, Mamba, Orochi, Abyssus).
   - **Ambidextrous Dual Side Buttons** (Viper, Ouroboros, Taipan, Lancehead).
-  - **Gamepad Action Palette**: Assign controller face buttons, bumpers, and triggers.
+  - **Gamepad Action Palette**: Assign supported single controller-button outputs. Analog triggers are not supported from digital inputs by the current backend.
 
 ### 5. **Strop Macro Studio** (`./strop_macro.py` or `./macro.sh`)
 - **Visual Sequence Timeline**: Visual vertical step builder to insert keypresses, mouse clicks, and custom millisecond delay pauses.
@@ -112,21 +112,13 @@ To build fresh `.deb` and `.tar.gz` release artifacts at any time:
 ./build_deb.sh
 ```
 
-### Local User Menu Installation
-```bash
-mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps
-cp assets/strop_icon.png ~/.local/share/icons/hicolor/256x256/apps/strop.png
-cp strop.desktop ~/.local/share/applications/
-```
+Source checkout launchers use the `./strop*.py` commands above. To add an installed package to the application menu, install the `.deb`; it provides a system desktop entry and icons.
 
-See [docs/SUPPORT.md](docs/SUPPORT.md) for the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. Catalog models not listed there are not part of official 1.0 support.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) summarizes development changes and is not a release announcement. Catalog models not listed in the support matrix are not part of official 1.0 support.
 
 ---
 
 ## 📜 Version & License
 
-- **Version**: `0.9.2`
+- **Version**: `0.9.2` (development)
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
-
-
-

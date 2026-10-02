@@ -2,18 +2,18 @@
 set -e
 
 VERSION="0.9.2"
-
-
-
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 PKG_NAME="strop"
 ARCH="all"
-BUILD_DIR="$(dirname "$0")/build/deb"
+BUILD_DIR="${SCRIPT_DIR}/build/deb"
 PKG_DIR="${BUILD_DIR}/${PKG_NAME}_${VERSION}_${ARCH}"
-DEB_FILE="$(dirname "$0")/${PKG_NAME}_${VERSION}_${ARCH}.deb"
-TAR_FILE="$(dirname "$0")/${PKG_NAME}_${VERSION}.tar.gz"
+DEB_FILE="${SCRIPT_DIR}/${PKG_NAME}_${VERSION}_${ARCH}.deb"
+TAR_FILE="${SCRIPT_DIR}/${PKG_NAME}_${VERSION}.tar.gz"
+TEMP_TAR_FILE="${BUILD_DIR}/${PKG_NAME}_${VERSION}.tar.gz"
 
-echo "🔨 Building Debian Package: ${PKG_NAME}_${VERSION}_${ARCH}.deb..."
+echo "Building Debian Package: ${PKG_NAME}_${VERSION}_${ARCH}.deb..."
 
 # 1. Clean previous build directories
 rm -rf "${PKG_DIR}" "${DEB_FILE}"
@@ -32,6 +32,7 @@ find "${PKG_DIR}/usr/lib/strop" -type f -name "*.pyc" -delete
 cp LICENSE "${PKG_DIR}/usr/share/doc/strop/copyright"
 cp LICENSES.md "${PKG_DIR}/usr/share/doc/strop/"
 cp README.md "${PKG_DIR}/usr/share/doc/strop/"
+cp CHANGELOG.md "${PKG_DIR}/usr/share/doc/strop/"
 if [ -d docs ]; then
     cp -r docs "${PKG_DIR}/usr/share/doc/strop/"
 fi
@@ -84,7 +85,7 @@ Exec=strop
 Icon=strop
 Terminal=false
 Type=Application
-Categories=Utility;Settings;HardwareSettings;
+Categories=Utility;
 StartupNotify=true
 StartupWMClass=com.razer.strop
 DESK_EOF
@@ -118,8 +119,8 @@ Recommends: input-remapper, openrazer-meta | openrazer-daemon
 Homepage: https://github.com/strop-linux/strop
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
  Native Linux GTK4 application suite for configuring, remapping, and customizing
- Razer keypads (Tartarus Pro/V2, Orbweaver), keyboards (BlackWidow, Huntsman),
- mice (Naga, Basilisk, Viper), and in-game floating HUD overlays.
+ Razer keypad, keyboard, and mouse layouts with input-remapper profile integration.
+ Official 1.0 device support is limited to the matrix documented in README.md.
 CTRL_EOF
 
 # 5. Create postinst and postrm scripts to refresh desktop and icon caches
@@ -127,7 +128,6 @@ cat << 'POSTINST_EOF' > "${PKG_DIR}/DEBIAN/postinst"
 #!/bin/sh
 set -e
 if [ "$1" = "configure" ]; then
-    rm -f /usr/share/applications/strop.desktop
     if which update-desktop-database >/dev/null 2>&1; then
         update-desktop-database -q /usr/share/applications || true
     fi
@@ -155,29 +155,31 @@ exit 0
 POSTRM_EOF
 chmod 755 "${PKG_DIR}/DEBIAN/postrm"
 
-# Ensure clean Unix permissions
-chmod -R 755 "${PKG_DIR}"
+# Use readable data-file permissions and executable directory permissions.
+find "${PKG_DIR}" -type d -exec chmod 755 {} +
+find "${PKG_DIR}" -type f -exec chmod 644 {} +
+find "${PKG_DIR}/usr/bin" -type f -exec chmod 755 {} +
 chmod 755 "${PKG_DIR}/DEBIAN"
-chmod 644 "${PKG_DIR}/DEBIAN/control"
 chmod 755 "${PKG_DIR}/DEBIAN/postinst"
 chmod 755 "${PKG_DIR}/DEBIAN/postrm"
 
 # 6. Build the .deb package
 dpkg-deb --build --root-owner-group "${PKG_DIR}" "${DEB_FILE}"
 
-echo "✅ Successfully created: ${DEB_FILE}"
+echo "Successfully created: ${DEB_FILE}"
 ls -lh "${DEB_FILE}"
 
 # 7. Build the source release tarball (.tar.gz)
-echo "📦 Generating Source Release Archive: ${TAR_FILE}..."
-rm -f "${TAR_FILE}"
+echo "Generating Source Release Archive: ${TAR_FILE}..."
+rm -f "${TAR_FILE}" "${TEMP_TAR_FILE}"
 tar --exclude="./.git" \
     --exclude="./build" \
     --exclude="./*.deb" \
     --exclude="./*.tar.gz" \
     --exclude="**/__pycache__" \
     --exclude="**/*.pyc" \
-    -czf "${TAR_FILE}" -C "$(dirname "$0")" .
+    -czf "${TEMP_TAR_FILE}" -C "$SCRIPT_DIR" .
+mv "${TEMP_TAR_FILE}" "${TAR_FILE}"
 
-echo "✅ Successfully created: ${TAR_FILE}"
+echo "Successfully created: ${TAR_FILE}"
 ls -lh "${TAR_FILE}"
