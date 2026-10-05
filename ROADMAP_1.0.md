@@ -11,7 +11,7 @@ This roadmap defines the work needed to make Strop 1.0 reliable to install, use,
 
 ## Priority 1: Stabilize profile lifecycle
 
-- [ ] Confirm save, apply, stop, and active-profile status match the input-remapper backend result.
+- [x] Confirm save, apply, stop, and active-profile status match actual behavior on `steam`; user confirmed working on 2026-10-04.
 - [x] Validate preset data before saving or applying it.
 - [x] Write profile and state files atomically to avoid corruption from interrupted writes.
 - [x] Preserve the last confirmed state when apply or stop fails; show uncertain state after timeouts.
@@ -39,41 +39,43 @@ Strop 1.0 will officially support only the Steam PC configuration below. Other L
 | Remapping backend | input-remapper 2.2.0; daemon active and reachable |
 | Host hardware | ASUS ROG STRIX B550-F GAMING WIFI II; AMD Ryzen 7 5800X3D; 64 GiB RAM; PowerColor Radeon RX 9070 XT |
 
-The input-remapper daemon currently enumerates these attached devices. They are the initial 1.0 hardware support scope; each still needs Strop workflow and mapping verification:
+These attached devices are the initial 1.0 hardware support scope. The user has verified profile workflows, physical mappings, and preset round trips on this setup:
 
 | Device | USB ID | Observed status |
 | --- | --- | --- |
-| Razer Tartarus Pro (RZ07-0311) | `1532:0244` | Enumerated; Strop mapping verification pending |
-| Razer BlackWidow V3 | `1532:024e` | Enumerated; Strop mapping verification pending |
-| Razer Naga Trinity | `1532:0067` | Enumerated; Strop mapping verification pending |
+| Razer Tartarus Pro (RZ07-0311) | `1532:0244` | User verified profiles, physical mappings, and preset round trips |
+| Razer BlackWidow V3 | `1532:024e` | User verified profiles, physical mappings, and preset round trips |
+| Razer Naga Trinity | `1532:0067` | User verified profiles, physical mappings, and preset round trips |
 
 OpenRazer 3.12.4 is installed and its per-user daemon is active; its system service is inactive. Treat Strop's OpenRazer-dependent functionality as unverified until the relevant hardware paths are exercised in Strop. No gamepad was attached in this inventory, so gamepad support is outside the 1.0 hardware matrix unless subsequently tested.
 
 ## Priority 3: Verify mapping correctness
 
 - [x] Add regression coverage for representative keyboard/mouse preset serialization, gamepad button event serialization, stick display directions, and macro tokenization.
-- [ ] Verify mappings on the supported physical keyboard, mouse, and keypad. Gamepad hardware is not in the 1.0 support matrix.
+- [x] Verify mappings on the supported physical keyboard, mouse, and keypad; user confirmed expected remapped and unmapped behavior on all three devices on 2026-10-04. Gamepad hardware is not in the 1.0 support matrix.
 - [ ] Verify analog stick cardinal and diagonal directions, right-stick mappings, triggers, and D-pad actions on supported hardware. Current input-remapper 2.2.0 does not accept the digital-to-axis or compound-button macro outputs Strop previously generated; the UI now disables unsupported stick binds and emits single D-pad buttons only.
 - [x] Add parser checks for balanced nested syntax and escaped quoted arguments; validate saved macros with the installed input-remapper parser when available.
-- [ ] Verify preset import/export compatibility through round trips on the supported devices and backend.
+- [x] Verify preset import/export compatibility through round trips on all three supported devices; user confirmed mappings, labels, and output targets are preserved through save, load, save, and apply on 2026-10-05.
 - [x] Restrict HUD preset loading and active-profile labels to the selected device, and clear stale mapping state for empty presets.
 - [x] Protect built-in macro templates and atomically validate user macro-library writes.
-- [ ] Confirm mapping behavior and HUD updates during end-to-end use on `steam`.
+- [x] Confirm mapping behavior and HUD updates during end-to-end use on `steam`; user confirmed the HUD shows the selected device, profile, and mappings and updates when switching profiles on 2026-10-05.
 
 ## Priority 4: Make installation and upgrades repeatable
 
-- [ ] Build and install the Debian package in a clean supported environment.
-- [x] Add local Debian package build/inspection checks and validate the source desktop entry. A clean install/uninstall and launcher runtime check is still pending.
+- [x] Build the Debian package and verify a fresh install with no previous Strop package on the supported setup; user confirmed the menu launcher and icons work on 2026-10-05.
+- [x] Add local Debian package build/inspection checks and validate the source desktop entry.
+- [x] Verify uninstall removes installed launchers and menu entries while preserving user presets and macros; user confirmed working on 2026-10-05.
 - [x] Upgrade `steam` from installed 0.9.1 to 0.9.2 and confirm user configuration is preserved: 16 backed-up files were unchanged on 2026-10-04. See `docs/SUPPORT.md` for verification details.
-- [x] Document backup and recovery for profiles and macro data; exercise restore on the support PC before release.
-- [x] Align README installation instructions, desktop entry, package contents, and package data permissions. Clean install/uninstall behavior remains pending.
-- [ ] Finalize and verify maintainer contact and package metadata before publishing the package.
+- [x] Document backup and recovery for profiles and macro data.
+- [ ] Exercise backup restoration on the support PC and confirm profiles and macros are recovered.
+- [x] Align README installation instructions, desktop entry, package contents, and package data permissions.
+- [ ] Finalize and verify maintainer contact and package metadata when moving the project to GitHub, before publishing the package.
 
 ## Priority 5: Add release checks and documentation
 
-- [ ] Run the core test suite in CI for the supported Python and dependency versions. The workflow now targets Ubuntu 26.04; it still needs a hosted run and validation against the Steam PC's exact runtime versions.
+- [ ] After moving the project to GitHub, run the core test suite in CI for the supported Python and dependency versions. The workflow targets Ubuntu 26.04 and needs a hosted run and validation against the Steam PC's exact runtime versions; deferred until the move.
 - [x] Add Python compilation, desktop-entry, package-build, and package-content checks to CI.
-- [ ] Publish the 1.0 changelog and upgrade notes with release results; development drafts are in `CHANGELOG.md` and `docs/UPGRADING.md`.
+- [ ] Finalize and publish the 1.0 changelog and upgrade notes after remaining verification is complete; deferred by the user. Development drafts remain in `CHANGELOG.md` and `docs/UPGRADING.md`.
 - [x] Add installation, first-run, device permissions, profile management, and troubleshooting documentation.
 - [x] State the intended hardware matrix and known limitations in the README.
 
@@ -95,4 +97,4 @@ The standalone `stropd` daemon remains a separate roadmap item unless it becomes
 
 ## Current starting point
 
-The 0.9.2 branch contains profile-state, device discovery, macro parsing, gamepad display, HUD targeting, and preset handling improvements. The Steam PC and three Razer devices above are the sole 1.0 support target. Support and setup are documented in `docs/SUPPORT.md` and `docs/USER_GUIDE.md`. Physical mapping, profile lifecycle, clean installation, upgrade, and hosted-CI verification remain open.
+The 0.9.2 branch contains profile-state, device discovery, macro parsing, gamepad display, HUD targeting, and preset handling improvements. The Steam PC and three Razer devices above are the sole 1.0 support target. Support and setup are documented in `docs/SUPPORT.md` and `docs/USER_GUIDE.md`. The user has confirmed profile lifecycle, physical mappings, preset round trips, live HUD updates, fresh installation, and uninstall behavior. Package upgrade and data preservation were also verified. D-pad-to-gamepad outputs and backup restoration remain untested; maintainer contact and hosted CI are deferred until the GitHub move, and release notes await remaining verification.

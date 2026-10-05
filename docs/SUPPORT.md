@@ -22,15 +22,15 @@ The software stack and devices below were observed on this PC. Device discovery 
 
 | Device | USB ID | Observed status |
 | --- | --- | --- |
-| Razer Tartarus Pro (RZ07-0311) | `1532:0244` | Enumerated by input-remapper and visible as Linux input devices; Strop end-to-end verification pending |
-| Razer BlackWidow V3 | `1532:024e` | Enumerated by input-remapper and visible as Linux input devices; Strop end-to-end verification pending |
-| Razer Naga Trinity | `1532:0067` | Enumerated by input-remapper and visible as Linux input devices; Strop end-to-end verification pending |
+| Razer Tartarus Pro (RZ07-0311) | `1532:0244` | Enumerated; user verified profiles, physical mappings, and preset round trips |
+| Razer BlackWidow V3 | `1532:024e` | Enumerated; user verified profiles, physical mappings, and preset round trips |
+| Razer Naga Trinity | `1532:0067` | Enumerated; user verified profiles, physical mappings, and preset round trips |
 
 No gamepad was attached during inventory. Gamepads and all devices not listed above are outside the 1.0 support commitment until tested and added here.
 
 ## Catalog versus support
 
-Strop contains 230+ catalog entries and generic layout archetypes for Razer models. These entries provide layout/reference data for the editors. They do not establish USB discovery, correct physical key positions, mapping behavior, lighting compatibility, or official device support. Only the three devices in the hardware table are in the initial support scope, and their end-to-end verification remains pending.
+Strop contains 230+ catalog entries and generic layout archetypes for Razer models. These entries provide layout/reference data for the editors. They do not establish USB discovery, correct physical key positions, mapping behavior, lighting compatibility, or official device support. Only the three devices in the hardware table are in the initial support scope. Their user verification results are recorded below; optional lighting remains unverified.
 
 ## Runtime requirements and setup
 
@@ -49,7 +49,21 @@ GNOME Wayland is the only supported desktop session for 1.0. The regular GTK 4 e
 
 ## Verification status
 
-The `steam` PC and three devices are the sole target for Priority 3 mapping and Priority 1 profile lifecycle verification. Update this document with concrete results for discovery, save/apply/stop, representative mappings, imported preset round-trips, optional lighting, and HUD behavior before calling the matrix end-to-end tested.
+On 2026-10-04, the user confirmed that saving, applying, and stopping profiles on `steam` work and that Strop's displayed status agrees with actual behavior.
+
+On the same date, the user confirmed that BlackWidow V3 remapped keys and macros produce the expected input, while unmapped keys continue to work normally. The user also confirmed that Naga Trinity remapped buttons and macros produce the expected input, while unmapped buttons and pointer movement work normally. Tartarus Pro remapped keys and macros also produce the expected input, while unmapped keys, the scroll wheel, thumb button, and D-pad work normally.
+
+On 2026-10-05, the user reported that Tartarus D-pad-to-gamepad cardinal button outputs have not been tested; this check remains pending.
+
+On the same date, the user confirmed preset round trips work on the BlackWidow V3, Naga Trinity, and Tartarus Pro: saving, loading, saving again, and reapplying preserves mappings, labels, and output targets. The user also confirmed that the HUD shows the selected device, profile, and mappings and updates correctly when switching profiles during use on `steam`.
+
+On 2026-10-05, the user confirmed a fresh installation of the latest Debian package on the supported setup with no previous Strop package installed, including working menu launcher and icons.
+
+On the same date, the user confirmed uninstall removes Strop's launchers and menu entry while preserving saved presets and macros.
+
+The user reported on 2026-10-05 that backup restoration has not been tested; this check remains pending.
+
+The `steam` PC and three devices are the sole target for Priority 3 mapping and Priority 1 profile lifecycle verification. D-pad-to-gamepad outputs, optional lighting, and fullscreen HUD stacking remain unverified.
 
 ### Package upgrade verified on 2026-10-04
 
@@ -57,4 +71,4 @@ Upgraded the installed Strop 0.9.1 package on `steam` to 0.9.2, built from commi
 
 After installation, all 16 backed-up configuration files were present and byte-for-byte unchanged. The package database and installed Python runtime reported 0.9.2; `dpkg --verify strop` reported no discrepancies. The desktop entry passed `desktop-file-validate`, all six installed launch commands were present, and input-remapper answered its `hello` command.
 
-This verifies package upgrade and preservation of the existing user data. GUI launch, physical mappings, backup restoration, clean installation, and uninstall behavior still require verification.
+This verifies package upgrade and preservation of the existing user data. Subsequent user verification of GUI launch, physical mappings, fresh installation, and uninstall behavior is recorded above. Backup restoration still requires verification.
