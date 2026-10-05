@@ -1,5 +1,8 @@
 # 🗺️ Strop Roadmap: Standalone Native Daemon Architecture (`stropd`)
 
+The active release plan is [ROADMAP_2.0.md](ROADMAP_2.0.md). This document is a
+reference for a possible full daemon; implementing it is not required for 2.0.
+
 ## 🎯 Goal
 Eliminate dependency on external services (such as `input-remapper-daemon` / `input-remapper-gtk`) while preserving **100% full compatibility** with existing `~/.config/input-remapper-2/` JSON preset configurations and macro syntax.
 

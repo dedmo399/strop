@@ -116,6 +116,8 @@ Source checkout launchers use the `./strop*.py` commands above. To add an instal
 
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) describes the 1.0 release. Catalog models not listed in the support matrix are not part of official 1.0 support.
 
+The active [Strop 2.0 roadmap](ROADMAP_2.0.md) prioritizes Tartarus Pro key-depth access, correct controller-output mappings, and unified hardware settings.
+
 ---
 
 ## 📜 Version & License

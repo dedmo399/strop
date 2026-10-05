@@ -34,6 +34,7 @@ backend. D-pad-to-gamepad outputs and optional lighting remain unverified.
 These are documented limitations rather than additional 1.0 release requirements.
 Other hardware and desktop configurations remain outside the support matrix.
 
-The native `stropd` daemon remains future work described in
+The active development plan is [ROADMAP_2.0.md](ROADMAP_2.0.md).
+The native `stropd` daemon remains an architectural reference in
 [ROADMAP_NATIVE_DAEMON.md](ROADMAP_NATIVE_DAEMON.md).
 Release changes are recorded in [CHANGELOG.md](CHANGELOG.md).
