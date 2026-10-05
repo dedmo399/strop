@@ -50,3 +50,11 @@ GNOME Wayland is the only supported desktop session for 1.0. The regular GTK 4 e
 ## Verification status
 
 The `steam` PC and three devices are the sole target for Priority 3 mapping and Priority 1 profile lifecycle verification. Update this document with concrete results for discovery, save/apply/stop, representative mappings, imported preset round-trips, optional lighting, and HUD behavior before calling the matrix end-to-end tested.
+
+### Package upgrade verified on 2026-10-04
+
+Upgraded the installed Strop 0.9.1 package on `steam` to 0.9.2, built from commit `7f482de`. Apt changed only Strop. Before upgrading, the user's Strop and input-remapper configuration directories were backed up to `/home/playerone/strop-upgrade-backups/20261004-233916-before-0.9.2.tar.gz`.
+
+After installation, all 16 backed-up configuration files were present and byte-for-byte unchanged. The package database and installed Python runtime reported 0.9.2; `dpkg --verify strop` reported no discrepancies. The desktop entry passed `desktop-file-validate`, all six installed launch commands were present, and input-remapper answered its `hello` command.
+
+This verifies package upgrade and preservation of the existing user data. GUI launch, physical mappings, backup restoration, clean installation, and uninstall behavior still require verification.

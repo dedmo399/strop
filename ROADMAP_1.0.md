@@ -64,7 +64,7 @@ OpenRazer 3.12.4 is installed and its per-user daemon is active; its system serv
 
 - [ ] Build and install the Debian package in a clean supported environment.
 - [x] Add local Debian package build/inspection checks and validate the source desktop entry. A clean install/uninstall and launcher runtime check is still pending.
-- [ ] Test upgrades from 0.9.1 and confirm user presets and macros remain intact.
+- [x] Upgrade `steam` from installed 0.9.1 to 0.9.2 and confirm user configuration is preserved: 16 backed-up files were unchanged on 2026-10-04. See `docs/SUPPORT.md` for verification details.
 - [x] Document backup and recovery for profiles and macro data; exercise restore on the support PC before release.
 - [x] Align README installation instructions, desktop entry, package contents, and package data permissions. Clean install/uninstall behavior remains pending.
 - [ ] Finalize and verify maintainer contact and package metadata before publishing the package.

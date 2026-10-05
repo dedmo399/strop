@@ -20,7 +20,7 @@ if str(script_dir) not in sys.path:
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gtk, Gdk, GLib, Gio
+from gi.repository import Gtk, Gdk, GLib, Gio, Pango
 
 from strop_core.theme import apply_theme
 from strop_core.toast import StropToast
@@ -222,6 +222,7 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         header.set_valign(Gtk.Align.CENTER)
 
         title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_box.set_hexpand(True)
         lbl_title = Gtk.Label()
         lbl_title.set_markup("<span size='large' weight='bold' color='#f8fafc'>STROP <span color='#22c55e'>Macro Studio</span></span>")
         lbl_title.set_xalign(0)
@@ -230,13 +231,15 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         lbl_sub = Gtk.Label(label="Visual Sequence Timeline, Sequence Expression Wizard, & input-remapper-2 Macro Builder")
         lbl_sub.add_css_class("dim-text")
         lbl_sub.set_xalign(0)
+        lbl_sub.set_wrap(True)
+        lbl_sub.set_width_chars(1)
+        lbl_sub.set_max_width_chars(60)
         title_box.append(lbl_sub)
         header.append(title_box)
 
         # Header action buttons
         header_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header_actions.set_halign(Gtk.Align.END)
-        header_actions.set_hexpand(True)
 
         btn_wiz = Gtk.Button(label="🪄 New Macro Wizard")
         btn_wiz.add_css_class("primary-btn")
@@ -297,6 +300,14 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         right_card.add_css_class("card")
         right_card.set_hexpand(True)
 
+        # Keep the action footer visible while the editor scrolls at small sizes.
+        editor_scrolled = Gtk.ScrolledWindow()
+        editor_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        editor_scrolled.set_vexpand(True)
+        editor_body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        editor_scrolled.set_child(editor_body)
+        right_card.append(editor_scrolled)
+
         # Properties Row: Name, Label, Icon, Category
         prop_grid = Gtk.Grid()
         prop_grid.set_column_spacing(8)
@@ -315,34 +326,44 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         lbl_mlabel = Gtk.Label(label="Badge Label:")
         lbl_mlabel.set_xalign(0)
         lbl_mlabel.add_css_class("dim-label")
-        prop_grid.attach(lbl_mlabel, 2, 0, 1, 1)
+        prop_grid.attach(lbl_mlabel, 0, 1, 1, 1)
 
         self.entry_badge = Gtk.Entry()
         self.entry_badge.set_placeholder_text("e.g. Turbo, SlideJump")
-        self.entry_badge.set_size_request(120, -1)
-        prop_grid.attach(self.entry_badge, 3, 0, 1, 1)
+        self.entry_badge.set_hexpand(True)
+        prop_grid.attach(self.entry_badge, 1, 1, 1, 1)
 
         lbl_mcat = Gtk.Label(label="Category:")
         lbl_mcat.set_xalign(0)
         lbl_mcat.add_css_class("dim-label")
-        prop_grid.attach(lbl_mcat, 0, 1, 1, 1)
+        prop_grid.attach(lbl_mcat, 0, 2, 1, 1)
 
         self.entry_category = Gtk.Entry()
         self.entry_category.set_text("Custom")
-        prop_grid.attach(self.entry_category, 1, 1, 3, 1)
+        self.entry_category.set_hexpand(True)
+        prop_grid.attach(self.entry_category, 1, 2, 1, 1)
 
-        right_card.append(prop_grid)
+        editor_body.append(prop_grid)
 
 
         # -------------------------------------------------------------
         # Action Step Insertion Bar
         # -------------------------------------------------------------
-        add_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        add_bar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         add_bar.set_margin_top(4)
 
         lbl_add = Gtk.Label()
         lbl_add.set_markup("<span size='small' weight='bold' color='#86efac'>+ Insert Step:</span>")
+        lbl_add.set_xalign(0)
         add_bar.append(lbl_add)
+
+        quick_steps = Gtk.FlowBox()
+        quick_steps.set_selection_mode(Gtk.SelectionMode.NONE)
+        quick_steps.set_min_children_per_line(1)
+        quick_steps.set_max_children_per_line(5)
+        quick_steps.set_row_spacing(6)
+        quick_steps.set_column_spacing(6)
+        add_bar.append(quick_steps)
 
         # Preset step pills
         for d_lbl, d_val in [("+25ms", "25ms"), ("+50ms", "50ms"), ("+100ms", "100ms"), ("+250ms", "250ms")]:
@@ -350,16 +371,16 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
             btn_d.add_css_class("quick-tag")
             btn_d.set_tooltip_text(f"Insert {d_val} pause")
             btn_d.connect("clicked", lambda w, v=d_val: self._add_step(v))
-            add_bar.append(btn_d)
+            quick_steps.insert(btn_d, -1)
 
         for act_lbl, act_val in [("+Left Click", "mouse(1)"), ("+Right Click", "mouse(3)"), ("+Space", "space"), ("+Ctrl", "Control_L"), ("+Shift", "Shift_L")]:
             btn_a = Gtk.Button(label=act_lbl)
             btn_a.add_css_class("quick-tag")
             btn_a.set_tooltip_text(f"Insert {act_lbl}")
             btn_a.connect("clicked", lambda w, v=act_val: self._add_step(v))
-            add_bar.append(btn_a)
+            quick_steps.insert(btn_a, -1)
 
-        right_card.append(add_bar)
+        editor_body.append(add_bar)
 
         # Sequence Expression / Custom Input Bar
         custom_input_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -374,7 +395,7 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         btn_add_custom.set_tooltip_text("Parses sequence or step and appends to the timeline")
         btn_add_custom.connect("clicked", lambda w: self._on_add_custom_step())
         custom_input_bar.append(btn_add_custom)
-        right_card.append(custom_input_bar)
+        editor_body.append(custom_input_bar)
 
         # -------------------------------------------------------------
         # Vertical Timeline Step Box
@@ -382,15 +403,11 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         lbl_tl = Gtk.Label()
         lbl_tl.set_markup("<span weight='bold' size='small' color='#f8fafc'>Sequence Timeline</span>")
         lbl_tl.set_xalign(0)
-        right_card.append(lbl_tl)
-
-        tl_scrolled = Gtk.ScrolledWindow()
-        tl_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        tl_scrolled.set_vexpand(True)
+        editor_body.append(lbl_tl)
 
         self.timeline_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        tl_scrolled.set_child(self.timeline_box)
-        right_card.append(tl_scrolled)
+        self.timeline_box.set_vexpand(True)
+        editor_body.append(self.timeline_box)
 
         # Raw Output Preview Bar
         preview_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -402,8 +419,10 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         self.lbl_compiled_syntax.set_markup("<span color='#86efac'><tt><i>(empty)</i></tt></span>")
         self.lbl_compiled_syntax.set_hexpand(True)
         self.lbl_compiled_syntax.set_xalign(0)
+        self.lbl_compiled_syntax.set_ellipsize(Pango.EllipsizeMode.END)
+        self.lbl_compiled_syntax.set_width_chars(1)
         preview_box.append(self.lbl_compiled_syntax)
-        right_card.append(preview_box)
+        editor_body.append(preview_box)
 
         # Bottom Actions: Save, Delete, Duplicate
         bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -419,6 +438,7 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         bottom_bar.append(btn_clear_steps)
 
         btn_save = Gtk.Button(label="💾 Save Macro")
+        self.btn_save = btn_save
         btn_save.add_css_class("primary-btn")
         btn_save.set_hexpand(True)
         btn_save.set_halign(Gtk.Align.END)
@@ -481,6 +501,9 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
             badge_str = " <span size='6500' color='#22c55e'>[Built-In]</span>" if is_built_in else " <span size='6500' color='#94a3b8'>[Custom]</span>"
             lbl_title.set_markup(f"<span weight='bold' size='small' color='#f8fafc'>{esc_t}</span>{badge_str}")
             lbl_title.set_xalign(0)
+            lbl_title.set_ellipsize(Pango.EllipsizeMode.END)
+            lbl_title.set_width_chars(1)
+            lbl_title.set_tooltip_text(title)
             info_box.append(lbl_title)
 
             lbl_sub = Gtk.Label()
@@ -488,6 +511,9 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
             esc_label = GLib.markup_escape_text(m.get("label", title))
             lbl_sub.set_markup(f"<span size='7500' color='#94a3b8'>Category: <b>{esc_cat}</b> | Badge: <tt>{esc_label}</tt></span>")
             lbl_sub.set_xalign(0)
+            lbl_sub.set_ellipsize(Pango.EllipsizeMode.END)
+            lbl_sub.set_width_chars(1)
+            lbl_sub.set_tooltip_text(f"Category: {cat} | Badge: {m.get('label', title)}")
             info_box.append(lbl_sub)
 
             card.append(info_box)
@@ -559,6 +585,8 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         if not self.current_steps:
             empty = Gtk.Label(label="No steps in timeline. Use the wizard or insertion bar above.")
             empty.add_css_class("dim-label")
+            empty.set_wrap(True)
+            empty.set_width_chars(1)
             empty.set_vexpand(True)
             self.timeline_box.append(empty)
         else:
@@ -587,6 +615,9 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
                 lbl_val.set_markup(f"<span size='small' weight='bold' color='{color}'><tt>{esc_val}</tt></span>")
                 lbl_val.set_xalign(0)
                 lbl_val.set_hexpand(True)
+                lbl_val.set_ellipsize(Pango.EllipsizeMode.END)
+                lbl_val.set_width_chars(1)
+                lbl_val.set_tooltip_text(step)
                 row.append(lbl_val)
 
                 # Up / Down Controls
@@ -610,6 +641,7 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
                 self.timeline_box.append(row)
 
         compiled = build_macro_string(self.current_steps)
+        self.lbl_compiled_syntax.set_tooltip_text(compiled or None)
         if compiled:
             self.lbl_compiled_syntax.set_markup(f"<span color='#86efac'><tt>{GLib.markup_escape_text(compiled)}</tt></span>")
         else:
