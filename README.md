@@ -10,7 +10,7 @@
 
 ## 🧰 Platform and support
 
-The **only official 1.0 support target** is the Steam PC running Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0. The initial hardware scope is the Razer Tartarus Pro, BlackWidow V3, and Naga Trinity listed in the [support matrix](docs/SUPPORT.md). End-to-end mapping verification is still in progress.
+The **only official 1.0 support target** is the Steam PC running Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0. The initial hardware scope is the Razer Tartarus Pro, BlackWidow V3, and Naga Trinity listed in the [support matrix](docs/SUPPORT.md).
 
 Strop's catalog contains 230+ device entries and generic layout archetypes. Catalog presence is reference data; it does not mean a device has been tested or is officially supported. Other distributions, sessions, backend versions, and devices are outside the 1.0 support commitment.
 
@@ -48,7 +48,7 @@ The central dashboard scans connected Razer input devices and launches the studi
   - **Ambidextrous Dual Side Buttons** (Viper, Ouroboros, Taipan, Lancehead).
   - **Gamepad Action Palette**: Assign supported single controller-button outputs. Analog triggers are not supported from digital inputs by the current backend.
 
-### 5. **Strop Macro Studio** (`./strop_macro.py` or `./macro.sh`)
+### 5. **Strop Macro Studio** (`./strop_macro.py`)
 - **Visual Sequence Timeline**: Visual vertical step builder to insert keypresses, mouse clicks, and custom millisecond delay pauses.
 - **Custom Macro Library**: Organize, search, and save custom macros directly in `~/.config/strop/macros.json`.
 - **Integrated Hardware Assignment**: Any macro built in Macro Studio is instantly available for 1-click assignment across all keypads, keyboards, and mice.
@@ -104,7 +104,7 @@ The official 1.0 target is Ubuntu 26.04.1 LTS on the Steam PC. Other distributio
 ### Install Debian Package (.deb)
 Download or build the package and install it with `apt`:
 ```bash
-sudo apt install ./strop_0.9.2_all.deb
+sudo apt install ./strop_1.0.0_all.deb
 ```
 
 To build fresh `.deb` and `.tar.gz` release artifacts at any time:
@@ -114,11 +114,13 @@ To build fresh `.deb` and `.tar.gz` release artifacts at any time:
 
 Source checkout launchers use the `./strop*.py` commands above. To add an installed package to the application menu, install the `.deb`; it provides a system desktop entry and icons.
 
-See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) summarizes development changes and is not a release announcement. Catalog models not listed in the support matrix are not part of official 1.0 support.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) describes the 1.0 release. Catalog models not listed in the support matrix are not part of official 1.0 support.
 
 ---
 
 ## 📜 Version & License
 
-- **Version**: `0.9.2` (development)
+- **Version**: `1.0.0`
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
+
+Maintained by Strop Contributors. Visit [GitHub](https://github.com) and search for Strop.

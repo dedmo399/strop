@@ -24,7 +24,7 @@ jobs:
       - name: Build and inspect Debian package
         run: |
           ./build_deb.sh
-          dpkg-deb --info strop_0.9.2_all.deb
-          dpkg-deb --contents strop_0.9.2_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
-          dpkg-deb --contents strop_0.9.2_all.deb | grep -F 'usr/bin/strop-keypad'
-          dpkg-deb --contents strop_0.9.2_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+          dpkg-deb --info strop_1.0.0_all.deb
+          dpkg-deb --contents strop_1.0.0_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
+          dpkg-deb --contents strop_1.0.0_all.deb | grep -F 'usr/bin/strop-keypad'
+          dpkg-deb --contents strop_1.0.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'

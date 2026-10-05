@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="0.9.2"
+VERSION="1.0.0"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -113,10 +113,10 @@ Section: utils
 Priority: optional
 Architecture: ${ARCH}
 Installed-Size: ${INSTALLED_SIZE}
-Maintainer: Strop Linux Contributors <https://github.com/strop-linux/strop>
+Maintainer: Strop Contributors
 Depends: python3, python3-gi, python3-evdev, gir1.2-gtk-4.0
 Recommends: input-remapper, openrazer-meta | openrazer-daemon
-Homepage: https://github.com/strop-linux/strop
+Homepage: https://github.com
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
  Native Linux GTK4 application suite for configuring, remapping, and customizing
  Razer keypad, keyboard, and mouse layouts with input-remapper profile integration.
@@ -174,6 +174,7 @@ echo "Generating Source Release Archive: ${TAR_FILE}..."
 rm -f "${TAR_FILE}" "${TEMP_TAR_FILE}"
 tar --exclude="./.git" \
     --exclude="./build" \
+    --exclude="./.pytest_cache" \
     --exclude="./*.deb" \
     --exclude="./*.tar.gz" \
     --exclude="**/__pycache__" \

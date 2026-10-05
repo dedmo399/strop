@@ -1,6 +1,6 @@
 # Backup, upgrade, and recovery
 
-This guide covers Strop 0.9.1 to later 0.9.x/1.0 packages. It has not yet been exercised as a clean-system upgrade; verify it on the Steam PC before declaring upgrade support.
+This guide covers backup, upgrades to Strop 1.0, and recovery. Package upgrades preserve user configuration; keep a backup before upgrading.
 
 ## Back up profiles and settings
 

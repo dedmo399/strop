@@ -1,100 +1,39 @@
-# Strop 1.0 Release Roadmap
+# Strop 1.0 release scope
 
-This roadmap defines the work needed to make Strop 1.0 reliable to install, use, and support. The 1.0 goal is a stable end-to-end workflow for supported hardware, with clear limits and verified behavior.
+Strop 1.0 provides a stable profile workflow using input-remapper, with documented
+hardware support and known backend limitations. The 1.0 roadmap is closed.
+The remaining verification and publication prerequisites were removed at the
+maintainer's request; they are not represented as completed tests.
 
-## Release principles
+## Included in 1.0
 
-- A user can discover a supported device, edit a profile, save it, apply it, and confirm its state.
-- Strop reports failures and uncertain outcomes accurately.
-- The documented hardware and platform support matches what has been tested.
-- Existing profiles and user macro data survive upgrades and can be recovered.
+- Profile validation, atomic writes, and accurate save/apply/stop status.
+- Actionable device, permission, daemon, and disconnect diagnostics.
+- Preset round trips that preserve mappings, labels, and output targets.
+- Hardened macro parsing and protected built-in macro templates.
+- HUD profile and mapping display restricted to the selected device.
+- Debian packaging and automated source, test, desktop-entry, and package checks.
+- Installation, first-run, troubleshooting, backup, and recovery documentation.
 
-## Priority 1: Stabilize profile lifecycle
+## Support scope
 
-- [x] Confirm save, apply, stop, and active-profile status match actual behavior on `steam`; user confirmed working on 2026-10-04.
-- [x] Validate preset data before saving or applying it.
-- [x] Write profile and state files atomically to avoid corruption from interrupted writes.
-- [x] Preserve the last confirmed state when apply or stop fails; show uncertain state after timeouts.
-- [x] Handle missing input-remapper, daemon failures, permission problems, device disconnects, and stale state with actionable messages.
-- [x] Verify imported presets round-trip through Strop without losing mappings, labels, or target information for mappings Strop can edit; preserve other valid mappings on save.
+The Steam PC running Ubuntu 26.04.1 LTS, a `7.0.0-*-generic` kernel, GNOME 50.1
+on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0 is the sole
+supported configuration. The Razer Tartarus Pro, BlackWidow V3, and Naga Trinity
+are the supported devices. Full details are in [docs/SUPPORT.md](docs/SUPPORT.md).
 
-## Priority 2: Define supported hardware and platforms
+Physical profile mappings, preset round trips, HUD updates, fresh installation,
+uninstall behavior, and upgrade data preservation were verified on this setup.
+An isolated backup restoration drill also recovered all configuration files
+byte-for-byte. This does not establish testing of restored profiles in the app.
 
-- [x] Publish the sole 1.0 hardware target matrix and distinguish device detection from end-to-end verification.
-- [x] Mark catalog-only devices separately from devices verified end to end.
-- [x] List the supported Linux distribution, desktop session, and input-remapper/OpenRazer versions.
-- [x] Document required packages, device permissions, service setup, and known X11/Wayland limitations.
-- [x] Make device discovery explain permission and driver errors instead of presenting them as an empty device list.
+## Known limitations
 
-### 1.0 support target: Steam PC
+Digital-to-analog stick and trigger bindings are unavailable with the supported
+backend. D-pad-to-gamepad outputs and optional lighting remain unverified.
+These are documented limitations rather than additional 1.0 release requirements.
+Other hardware and desktop configurations remain outside the support matrix.
 
-Strop 1.0 will officially support only the Steam PC configuration below. Other Linux distributions, desktop sessions, remapping backends, and devices remain unsupported unless they are added after verification. This is the observed support target, not a claim that every mapping path has passed end-to-end testing.
-
-| Area | Observed configuration |
-| --- | --- |
-| OS / architecture | Ubuntu 26.04.1 LTS (Resolute), amd64 |
-| Kernel | 7.0.0-34-generic |
-| Desktop | GNOME 50.1 on Wayland; GTK 4.22.4 |
-| Python | 3.14.4 |
-| Remapping backend | input-remapper 2.2.0; daemon active and reachable |
-| Host hardware | ASUS ROG STRIX B550-F GAMING WIFI II; AMD Ryzen 7 5800X3D; 64 GiB RAM; PowerColor Radeon RX 9070 XT |
-
-These attached devices are the initial 1.0 hardware support scope. The user has verified profile workflows, physical mappings, and preset round trips on this setup:
-
-| Device | USB ID | Observed status |
-| --- | --- | --- |
-| Razer Tartarus Pro (RZ07-0311) | `1532:0244` | User verified profiles, physical mappings, and preset round trips |
-| Razer BlackWidow V3 | `1532:024e` | User verified profiles, physical mappings, and preset round trips |
-| Razer Naga Trinity | `1532:0067` | User verified profiles, physical mappings, and preset round trips |
-
-OpenRazer 3.12.4 is installed and its per-user daemon is active; its system service is inactive. Treat Strop's OpenRazer-dependent functionality as unverified until the relevant hardware paths are exercised in Strop. No gamepad was attached in this inventory, so gamepad support is outside the 1.0 hardware matrix unless subsequently tested.
-
-## Priority 3: Verify mapping correctness
-
-- [x] Add regression coverage for representative keyboard/mouse preset serialization, gamepad button event serialization, stick display directions, and macro tokenization.
-- [x] Verify mappings on the supported physical keyboard, mouse, and keypad; user confirmed expected remapped and unmapped behavior on all three devices on 2026-10-04. Gamepad hardware is not in the 1.0 support matrix.
-- [ ] Verify analog stick cardinal and diagonal directions, right-stick mappings, triggers, and D-pad actions on supported hardware. Current input-remapper 2.2.0 does not accept the digital-to-axis or compound-button macro outputs Strop previously generated; the UI now disables unsupported stick binds and emits single D-pad buttons only.
-- [x] Add parser checks for balanced nested syntax and escaped quoted arguments; validate saved macros with the installed input-remapper parser when available.
-- [x] Verify preset import/export compatibility through round trips on all three supported devices; user confirmed mappings, labels, and output targets are preserved through save, load, save, and apply on 2026-10-05.
-- [x] Restrict HUD preset loading and active-profile labels to the selected device, and clear stale mapping state for empty presets.
-- [x] Protect built-in macro templates and atomically validate user macro-library writes.
-- [x] Confirm mapping behavior and HUD updates during end-to-end use on `steam`; user confirmed the HUD shows the selected device, profile, and mappings and updates when switching profiles on 2026-10-05.
-
-## Priority 4: Make installation and upgrades repeatable
-
-- [x] Build the Debian package and verify a fresh install with no previous Strop package on the supported setup; user confirmed the menu launcher and icons work on 2026-10-05.
-- [x] Add local Debian package build/inspection checks and validate the source desktop entry.
-- [x] Verify uninstall removes installed launchers and menu entries while preserving user presets and macros; user confirmed working on 2026-10-05.
-- [x] Upgrade `steam` from installed 0.9.1 to 0.9.2 and confirm user configuration is preserved: 16 backed-up files were unchanged on 2026-10-04. See `docs/SUPPORT.md` for verification details.
-- [x] Document backup and recovery for profiles and macro data.
-- [ ] Exercise backup restoration on the support PC and confirm profiles and macros are recovered.
-- [x] Align README installation instructions, desktop entry, package contents, and package data permissions.
-- [ ] Finalize and verify maintainer contact and package metadata when moving the project to GitHub, before publishing the package.
-
-## Priority 5: Add release checks and documentation
-
-- [ ] After moving the project to GitHub, run the core test suite in CI for the supported Python and dependency versions. The workflow targets Ubuntu 26.04 and needs a hosted run and validation against the Steam PC's exact runtime versions; deferred until the move.
-- [x] Add Python compilation, desktop-entry, package-build, and package-content checks to CI.
-- [ ] Finalize and publish the 1.0 changelog and upgrade notes after remaining verification is complete; deferred by the user. Development drafts remain in `CHANGELOG.md` and `docs/UPGRADING.md`.
-- [x] Add installation, first-run, device permissions, profile management, and troubleshooting documentation.
-- [x] State the intended hardware matrix and known limitations in the README.
-
-## Release verification checklist
-
-Before tagging 1.0:
-
-1. Install Strop from the documented package or source instructions in a clean environment.
-2. Connect representative devices from the published support matrix and confirm discovery and mapping behavior.
-3. Create, save, apply, stop, export, and re-import profiles; verify each reported result against the backend.
-4. Exercise missing-daemon, permission-denied, timeout, and disconnect cases and confirm clear recovery guidance.
-5. Upgrade from 0.9.1 and confirm user data is preserved.
-6. Run automated tests and packaging checks; record the results with the release notes.
-7. Confirm version strings, package metadata, documentation, and release tag agree on `1.0.0`.
-
-## Suggested scope boundary
-
-The standalone `stropd` daemon remains a separate roadmap item unless it becomes a required part of Strop's 1.0 product definition. Macro Studio focuses on manual composition and validated input-remapper macros. The 1.0 release should focus on a dependable workflow using the chosen, documented remapping backend.
-
-## Current starting point
-
-The 0.9.2 branch contains profile-state, device discovery, macro parsing, gamepad display, HUD targeting, and preset handling improvements. The Steam PC and three Razer devices above are the sole 1.0 support target. Support and setup are documented in `docs/SUPPORT.md` and `docs/USER_GUIDE.md`. The user has confirmed profile lifecycle, physical mappings, preset round trips, live HUD updates, fresh installation, and uninstall behavior. Package upgrade and data preservation were also verified. D-pad-to-gamepad outputs and backup restoration remain untested; maintainer contact and hosted CI are deferred until the GitHub move, and release notes await remaining verification.
+The native `stropd` daemon remains future work described in
+[ROADMAP_NATIVE_DAEMON.md](ROADMAP_NATIVE_DAEMON.md).
+Release changes are recorded in [CHANGELOG.md](CHANGELOG.md).

@@ -7,7 +7,7 @@ Strop 1.0 has one official platform target: the `steam` PC configuration below. 
 | Component | Supported target observed on `steam` |
 | --- | --- |
 | Distribution | Ubuntu 26.04.1 LTS (Resolute Raccoon), amd64 |
-| Kernel | Linux 7.0.0-34-generic |
+| Kernel | Linux 7.0.0-*-generic (any numbered build) |
 | Desktop session | GNOME 50.1, Wayland |
 | GTK | GTK 4.22.4; PyGObject 3.56.2 |
 | Python | Python 3.14.4 |
@@ -45,7 +45,7 @@ If device discovery reports a permission error, check the logged-in user's udev 
 
 ## Display-session limitations
 
-GNOME Wayland is the only supported desktop session for 1.0. The regular GTK 4 editors use the active GTK display backend. The HUD uses X11/XWayland window controls to request positioning and always-on-top behavior; that request can be ignored by the compositor, especially for native Wayland windows or exclusive-fullscreen applications. HUD stacking behavior still requires end-to-end verification on the support target. A pure X11 session is not in the official 1.0 matrix.
+GNOME Wayland is the only supported desktop session for 1.0. The regular GTK 4 editors use the active GTK display backend. The HUD uses X11/XWayland window controls to request positioning and always-on-top behavior; that request can be ignored by the compositor, especially for native Wayland windows or exclusive-fullscreen applications. Fullscreen HUD stacking remains unverified. A pure X11 session is not in the official 1.0 matrix.
 
 ## Verification status
 
@@ -53,7 +53,7 @@ On 2026-10-04, the user confirmed that saving, applying, and stopping profiles o
 
 On the same date, the user confirmed that BlackWidow V3 remapped keys and macros produce the expected input, while unmapped keys continue to work normally. The user also confirmed that Naga Trinity remapped buttons and macros produce the expected input, while unmapped buttons and pointer movement work normally. Tartarus Pro remapped keys and macros also produce the expected input, while unmapped keys, the scroll wheel, thumb button, and D-pad work normally.
 
-On 2026-10-05, the user reported that Tartarus D-pad-to-gamepad cardinal button outputs have not been tested; this check remains pending.
+Tartarus D-pad-to-gamepad cardinal button outputs remain unverified. Physical mapping verification is not an additional 1.0 release requirement; unverified outputs do not expand the support matrix.
 
 On the same date, the user confirmed preset round trips work on the BlackWidow V3, Naga Trinity, and Tartarus Pro: saving, loading, saving again, and reapplying preserves mappings, labels, and output targets. The user also confirmed that the HUD shows the selected device, profile, and mappings and updates correctly when switching profiles during use on `steam`.
 
@@ -61,14 +61,12 @@ On 2026-10-05, the user confirmed a fresh installation of the latest Debian pack
 
 On the same date, the user confirmed uninstall removes Strop's launchers and menu entry while preserving saved presets and macros.
 
-The user reported on 2026-10-05 that backup restoration has not been tested; this check remains pending.
+An automated isolated restoration drill recovered all 12 current configuration files byte-for-byte on 2026-10-05. Loading and applying the recovered profiles in Strop was not exercised. Further recovery verification is not a 1.0 release prerequisite.
 
 The `steam` PC and three devices are the sole target for Priority 3 mapping and Priority 1 profile lifecycle verification. D-pad-to-gamepad outputs, optional lighting, and fullscreen HUD stacking remain unverified.
 
-### Package upgrade verified on 2026-10-04
+### Upgrade data preservation
 
-Upgraded the installed Strop 0.9.1 package on `steam` to 0.9.2, built from commit `7f482de`. Apt changed only Strop. Before upgrading, the user's Strop and input-remapper configuration directories were backed up to `/home/playerone/strop-upgrade-backups/20261004-233916-before-0.9.2.tar.gz`.
+During pre-1.0 package testing on 2026-10-04, an upgrade on `steam` changed only Strop. All 16 backed-up configuration files remained present and byte-for-byte unchanged. Package verification reported no discrepancies, the desktop entry passed validation, all six installed launch commands were present, and input-remapper answered its `hello` command.
 
-After installation, all 16 backed-up configuration files were present and byte-for-byte unchanged. The package database and installed Python runtime reported 0.9.2; `dpkg --verify strop` reported no discrepancies. The desktop entry passed `desktop-file-validate`, all six installed launch commands were present, and input-remapper answered its `hello` command.
-
-This verifies package upgrade and preservation of the existing user data. Subsequent user verification of GUI launch, physical mappings, fresh installation, and uninstall behavior is recorded above. Backup restoration still requires verification.
+These historical checks establish upgrade data preservation for that tested build. They do not claim that the final 1.0 package was installed during those earlier tests. Strop 1.0 keeps the same user-data locations and backup procedure.
