@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from strop_core.catalog import (
     RAZER_DEVICE_CATALOG,
@@ -41,6 +42,9 @@ from strop_core.device import (
     clean_device_display_name,
     calculate_origin_hash,
     is_razer_device,
+    device_model_name,
+    scan_all_connected_devices,
+    detect_device,
 )
 
 
@@ -250,6 +254,48 @@ sys.exit(0)
 
 
 class TestStropDeviceUtils(unittest.TestCase):
+    def test_model_only_labels(self):
+        for raw, expected in (
+            ("Razer Razer Tartarus Pro", "Tartarus Pro"),
+            ("Razer BlackWidow V3", "BlackWidow V3"),
+            ("Razer Naga Trinity", "Naga Trinity"),
+            ("Tartarus Pro", "Tartarus Pro"),
+            ("Blade 15 (2022)", "Blade 15 (2022)"),
+        ):
+            self.assertEqual(device_model_name(raw), expected)
+
+    def test_discovery_excludes_forwarded_devices_and_preserves_physical_hashes(self):
+        from unittest.mock import Mock
+
+        nodes = {}
+        for index, model in enumerate(("Naga Trinity", "BlackWidow V3", "Tartarus Pro")):
+            for forwarded in (True, False):
+                path = f"/dev/input/event{index * 2 + int(forwarded)}"
+                raw = f"Razer Razer {model}"
+                name = f"input-remapper {raw} forwarded" if forwarded else raw
+                node = Mock(name=name)
+                node.name = name
+                node.path = path
+                node.info = SimpleNamespace(vendor=0x1532)
+                node.capabilities.return_value = {1: [30, 31]}
+                nodes[path] = node
+        evdev = SimpleNamespace(list_devices=lambda: list(nodes),
+                                InputDevice=nodes.__getitem__, ecodes=SimpleNamespace(EV_KEY=1))
+        with patch.dict("sys.modules", {"evdev": evdev}):
+            devices = scan_all_connected_devices()
+            selected = detect_device("naga", "Razer Naga Pro")
+        self.assertEqual(len(devices), 3)
+        self.assertEqual(selected["name"], "Razer Naga Trinity")
+        for device, model in zip(devices, ("Naga Trinity", "BlackWidow V3", "Tartarus Pro")):
+            self.assertEqual(device["name"], f"Razer {model}")
+            self.assertEqual(device["clean_name"], model)
+            expected_hash = calculate_origin_hash(str({1: [30, 31]}), f"Razer Razer {model}")
+            self.assertEqual(device["hash"], expected_hash)
+            self.assertEqual(device["all_hashes"], {device["path"]: expected_hash})
+            self.assertEqual(device["key_to_hash"], {30: expected_hash, 31: expected_hash})
+        for node in nodes.values():
+            self.assertEqual(node.close.call_count, 2)
+
     def test_clean_device_display_name(self):
         self.assertEqual(clean_device_display_name("Razer Razer Tartarus Pro"), "Razer Tartarus Pro")
         self.assertEqual(clean_device_display_name("Razer Tartarus Pro"), "Razer Tartarus Pro")
@@ -262,6 +308,8 @@ class TestStropDeviceUtils(unittest.TestCase):
         self.assertTrue(h.isalnum())
 
     def test_is_razer_device(self):
+        self.assertFalse(is_razer_device("input-remapper Razer Razer Naga Trinity forwarded", vendor_id=0x1532))
+        self.assertFalse(is_razer_device("input-remapper keyboard"))
         self.assertTrue(is_razer_device("Some Keyboard", vendor_id=0x1532))
         self.assertTrue(is_razer_device("Razer Tartarus Pro", vendor_id=None))
         self.assertTrue(is_razer_device("Razer BlackWidow V3", vendor_id=None))

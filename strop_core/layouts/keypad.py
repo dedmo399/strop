@@ -88,3 +88,19 @@ SCROLL_DOWN_DATA = {
     "verify": True,
     "note": "Driver-dependent scancode; verify in input-remapper-gtk."
 }
+
+# Factory display labels are independent of physical key numbers and remaps.
+for row, defaults in zip(KEYPAD_GRID, (
+    ("1", "2", "3", "4", "5"),
+    ("Tab", "Q", "W", "E", "R"),
+    ("Caps", "A", "S", "D", "F"),
+    ("Shift", "Z", "X", "C"),
+)):
+    for key, default in zip(row, defaults):
+        key["default_label"] = default
+SPACEBAR_DATA["default_label"] = "Space"
+THUMB_BTN_DATA["default_label"] = "Alt"
+for direction in DPAD_DATA.values():
+    direction["default_label"] = direction["l"]
+SCROLL_UP_DATA["default_label"] = SCROLL_UP_DATA["l"]
+SCROLL_DOWN_DATA["default_label"] = SCROLL_DOWN_DATA["l"]

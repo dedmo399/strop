@@ -11,6 +11,7 @@ class KeyState(TypedDict, total=False):
     id: str
     name: str
     label: str
+    default_label: str
     code: Optional[int]
     combo: Optional[List[int]]
     aliases: List[str]

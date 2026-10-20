@@ -19,7 +19,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 from gi.repository import Gtk, Gdk, GLib, Gio
 
-from strop_core.device import clean_device_display_name
+from strop_core.device import clean_device_display_name, device_model_name
 from strop_core.presets import (
     get_device_presets_dir, get_active_profile, apply_profile,
     save_device_preset, load_preset_file, validate_preset_data,
@@ -170,7 +170,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             is_detected = bool(self.detected_device.get("detected", False))
             marker = "🟢" if is_detected else "🟠"
             label_suffix = "" if is_detected else " (not detected)"
-            dev_badge.set_markup(f"{marker} <b>{GLib.markup_escape_text(dev_name + label_suffix)}</b>")
+            dev_badge.set_markup(f"{marker} <b>{GLib.markup_escape_text(device_model_name(dev_name) + label_suffix)}</b>")
             dev_badge.add_css_class("badge-device")
             if dev_hash:
                 dev_badge.set_tooltip_text(f"Auto-generated origin_hash:\n{dev_hash}")
@@ -863,10 +863,9 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
 
     def _launch_hud_overlay(self, widget):
-        import subprocess
-        overlay_script = Path(__file__).resolve().parent.parent / "strop_hud.py"
+        from strop_core.hud import launch_hud
         try:
-            subprocess.Popen([sys.executable, str(overlay_script)])
+            launch_hud(self.detected_device.get("name", self.default_device_name))
         except Exception as e:
             alert = Gtk.AlertDialog(
                 message="Could not launch HUD Overlay",

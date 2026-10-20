@@ -2,7 +2,7 @@
 """
 Strop — Unified Razer Linux Peripheral Suite Hub
 Native Linux GTK4 dashboard for managing Razer keypads, keyboards, mice, and in-game HUDs.
-The catalog contains layout references; official 1.0 device support is limited to the published support matrix.
+The catalog contains layout references; official 1.1 device support is limited to the published support matrix.
 """
 
 import sys
@@ -15,15 +15,13 @@ script_dir = Path(__file__).resolve().parent
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
-from strop_core.device import scan_all_connected_devices, clean_device_display_name
 from strop_core.presets import (
-    get_presets_base_dir, get_active_profile, get_all_active_profiles,
-    list_device_presets, check_daemon_status,
-    run_profile_operation_async, check_profile_state_async
+    get_presets_base_dir, get_active_profile,
 )
 
 from strop_core.theme import apply_theme, show_about_dialog
-from strop_core.catalog import get_device_catalog, list_devices_by_category, get_archetype_for_device
+from strop_core.catalog import get_device_catalog
+from strop_core.tray_controller import TrayController
 
 import gi
 gi.require_version('Gtk', '4.0')
@@ -164,13 +162,62 @@ class StropHubWindow(Gtk.ApplicationWindow):
         self.set_default_size(820, 640)
         self.add_css_class("hub-window")
 
-        self.device_scan_diagnostics = []
-        self.connected_devices = scan_all_connected_devices(self.device_scan_diagnostics)
+        controller = app.controller
+        self.device_scan_diagnostics = list(controller.diagnostics)
+        self.connected_devices = list(controller.devices)
         self.selected_dev_name = ""
         self.available_presets_for_selected = []
         self.profile_operation_pending = False
 
         self._build_ui()
+        self.connect("close-request", self._on_close_requested)
+        self.set_tray_available(controller.available)
+        self._set_profile_controls_busy(self.selected_dev_name in controller.busy)
+
+    def _on_close_requested(self, window):
+        if self.get_application().controller.available:
+            self.set_visible(False)
+        else:
+            self.get_application().quit()
+        return True
+
+    def set_tray_available(self, available):
+        self.lbl_tray_status.set_text(
+            "Closing this window keeps Strop in the tray." if available else
+            "Tray unavailable. Closing this window exits Strop. Enable your desktop’s tray support to use the applet."
+        )
+
+    def sync_tray_state(self, controller):
+        previous_selection = self.selected_dev_name
+        old_names = [device["name"] for device in self.connected_devices]
+        new_names = [device["name"] for device in controller.devices]
+        self.connected_devices = list(controller.devices)
+        self.device_scan_diagnostics = list(controller.diagnostics)
+        self._refresh_daemon_banner()
+        self._refresh_hardware_banner()
+        if old_names != new_names:
+            self.hub_dev_dropdown.set_model(Gtk.StringList.new(
+                [device.get("clean_name", device["name"]) for device in self.connected_devices]
+                or ["(No Razer devices connected)"]
+            ))
+            if previous_selection in new_names:
+                self.hub_dev_dropdown.set_selected(new_names.index(previous_selection))
+            elif new_names:
+                self._update_hub_preset_list(new_names[0])
+            else:
+                self.selected_dev_name = ""
+                self.available_presets_for_selected = []
+                self.hub_preset_dropdown.set_model(Gtk.StringList.new(["(No saved presets found)"]))
+                self.lbl_profile_status.set_text("No connected devices")
+        name = self.selected_dev_name
+        presets = controller.presets.get(name, []) or ["(No saved presets found)"]
+        if name and self.available_presets_for_selected != presets:
+            self._update_hub_preset_list(name)
+        self._set_profile_controls_busy(name in controller.busy)
+        if name and name not in controller.busy:
+            self._on_profile_state_checked(name, controller.states.get(name, "unknown"))
+        elif name:
+            self.lbl_profile_status.set_text(controller.results.get(name, "Profile operation pending…"))
 
     def _build_ui(self):
         scrolled = Gtk.ScrolledWindow()
@@ -206,7 +253,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         lbl_title.set_xalign(0)
         title_box.append(lbl_title)
 
-        lbl_sub = Gtk.Label(label="Official 1.0 hardware support is limited to the devices listed in the support matrix.")
+        lbl_sub = Gtk.Label(label="Official 1.1 hardware support is limited to the devices listed in the support matrix.")
         lbl_sub.add_css_class("dim-text")
         lbl_sub.set_xalign(0)
         title_box.append(lbl_sub)
@@ -219,7 +266,15 @@ class StropHubWindow(Gtk.ApplicationWindow):
         btn_about.connect("clicked", lambda w: show_about_dialog(self))
         header.append(btn_about)
 
+        btn_quit = Gtk.Button(label="Quit Strop")
+        btn_quit.add_css_class("ghost-btn")
+        btn_quit.connect("clicked", lambda button: self.get_application().quit())
+        header.append(btn_quit)
+
         main_box.append(header)
+        self.lbl_tray_status = Gtk.Label(xalign=0, wrap=True)
+        self.lbl_tray_status.add_css_class("dim-text")
+        main_box.append(self.lbl_tray_status)
 
         # 1b. Background Daemon Status Alert (shown if input-remapper is stopped or not installed)
         self.daemon_banner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -349,7 +404,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
                 break
             self.daemon_banner.remove(child)
 
-        status, msg = check_daemon_status()
+        status, msg = self.get_application().controller.daemon_status
         if status == "running":
             self.daemon_banner.set_visible(False)
             return
@@ -363,6 +418,10 @@ class StropHubWindow(Gtk.ApplicationWindow):
             lbl_icon = Gtk.Label(label="⚠️")
             lbl_text = Gtk.Label()
             lbl_text.set_markup("<b>Input-Remapper Missing:</b> Install <code>input-remapper</code> to apply macros and remaps to hardware.")
+        elif status in ("checking", "unknown"):
+            alert_card.add_css_class("alert-warning")
+            lbl_icon = Gtk.Label(label="⟳")
+            lbl_text = Gtk.Label(label=msg)
         else:
             alert_card.add_css_class("alert-warning")
             lbl_icon = Gtk.Label(label="⚡")
@@ -376,7 +435,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
         btn_retry = Gtk.Button(label="Check Again")
         btn_retry.add_css_class("ghost-btn")
-        btn_retry.connect("clicked", lambda w: self._refresh_daemon_banner())
+        btn_retry.connect("clicked", lambda w: self.get_application().controller.refresh())
         alert_card.append(btn_retry)
 
         self.daemon_banner.append(alert_card)
@@ -397,9 +456,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
                 badge = Gtk.Button()
                 dev_clean = d.get("clean_name", d["name"])
                 active_prof = get_active_profile(d["name"])
-                prof_str = f" [Last Strop: {active_prof}]" if active_prof else ""
-
-                badge.set_child(Gtk.Label.new(f"🟢 {dev_clean}{prof_str}"))
+                badge.set_child(Gtk.Label.new(f"🟢 {dev_clean}"))
                 badge.add_css_class("badge-device")
                 badge.set_tooltip_text(f"Hardware detected by Strop:\n{dev_clean}\nLast profile applied by Strop: {active_prof or 'None recorded'}\nBackend state is shown in the profile manager.\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
                 badge.connect("clicked", lambda w, dev=d: self._launch_studio_for_device(dev["name"]))
@@ -431,10 +488,11 @@ class StropHubWindow(Gtk.ApplicationWindow):
         if idx < len(self.connected_devices):
             dev_name = self.connected_devices[idx]["name"]
             self._update_hub_preset_list(dev_name)
+            self._set_profile_controls_busy(dev_name in self.get_application().controller.busy)
 
     def _update_hub_preset_list(self, device_name: str):
         self.selected_dev_name = device_name
-        preset_names = list_device_presets(device_name)
+        preset_names = self.get_application().controller.presets.get(device_name, [])
         if not preset_names:
             preset_names = ["(No saved presets found)"]
 
@@ -448,12 +506,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         if active_prof and active_prof in preset_names:
             self.hub_preset_dropdown.set_selected(preset_names.index(active_prof))
 
-        self.lbl_profile_status.set_text("Checking backend injection state…")
-        check_profile_state_async(
-            device_name,
-            lambda state, target=device_name: self._on_profile_state_checked(target, state),
-            GLib.idle_add,
-        )
+        self._on_profile_state_checked(device_name, self.get_application().controller.states.get(device_name, "unknown"))
 
     def _on_profile_state_checked(self, device_name: str, state: str):
         if device_name != self.selected_dev_name:
@@ -471,11 +524,13 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
     def _set_profile_controls_busy(self, busy: bool):
         self.profile_operation_pending = busy
-        self.btn_profile_apply.set_sensitive(not busy)
-        self.btn_profile_stop.set_sensitive(not busy)
+        has_profiles = bool(self.available_presets_for_selected and
+                            not self.available_presets_for_selected[0].startswith("("))
+        self.btn_profile_apply.set_sensitive(not busy and has_profiles and bool(self.selected_dev_name))
+        self.btn_profile_stop.set_sensitive(not busy and bool(self.selected_dev_name))
 
     def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
-        self._set_profile_controls_busy(False)
+        self._set_profile_controls_busy(self.selected_dev_name in self.get_application().controller.busy)
         if device_name == self.selected_dev_name:
             if result.status == "applied":
                 self.lbl_profile_status.set_text(result.message)
@@ -506,12 +561,9 @@ class StropHubWindow(Gtk.ApplicationWindow):
             return
 
         device_name = self.selected_dev_name
-        self._set_profile_controls_busy(True)
-        self.lbl_profile_status.set_text(f"Applying {chosen_preset}…")
-        run_profile_operation_async(
-            "apply", device_name,
+        self.get_application().controller.operate(
+            "apply", device_name, chosen_preset,
             lambda result: self._on_profile_operation_finished("apply", device_name, chosen_preset, result),
-            GLib.idle_add, preset_name=chosen_preset,
         )
 
     def _on_hub_stop_clicked(self, widget):
@@ -519,12 +571,9 @@ class StropHubWindow(Gtk.ApplicationWindow):
             return
         device_name = self.selected_dev_name
         last_profile = get_active_profile(device_name) or ""
-        self._set_profile_controls_busy(True)
-        self.lbl_profile_status.set_text("Stopping injection…")
-        run_profile_operation_async(
+        self.get_application().controller.operate(
             "stop", device_name,
-            lambda result: self._on_profile_operation_finished("stop", device_name, last_profile, result),
-            GLib.idle_add,
+            callback=lambda result: self._on_profile_operation_finished("stop", device_name, last_profile, result),
         )
 
     def _create_app_card(self, title, desc, btn_label, script):
@@ -623,6 +672,19 @@ class StropHubWindow(Gtk.ApplicationWindow):
             alert.show(self)
 
     def _launch_script(self, script_name: str):
+        if script_name == "strop_hud.py":
+            controller = self.get_application().controller
+            keypads = [d for d in controller.devices if controller._is_keypad(d)]
+            device = next((d for d in keypads if d["name"] == self.selected_dev_name),
+                          keypads[0] if keypads else {"name": "Razer Tartarus Pro"})
+            # The launch button always shows; the tray provides the toggle.
+            from strop_core.hud import launch_hud
+            client = controller.huds.get(device["name"])
+            if client and client.visible:
+                launch_hud(device["name"])
+            else:
+                controller.show_hud(device["name"])
+            return
         script_path = Path(__file__).parent / script_name
         try:
             subprocess.Popen([sys.executable, str(script_path)])
@@ -631,35 +693,49 @@ class StropHubWindow(Gtk.ApplicationWindow):
             alert.show(self)
 
     def _on_rescan_clicked(self, widget):
-        self._refresh_daemon_banner()
-        self.device_scan_diagnostics = []
-        self.connected_devices = scan_all_connected_devices(self.device_scan_diagnostics)
-        self._refresh_hardware_banner()
-        dev_strings = [d.get("clean_name", d["name"]) for d in self.connected_devices] or ["(No Razer devices connected)"]
-        self.hub_dev_dropdown.set_model(Gtk.StringList.new(dev_strings))
-        if self.connected_devices:
-            self._update_hub_preset_list(self.connected_devices[0]["name"])
+        self.get_application().controller.refresh()
 
 
 
-def on_startup(app):
-    apply_theme()
+class StropApplication(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id="com.razer.strop")
+        self.window = None
+        self.controller = None
+        self.connect("startup", self._startup)
+        self.connect("activate", self._activate)
+        self.connect("shutdown", self._shutdown)
 
+    def _startup(self, app):
+        apply_theme()
+        action = Gio.SimpleAction.new("open-hub", None)
+        action.connect("activate", lambda action, parameter: self.activate())
+        self.add_action(action)
+        self.hold()
+        self.controller = TrayController(self)
 
-def on_activate(app):
-    win = StropHubWindow(app)
-    win.present()
+    def _activate(self, app):
+        if self.window is None:
+            self.window = StropHubWindow(self)
+        self.window.present()
+
+    def tray_availability_changed(self, available):
+        if not available:
+            self.activate()
+        if self.window:
+            self.window.set_tray_available(available)
+
+    def tray_state_changed(self, controller):
+        if self.window:
+            self.window.sync_tray_state(controller)
+
+    def _shutdown(self, app):
+        if self.controller:
+            self.controller.close()
 
 
 def main():
-    app = Gtk.Application(
-        application_id="com.razer.strop",
-        flags=Gio.ApplicationFlags.NON_UNIQUE
-    )
-
-
-    app.connect("startup", on_startup)
-    app.connect("activate", on_activate)
+    app = StropApplication()
     return app.run(sys.argv)
 
 

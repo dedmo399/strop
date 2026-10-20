@@ -12,7 +12,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest
+          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest
       - name: Validate sources and desktop entry
         run: |
           python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py
@@ -20,11 +20,15 @@ jobs:
       - name: Run core tests
         env:
           PYTHONPATH: .
-        run: python3 -m pytest -q tests/test_core.py
+        run: |
+          python3 -m pytest -q tests
+          dbus-run-session -- env STROP_TEST_DBUS=1 python3 -m pytest -q tests/test_tray_dbus.py
       - name: Build and inspect Debian package
         run: |
           ./build_deb.sh
-          dpkg-deb --info strop_1.0.0_all.deb
-          dpkg-deb --contents strop_1.0.0_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
-          dpkg-deb --contents strop_1.0.0_all.deb | grep -F 'usr/bin/strop-keypad'
-          dpkg-deb --contents strop_1.0.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+          dpkg-deb --info strop_1.1.0_all.deb
+          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
+          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/bin/strop-keypad'
+          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
+          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
+          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'

@@ -35,8 +35,18 @@ def calculate_origin_hash(capabilities_str: str, name: str) -> str:
     return md5(s.encode()).hexdigest().lower()
 
 
+def device_model_name(raw_name: str) -> str:
+    """Model-only UI label; never use this as a backend or preset identity."""
+    return re.sub(r'^(?:razer\s+)+', '', (raw_name or '').strip(),
+                  flags=re.IGNORECASE).strip() or "Device"
+
+
 def is_razer_device(device_name: Optional[str], vendor_id: Optional[int] = None) -> bool:
     """Checks if a device is a Razer peripheral by vendor ID (0x1532) or name matching."""
+    # uinput outputs can copy the physical device's name and vendor ID.
+    # They must never become remapping sources or supply origin hashes.
+    if isinstance(device_name, str) and device_name.strip().lower().startswith("input-remapper"):
+        return False
     if vendor_id == 0x1532:
         return True
     if not device_name or not isinstance(device_name, str):
@@ -97,7 +107,7 @@ def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[
                 if clean_name not in found_map:
                     found_map[clean_name] = {
                         "name": clean_name,
-                        "clean_name": clean_name,
+                        "clean_name": device_model_name(clean_name),
                         "raw_name": dev_name,
                         "hash": dhash,
                         "path": d.path,
@@ -192,7 +202,7 @@ def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tart
     # 3. Fallback to default metadata
     return {
         "name": clean_def,
-        "clean_name": clean_def,
+        "clean_name": device_model_name(clean_def),
         "raw_name": clean_def,
         "hash": "",
         "path": None,

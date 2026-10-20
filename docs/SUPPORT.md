@@ -13,6 +13,7 @@ the current support scope.
 | python-evdev | Input device discovery and capture |
 | input-remapper | Profile remapping; current integration targets version 2.2.0 |
 | OpenRazer (optional) | Supported lighting and hardware controls |
+| Desktop StatusNotifier/AppIndicator host | Tray applet; Ubuntu AppIndicators supplies this on the supported GNOME desktop |
 
 The Debian package declares the application dependencies and recommends
 input-remapper and OpenRazer. See [README.md](../README.md) for installation.
@@ -47,7 +48,10 @@ Profile remapping uses input-remapper independently of OpenRazer.
 
 - The HUD uses X11/XWayland window controls. Positioning and always-on-top behavior
   depend on the compositor and may not work in fullscreen applications.
-- Strop 1.0 does not expose digital-to-analog stick or trigger bindings. Expanded
+- The tray uses Gio/D-Bus, without loading GTK3 into the GTK4 application. If the
+  desktop tray host is unavailable, Strop keeps the Hub accessible and closing it
+  exits the application.
+- Strop 1.1 does not expose digital-to-analog stick or trigger bindings. Expanded
   controller mappings and Tartarus key-depth access are planned for 2.0.
 - Lighting and other hardware controls depend on what OpenRazer exposes for each
   device.

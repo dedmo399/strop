@@ -8,7 +8,7 @@ if "GSK_RENDERER" not in os.environ:
     os.environ["GSK_RENDERER"] = "gl"
 
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 

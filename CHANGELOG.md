@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+- Added a GTK4-compatible tray applet with device studio launchers, profile apply/stop controls, backend status, and HUD visibility controls.
+- Made the Hub single-instance; closing it keeps Strop in the tray when desktop tray support is available. Quit closes managed HUDs without stopping remapping or closing studios.
+- Added one HUD instance per device with show, hide, refresh, and quit actions.
+- Displayed factory default keys below physical HUD labels when no custom setting exists, including unmapped keys in partial profiles.
+- Cleared stale HUD bindings when presets disappear or fail to load.
+- Excluded input-remapper virtual outputs from hardware discovery and studio selection, preserving physical-device mapping hashes.
+- Simplified hardware, selector, tray, and studio labels to model names while retaining existing profile identities.
+
 ## 1.0.0
 
 - Stabilized profile save, apply, and stop outcomes, with atomic preset and state writes.

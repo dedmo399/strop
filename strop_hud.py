@@ -18,7 +18,6 @@ Features:
 
 import sys
 import os
-import json
 from pathlib import Path
 
 # Ensure strop_core can be imported regardless of execution working directory
@@ -33,7 +32,8 @@ from strop_core.presets import (
     get_active_profile, load_preset_file,
     run_profile_operation_async, check_profile_state_async
 )
-from strop_core.gamepad import parse_gamepad_display_text, format_gamepad_button_output
+from strop_core.gamepad import format_gamepad_button_output
+from strop_core.hud import binding_label, format_output, hud_application_id
 
 
 
@@ -181,6 +181,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.button_widgets = {}
         self.available_presets = []
         self.current_preset_name = ""
+        self.preset_error = ""
         self.profile_operation_pending = False
         self.opacity_levels = [0.88, 0.70, 0.50, 1.0]
         self.opacity_idx = 0
@@ -198,6 +199,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
         # Build HUD UI
         self._build_ui()
+        self._update_all_visuals()
 
         # Scan and load presets from input-remapper directory
         self._scan_and_load_presets()
@@ -265,6 +267,14 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             "aliases": SCROLL_DOWN_DATA.get("aliases", []),
             "output": ""
         }
+        for r, row in enumerate(GRID_DATA):
+            for c, item in enumerate(row):
+                self.state[f"grid-{r}-{c}"]["default_label"] = item["default_label"]
+        for kid, data in (("spacebar", SPACEBAR_DATA), ("thumb", THUMB_BTN_DATA),
+                          ("scrollUp", SCROLL_UP_DATA), ("scrollDown", SCROLL_DOWN_DATA)):
+            self.state[kid]["default_label"] = data["default_label"]
+        for direction, data in DPAD_DATA.items():
+            self.state[f"dpad-{direction}"]["default_label"] = data["default_label"]
 
     def _build_ui(self):
         self.main_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
@@ -462,19 +472,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             surface.begin_move(device, 1, int(start_x), int(start_y), Gdk.CURRENT_TIME)
 
     def _format_display_text(self, output_str):
-        trimmed = (output_str or "").strip()
-        if not trimmed:
-            return ""
-        gp_text = parse_gamepad_display_text(trimmed)
-        if gp_text:
-            return gp_text
-        if trimmed.lower() == "disable":
-            return "off"
-        if any(c in trimmed for c in ("+", "(", ")", ",", '"', "'", ";", ".")):
-            return "macro"
-        if "macro" in trimmed.lower() or "\n" in trimmed:
-            return "macro"
-        return trimmed
+        return format_output(output_str)
 
 
     def _match_preset_key(self, code, name, combination=None):
@@ -508,9 +506,15 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         preset_names = list_device_presets(dev_name)
         if not preset_names:
             self.available_presets = []
+            self.current_preset_name = ""
+            self.preset_error = ""
+            self.preset_dropdown.set_model(Gtk.StringList.new(["No Presets Found"]))
+            self.btn_profile_apply.set_sensitive(False)
+            self._reset_bindings()
             return
 
         self.available_presets = preset_names
+        self.btn_profile_apply.set_sensitive(not self.profile_operation_pending)
 
         # Temporarily disconnect / block signal during programmatic model updates
         if hasattr(self, "preset_dropdown_handler_id") and self.preset_dropdown_handler_id:
@@ -531,7 +535,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
         self.current_preset_name = preset_names[active_idx]
         self._load_preset_file(preset_names[active_idx])
-        if active_prof:
+        if active_prof and not self.preset_error:
             self.lbl_profile_status.set_text(f"Last Strop profile: {active_prof} · state checking")
 
     def _on_preset_selected(self, dropdown, param):
@@ -541,7 +545,8 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
             self.current_preset_name = preset_name
             self._load_preset_file(preset_name)
-            self.lbl_profile_status.set_text(f"Selected: {preset_name} · not applied")
+            if not self.preset_error:
+                self.lbl_profile_status.set_text(f"Selected: {preset_name} · not applied")
 
     def _on_profile_state_checked(self, device_name: str, state: str):
         current_device = self.detected_device.get("name", "Razer Tartarus Pro")
@@ -554,11 +559,13 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         }.get(state, "Injection state unknown")
         if last_profile:
             state_text += f" · Last Strop: {last_profile}"
+        if self.preset_error:
+            state_text += " · " + self.preset_error
         self.lbl_profile_status.set_text(state_text)
 
     def _set_profile_controls_busy(self, busy: bool):
         self.profile_operation_pending = busy
-        self.btn_profile_apply.set_sensitive(not busy)
+        self.btn_profile_apply.set_sensitive(not busy and bool(self.current_preset_name))
         self.btn_profile_stop.set_sensitive(not busy)
 
     def _on_apply_clicked(self, widget):
@@ -593,7 +600,15 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             print(f"[HUD] {operation.title()} profile: {result.message}")
 
 
+    def _reset_bindings(self):
+        for state in self.state.values():
+            state["output"] = ""
+            state["custom_name"] = ""
+        self._update_all_visuals()
+
     def _load_preset_file(self, preset_spec):
+        self._reset_bindings()
+        self.preset_error = ""
         try:
             dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
             if isinstance(preset_spec, (str, Path)):
@@ -603,6 +618,8 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
                     dev_dir = get_device_presets_dir(dev_name)
                     p = dev_dir / f"{str(preset_spec).replace('.json', '')}.json"
                 if not p.exists():
+                    self.preset_error = f"Could not read preset: {p.name}"
+                    self.lbl_profile_status.set_text(self.preset_error)
                     return
             else:
                 return
@@ -610,12 +627,9 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
             data = load_preset_file(p)
             if data is None:
-                self.lbl_profile_status.set_text(f"Could not read preset: {p.name}")
+                self.preset_error = f"Could not read preset: {p.name}"
+                self.lbl_profile_status.set_text(self.preset_error)
                 return
-
-            for s in self.state.values():
-                s["output"] = ""
-                s["custom_name"] = ""
 
             for item in data:
                 if not isinstance(item, dict):
@@ -636,6 +650,9 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             self._update_all_visuals()
 
         except Exception as e:
+            self._reset_bindings()
+            self.preset_error = f"Could not read preset: {preset_spec}"
+            self.lbl_profile_status.set_text(self.preset_error)
             print(f"Error loading overlay preset {preset_spec}: {e}")
 
 
@@ -648,15 +665,16 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             lbl = w_info["lbl"]
             raw_label = w_info["raw_label"]
 
-            has_output = bool(s["output"] and s["output"].strip())
-            custom_name = s.get("custom_name", "").strip()
-            if has_output or custom_name:
+            disp, assigned = binding_label(s)
+            if assigned:
                 box.add_css_class("assigned")
-                disp = custom_name if custom_name else self._format_display_text(s["output"])
-                lbl.set_markup(f"<span weight='bold' size='8000'>{raw_label}</span>\n<span size='6500' weight='bold' color='#86efac'>{GLib.markup_escape_text(disp)}</span>")
             else:
                 box.remove_css_class("assigned")
-                lbl.set_markup(f"<span weight='bold' size='8000'>{raw_label}</span>")
+            markup = f"<span weight='bold' size='8000'>{GLib.markup_escape_text(raw_label)}</span>"
+            if disp and (assigned or disp != raw_label):
+                color = "#86efac" if assigned else "#cbd5e1"
+                markup += f"\n<span size='6500' weight='bold' color='{color}'>{GLib.markup_escape_text(disp)}</span>"
+            lbl.set_markup(markup)
 
 
 
@@ -665,10 +683,48 @@ def on_startup(app):
     apply_theme(CSS_STYLE)
 
 
-def on_activate(app):
-    dev_name = getattr(app, "_device_override", None)
-    win = KeypadHUDOverlay(app, device_override=dev_name)
-    win.present()
+class HUDApplication(Gtk.Application):
+    def __init__(self, device_name):
+        super().__init__(application_id=hud_application_id(device_name))
+        self.device_name = device_name
+        self.window = None
+        self.connect("startup", self._startup)
+        self.connect("activate", lambda app: self.show_hud())
+
+    def _startup(self, app):
+        on_startup(self)
+        for name, callback in (("show", self.show_hud), ("hide", self.hide_hud),
+                               ("refresh", self.refresh_hud), ("quit", self.quit)):
+            action = Gio.SimpleAction.new(name, None)
+            action.connect("activate", lambda action, value, fn=callback: fn())
+            self.add_action(action)
+        self.visible_action = Gio.SimpleAction.new_stateful("visible", None, GLib.Variant("b", False))
+        self.add_action(self.visible_action)
+
+    def show_hud(self):
+        if self.window is None:
+            self.window = KeypadHUDOverlay(self, device_override=self.device_name)
+            self.window.connect("notify::visible", self._visibility_changed)
+            # Hold while hidden; the close button still explicitly quits.
+            self.hold()
+            self.window.connect("close-request", self._close)
+        self.window.present()
+        self.visible_action.set_state(GLib.Variant("b", True))
+
+    def _visibility_changed(self, window, param):
+        self.visible_action.set_state(GLib.Variant("b", window.get_visible()))
+
+    def hide_hud(self):
+        if self.window:
+            self.window.set_visible(False)
+
+    def refresh_hud(self):
+        if self.window:
+            self.window._scan_and_load_presets()
+
+    def _close(self, window):
+        self.quit()
+        return False
 
 
 def main():
@@ -677,14 +733,8 @@ def main():
     parser.add_argument("--device", "-d", type=str, default=None, help="Target Razer Keypad model")
     args, unknown = parser.parse_known_args()
 
-    app = Gtk.Application(
-        application_id="com.razer.strop",
-        flags=Gio.ApplicationFlags.NON_UNIQUE
-    )
-
-    app._device_override = args.device
-    app.connect("startup", on_startup)
-    app.connect("activate", on_activate)
+    device = detect_device(args.device or "tartarus", default_name=args.device or "Razer Tartarus Pro")
+    app = HUDApplication(device.get("name", args.device or "Razer Tartarus Pro"))
     return app.run([sys.argv[0]] + unknown)
 
 
