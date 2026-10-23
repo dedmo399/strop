@@ -32,3 +32,31 @@ jobs:
           dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
           dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
           dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+
+  backend-and-gui:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install backend and virtual display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest python3-inputremapper xvfb xauth
+      - name: Verify supported input-remapper version
+        run: |
+          backend_version=$(dpkg-query -W -f='${Version}' python3-inputremapper)
+          echo "Testing input-remapper ${backend_version}"
+          test "${backend_version%%-*}" = "2.2.0"
+      - name: Validate presets and macros with the real backend
+        env:
+          PYTHONPATH: .
+          STROP_REQUIRE_INPUT_REMAPPER: "1"
+        run: python3 -m pytest -q tests/test_core.py
+      - name: Exercise GTK Hub and HUD on a virtual display
+        env:
+          PYTHONPATH: .
+          STROP_TEST_GUI: "1"
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+          GTK_A11Y: none
+        run: dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m pytest -q tests/test_gui.py

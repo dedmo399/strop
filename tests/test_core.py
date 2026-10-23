@@ -8,6 +8,7 @@ Unit tests for Strop Core:
 """
 
 import unittest
+import os
 import json
 import subprocess
 import tempfile
@@ -228,23 +229,20 @@ try:
 except ImportError:
     sys.exit(42)
 
-xmap_file = Path.home() / ".config" / "input-remapper-2" / "xmodmap.json"
-if xmap_file.exists():
-    try:
-        with open(xmap_file, "r") as f:
-            keyboard_layout.update(json.load(f))
-    except Exception:
-        pass
+# The test must not depend on a desktop user's cached X11 keyboard layout.
+keyboard_layout.update({{"4": 5, "control_l": 29, "space": 57}})
 
 p = Preset(Path('{tpath}'))
 p.load()
-if not p.is_valid() or len(p) == 0:
+if not p.is_valid() or len(p) != 3:
     sys.exit(1)
 sys.exit(0)
 """
         try:
-            res = subprocess.run([sys.executable, "-c", validation_code], capture_output=True)
+            res = subprocess.run([sys.executable, "-c", validation_code], capture_output=True, timeout=10)
             if res.returncode == 42:
+                if os.environ.get("STROP_REQUIRE_INPUT_REMAPPER") == "1":
+                    self.fail("input-remapper is required for this test run but could not be imported")
                 self.skipTest("inputremapper package not installed on system")
             self.assertEqual(res.returncode, 0, f"Preset validation failed in input-remapper: {res.stderr.decode()}")
         finally:
