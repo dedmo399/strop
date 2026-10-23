@@ -41,7 +41,9 @@ jobs:
       - name: Install backend and virtual display dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest python3-inputremapper xvfb xauth
+          # The preset loader imports gettext data supplied by input-remapper-gtk.
+          # Install the complete backend, rather than only its Python module.
+          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest input-remapper xvfb xauth
       - name: Verify supported input-remapper version
         run: |
           backend_version=$(dpkg-query -W -f='${Version}' python3-inputremapper)
