@@ -8,6 +8,16 @@
 
 ---
 
+## AI disclosure and disclaimer
+
+Strop was created with substantial assistance from generative AI, including AI-generated code and documentation. AI assistance is part of the project's development process and may also be used for future changes. This project should not be understood as entirely human-written software.
+
+AI-generated work can contain bugs, incorrect assumptions, and inaccurate descriptions of hardware or software behavior. The use of AI does not establish that the code has received an independent review, security audit, or comprehensive hardware testing. Device catalog entries and feature descriptions are not proof of compatibility; consult the [support matrix](docs/SUPPORT.md) for the project's stated support scope and limitations.
+
+The maintainer remains responsible for what is accepted and released. Please evaluate Strop against your own needs, back up your remapping profiles before making changes, and report problems through the [issue tracker](https://github.com/dedmo399/strop/issues). The warranty disclaimer in the [project license](LICENSE) applies.
+
+---
+
 ## Source repository
 
 The primary source for Strop is [dedmo399/strop on GitHub](https://github.com/dedmo399/strop). The `main` branch is the canonical development branch.
