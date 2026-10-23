@@ -48,5 +48,9 @@ dbus-run-session -- xvfb-run -a env PYTHONPATH=. STROP_TEST_GUI=1 GDK_BACKEND=x1
 
 CI also runs backend validation with input-remapper 2.2.0 and
 `STROP_REQUIRE_INPUT_REMAPPER=1`. To check packaging, run `./build_deb.sh`.
+Source archives include only Git-tracked files from a checkout. Add new project
+files to Git before building. Extracted source releases carry a file manifest
+for rebuilding without Git; unrelated local files are excluded in either case.
+
 Automated checks do not replace testing remapping on the relevant physical
 device. Report which checks you ran and any hardware testing still needed.

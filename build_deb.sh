@@ -13,6 +13,21 @@ DEB_FILE="${SCRIPT_DIR}/${PKG_NAME}_${VERSION}_${ARCH}.deb"
 TAR_FILE="${SCRIPT_DIR}/${PKG_NAME}_${VERSION}.tar.gz"
 TEMP_TAR_FILE="${BUILD_DIR}/${PKG_NAME}_${VERSION}.tar.gz"
 
+# Build a NUL-delimited source manifest before generating artifacts. In a Git
+# checkout, only tracked paths are eligible. Source releases carry this manifest
+# so rebuilding without Git uses the same file set.
+SOURCE_MANIFEST="${BUILD_DIR}/.strop-source-files"
+mkdir -p "$BUILD_DIR"
+if command -v git >/dev/null 2>&1 && \
+    [ "$(git rev-parse --show-toplevel 2>/dev/null || true)" = "$SCRIPT_DIR" ]; then
+    git ls-files -z > "$SOURCE_MANIFEST"
+elif [ -f "${SCRIPT_DIR}/.strop-source-files" ]; then
+    cp "${SCRIPT_DIR}/.strop-source-files" "$SOURCE_MANIFEST"
+else
+    echo "Cannot identify source files: use a Git checkout or a Strop source release." >&2
+    exit 1
+fi
+
 echo "Building Debian Package: ${PKG_NAME}_${VERSION}_${ARCH}.deb..."
 
 # 1. Clean previous build directories
@@ -172,17 +187,10 @@ ls -lh "${DEB_FILE}"
 # 7. Build the source release tarball (.tar.gz)
 echo "Generating Source Release Archive: ${TAR_FILE}..."
 rm -f "${TAR_FILE}" "${TEMP_TAR_FILE}"
-tar --exclude="./.git" \
-    --exclude="./.agents" \
-    --exclude="./.codex" \
-    --exclude="./.aws" \
-    --exclude="./build" \
-    --exclude="./.pytest_cache" \
-    --exclude="./*.deb" \
-    --exclude="./*.tar.gz" \
-    --exclude="**/__pycache__" \
-    --exclude="**/*.pyc" \
-    -czf "${TEMP_TAR_FILE}" -C "$SCRIPT_DIR" .
+tar -czf "${TEMP_TAR_FILE}" \
+    -C "$BUILD_DIR" .strop-source-files \
+    -C "$SCRIPT_DIR" --null --verbatim-files-from --no-recursion \
+    --files-from="$SOURCE_MANIFEST"
 mv "${TEMP_TAR_FILE}" "${TAR_FILE}"
 
 echo "Successfully created: ${TAR_FILE}"
