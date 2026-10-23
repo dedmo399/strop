@@ -6,6 +6,8 @@
   <p>Native GTK4 Remap Studios • In-Game Heads-Up Displays • Unified Device Hub • input-remapper Integration • 230+ Catalog Layouts</p>
 </div>
 
+![Strop Hub, Keypad Studio, Macro Studio, and keypad HUD with a Warframe profile](docs/screenshots/strop-suite.png)
+
 ---
 
 ## AI disclosure and disclaimer
