@@ -1,6 +1,6 @@
 # Backup, upgrade, and recovery
 
-This guide covers backup, upgrades to Strop 1.0, and recovery. Package upgrades preserve user configuration; keep a backup before upgrading.
+This guide covers backup, upgrades to Strop 1.1, and recovery. Package upgrades preserve user configuration; keep a backup before upgrading.
 
 ## Back up profiles and settings
 

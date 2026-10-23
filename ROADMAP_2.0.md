@@ -2,7 +2,7 @@
 
 Strop 2.0 will expand hardware capabilities in this order: Tartarus Pro key-depth
 access, correct controller-output mappings, and unified hardware settings.
-Strop 1.0 remains the released baseline; this document is the active roadmap.
+Strop 1.1.0 remains the released baseline; this document is the active roadmap.
 
 The initial hardware scope remains the Razer Tartarus Pro (`1532:0244`),
 BlackWidow V3 (`1532:024e`), and Naga Trinity (`1532:0067`) on the Steam PC.

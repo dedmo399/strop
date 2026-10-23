@@ -22,14 +22,14 @@ The maintainer remains responsible for what is accepted and released. Please eva
 
 The primary source for Strop is [dedmo399/strop on GitHub](https://github.com/dedmo399/strop). The `main` branch is the canonical development branch.
 
-Clone the repository over SSH after adding your SSH key to GitHub:
+Clone the repository over HTTPS:
 
 ```bash
-git clone git@github.com:dedmo399/strop.git
+git clone https://github.com/dedmo399/strop.git
 cd strop
 ```
 
-For an existing checkout, get the latest committed source with `git pull --ff-only` on `main`. Commit local work and use `git push` to save it to GitHub. Generated `.deb` and `.tar.gz` packages stay out of source control; build them with `./build_deb.sh`.
+For an existing checkout, get the latest committed source with `git pull --ff-only` on `main`. To propose a change, follow [CONTRIBUTING.md](CONTRIBUTING.md). Generated `.deb` and `.tar.gz` packages stay out of source control; build them with `./build_deb.sh`.
 
 ---
 
@@ -92,7 +92,7 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
   ```
 
 ### 7. **Strop In-Game HUD Overlay** (`./strop_hud.py` or `./hud.sh`)
-- **Frameless Glassmorphism Floating Window**: Unobtrusive, semi-translucent overlay that stays pinned on top of full-screen games.
+- **Frameless Glassmorphism Floating Window**: Semi-translucent overlay that requests always-on-top positioning through X11/XWayland. Fullscreen visibility and positioning depend on the compositor and game; see [known limitations](docs/SUPPORT.md#known-limitations).
 - **Physical Layout Mirror**: 5-row keypad layout, aligned scroll wheel, thumb button, and D-pad.
 - **Default Key Labels**: Shows each factory binding below its physical key number when there is no custom label or binding. Unmapped keys in partial profiles show their defaults too.
 - **Per-Device Windows**: Repeated launches present the same HUD for that device. Tray hiding preserves its current position, opacity, and collapsed state.
@@ -133,7 +133,15 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
 The official 1.1 target is Ubuntu 26.04.1 LTS on the Steam PC. Other distributions are not in the support matrix.
 
 ### Install Debian Package (.deb)
-Download or build the package and install it with `apt`:
+Download `strop_1.1.0_all.deb`, `strop_1.1.0.tar.gz`, and `SHA256SUMS` from the [Strop 1.1.0 release](https://github.com/dedmo399/strop/releases/tag/v1.1.0) into the same directory. Verify both downloads before installing:
+
+```bash
+sha256sum --check SHA256SUMS
+```
+
+Both files should report `OK`. Checksums detect corrupted or changed downloads; they are not an independent signature of the release. If verification fails, download the files again before proceeding.
+
+Install the verified Debian package with `apt`:
 ```bash
 sudo apt install ./strop_1.1.0_all.deb
 ```
@@ -148,6 +156,12 @@ Source checkout launchers use the `./strop*.py` commands above. To add an instal
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) describes the 1.1 release. Catalog models not listed in the support matrix are not part of official 1.1 support.
 
 The active [Strop 2.0 roadmap](ROADMAP_2.0.md) prioritizes Tartarus Pro key-depth access, correct controller-output mappings, and unified hardware settings.
+
+---
+
+## Help and contributions
+
+For setup and troubleshooting, read the [user guide](docs/USER_GUIDE.md) and [support matrix](docs/SUPPORT.md). Report ordinary bugs through the [issue tracker](https://github.com/dedmo399/strop/issues/new/choose), using the bug-report template. See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing guidance, and [SECURITY.md](SECURITY.md) for handling suspected vulnerabilities.
 
 ---
 

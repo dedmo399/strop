@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible problem with Strop.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check docs/SUPPORT.md and docs/USER_GUIDE.md first. For suspected vulnerabilities, follow SECURITY.md. Remove personal information from logs, screenshots, and presets.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Strop version, installation method, distribution, desktop/session (Wayland or X11), device model, and input-remapper version. Say whether this matches the support matrix.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give the shortest steps that reproduce the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior
+      description: Explain what should happen and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional evidence
+      description: Optional sanitized error messages, screenshots, or minimal preset examples. Never include credentials or sensitive logs.
