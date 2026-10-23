@@ -2,6 +2,7 @@
 
 ## 1.1.0
 
+- Flushed managed HUD shutdown requests before releasing their D-Bus connection, fixing an intermittent quit-action delivery failure.
 - Added a GTK4-compatible tray applet with device studio launchers, profile apply/stop controls, backend status, and HUD visibility controls.
 - Made the Hub single-instance; closing it keeps Strop in the tray when desktop tray support is available. Quit closes managed HUDs without stopping remapping or closing studios.
 - Added one HUD instance per device with show, hide, refresh, and quit actions.

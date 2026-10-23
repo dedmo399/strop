@@ -1,6 +1,8 @@
 """Private-session protocol tests. Run with dbus-run-session and STROP_TEST_DBUS=1."""
 
 import os
+import subprocess
+import sys
 import time
 from unittest.mock import Mock
 
@@ -153,6 +155,52 @@ def test_hud_visibility_refresh_and_owned_quit_actions():
         client.close()
         until(lambda: "quit" in calls)
     finally:
+        name_request(bus, "ReleaseName", name)
+        bus.unexport_action_group(export)
+        bus.close_sync(None)
+
+
+@pytest.mark.parametrize("attempt", range(3))
+def test_owned_hud_receives_quit_when_client_exits_immediately(attempt):
+    """Exercise shutdown without a sender main loop left to deliver queued calls."""
+    bus = connection()
+    name = hud_application_id(f"Razer Tartarus Pro shutdown {attempt}")
+    path = "/" + name.replace(".", "/")
+    actions = Gio.SimpleActionGroup()
+    received = []
+    quit_action = Gio.SimpleAction.new("quit", None)
+    quit_action.connect("activate", lambda *args: received.append("quit"))
+    actions.add_action(quit_action)
+    export = bus.export_action_group(path, actions)
+    name_request(bus, "RequestName", name)
+    script = """
+import os, sys, time
+from gi.repository import GLib
+from strop_core.hud import HUDClient
+client = HUDClient(sys.argv[1], lambda: None)
+context = GLib.MainContext.default()
+deadline = time.monotonic() + 4
+while not (client.group and client.group.has_action('quit')):
+    while context.pending():
+        context.iteration(False)
+    if time.monotonic() > deadline:
+        os._exit(2)
+    time.sleep(0.005)
+client.owned = True
+client.close()
+os._exit(0)
+"""
+    sender = None
+    try:
+        sender = subprocess.Popen([sys.executable, "-c", script,
+                                   f"Razer Tartarus Pro shutdown {attempt}"])
+        until(lambda: sender.poll() is not None)
+        assert sender.returncode == 0
+        until(lambda: received == ["quit"])
+    finally:
+        if sender is not None and sender.poll() is None:
+            sender.terminate()
+            sender.wait(timeout=2)
         name_request(bus, "ReleaseName", name)
         bus.unexport_action_group(export)
         bus.close_sync(None)

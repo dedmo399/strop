@@ -1,12 +1,15 @@
 """Shared HUD labels and per-device launch/control helpers."""
 
 import hashlib
+import logging
 import subprocess
 import sys
 from pathlib import Path
 
 from strop_core.device import clean_device_display_name
 from strop_core.gamepad import parse_gamepad_display_text
+
+LOG = logging.getLogger(__name__)
 
 
 def hud_application_id(device_name):
@@ -53,6 +56,7 @@ class HUDClient:
         self.path = "/" + self.application_id.replace(".", "/")
         self.changed = changed
         self.group = None
+        self.connection = None
         self.running = False
         self.visible = False
         self.owned = False
@@ -65,6 +69,7 @@ class HUDClient:
     def _appeared(self, connection, name, owner):
         from gi.repository import Gio
         self.running = True
+        self.connection = connection
         self.group = Gio.DBusActionGroup.get(connection, name, self.path)
         self.group.connect("action-added", self._state_changed)
         self.group.connect("action-state-changed", self._state_changed)
@@ -82,6 +87,7 @@ class HUDClient:
             self.owned = False
             self.process = None
         self.group = None
+        self.connection = None
         self.running = self.visible = False
         self.changed()
 
@@ -103,11 +109,19 @@ class HUDClient:
             self.group.activate_action("refresh", None)
 
     def close(self):
-        from gi.repository import Gio
+        from gi.repository import Gio, GLib
         if self.owned:
             if self.group:
                 self.group.activate_action("quit", None)
+                # Remote activation is asynchronous. Deliver quit before dropping
+                # the proxy/connection or letting the owning application exit.
+                if self.connection:
+                    try:
+                        self.connection.flush_sync(None)
+                    except GLib.Error:
+                        LOG.exception("Could not flush HUD shutdown action")
             elif self.process and self.process.poll() is None:
                 self.process.terminate()
         Gio.bus_unwatch_name(self.watch)
         self.group = None
+        self.connection = None
