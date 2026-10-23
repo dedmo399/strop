@@ -116,7 +116,7 @@ Installed-Size: ${INSTALLED_SIZE}
 Maintainer: Strop Contributors
 Depends: python3, python3-gi, python3-evdev, gir1.2-gtk-4.0
 Recommends: input-remapper, openrazer-meta | openrazer-daemon
-Homepage: https://github.com
+Homepage: https://github.com/dedmo399/strop
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
  Native Linux GTK4 application suite for configuring, remapping, and customizing
  Razer keypad, keyboard, and mouse layouts with input-remapper profile integration.

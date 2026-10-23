@@ -8,6 +8,21 @@
 
 ---
 
+## Source repository
+
+The primary source for Strop is [dedmo399/strop on GitHub](https://github.com/dedmo399/strop). The `main` branch is the canonical development branch.
+
+Clone the repository over SSH after adding your SSH key to GitHub:
+
+```bash
+git clone git@github.com:dedmo399/strop.git
+cd strop
+```
+
+For an existing checkout, get the latest committed source with `git pull --ff-only` on `main`. Commit local work and use `git push` to save it to GitHub. Generated `.deb` and `.tar.gz` packages stay out of source control; build them with `./build_deb.sh`.
+
+---
+
 ## 🧰 Platform and support
 
 The **only official 1.1 support target** is the Steam PC running Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow V3, and Naga Trinity listed in the [support matrix](docs/SUPPORT.md).
@@ -131,4 +146,4 @@ The active [Strop 2.0 roadmap](ROADMAP_2.0.md) prioritizes Tartarus Pro key-dept
 - **Version**: `1.1.0`
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 
-Maintained by Strop Contributors. Visit [GitHub](https://github.com) and search for Strop.
+Maintained by Strop Contributors. Source and issue tracking: [dedmo399/strop](https://github.com/dedmo399/strop).
