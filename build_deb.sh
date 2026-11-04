@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -88,6 +88,12 @@ cat << 'BIN_EOF' > "${PKG_DIR}/usr/bin/strop-macro"
 exec python3 /usr/lib/strop/strop_macro.py "$@"
 BIN_EOF
 chmod +x "${PKG_DIR}/usr/bin/strop-macro"
+
+cat << 'BIN_EOF' > "${PKG_DIR}/usr/bin/strop-studio"
+#!/usr/bin/env bash
+exec python3 /usr/lib/strop/strop_studio.py "$@"
+BIN_EOF
+chmod +x "${PKG_DIR}/usr/bin/strop-studio"
 
 
 # 4. Install Desktop File & App Icon

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1
+
+- Added the `/usr/bin/strop-studio` CLI wrapper to the Debian package.
+- Fixed diagonal D-Pad combination preset loading so intrinsic combo keys round-trip without clobbering cardinal D-Pad bindings.
+- Prevented cleared keys with leftover custom labels from serializing invalid empty `output_symbol` entries, and cleared custom labels during batch keypad resets.
+- Handled invalid macro syntax gracefully with toast warnings in Macro Studio.
+- Added ambidextrous right-side mouse buttons to Mouse Studio and verified OpenRazer lighting status before reporting success.
+- Restored active recording button styling and cleaned up duplicate HUD CSS rules and launcher scripts.
+
 ## 1.1.0
 
 - Flushed managed HUD shutdown requests before releasing their D-Bus connection, fixing an intermittent quit-action delivery failure.

@@ -32,18 +32,19 @@ jobs:
           import subprocess
           import tarfile
           tracked = set(subprocess.check_output(["git", "ls-files", "-z"]).decode().rstrip("\0").split("\0"))
-          with tarfile.open("strop_1.1.0.tar.gz") as archive:
+          with tarfile.open("strop_1.1.1.tar.gz") as archive:
               assert set(archive.getnames()) == tracked | {".strop-source-files"}
               manifest = archive.extractfile(".strop-source-files").read()
               assert set(manifest.decode().rstrip("\0").split("\0")) == tracked
           PYTHON
           rm .strop-local-check
-          dpkg-deb --info strop_1.1.0_all.deb
-          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
-          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/bin/strop-keypad'
-          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
-          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
-          dpkg-deb --contents strop_1.1.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+          dpkg-deb --info strop_1.1.1_all.deb
+          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
+          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/bin/strop-studio'
+          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/bin/strop-keypad'
+          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
+          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
+          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
 
   backend-and-gui:
     runs-on: ubuntu-26.04

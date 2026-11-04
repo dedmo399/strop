@@ -234,10 +234,29 @@ label {
     color: #bbf7d0;
 }
 
-.record-btn.recording {
+.record-btn.recording,
+.recording-pulse {
     background: #7f1d1d;
-    border-color: #ef4444;
+    border: 1px solid #ef4444;
     color: #fecaca;
+    font-weight: 700;
+    font-size: 11px;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+.code-label {
+    color: #94a3b8;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+.code-box {
+    background-color: #141a24;
+    color: #86efac;
+    font-family: monospace;
+    font-size: 11.5px;
+    padding: 6px 8px;
 }
 
 .ghost-btn {
@@ -461,7 +480,7 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
     about.set_program_name("Strop")
     about.set_version(__version__)
     about.set_comments("Putting the sharpest edge on your Razer gaming hardware on Linux.\nUnified GTK4 remap studios, in-game HUDs, and macro composer. Catalog entries are layout references; see the support matrix for officially supported devices.")
-    about.set_website("https://github.com")
+    about.set_website("https://github.com/dedmo399/strop")
     about.set_website_label("Find Strop on GitHub")
     about.set_authors(["Strop Contributors"])
     about.set_copyright("Copyright © 2026 Strop Contributors\nLicensed under GNU GPL-3.0-or-later.")

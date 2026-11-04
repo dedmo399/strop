@@ -21,7 +21,7 @@ if str(script_dir) not in sys.path:
 from strop_core.device import scan_all_connected_devices, detect_device
 from strop_core.theme import apply_theme
 from strop_core.studio_base import BaseStudioWindow
-from strop_core.catalog import get_archetype_for_device, MOUSE_NAGA_MMO, MOUSE_NAGA_HEX
+from strop_core.catalog import get_archetype_for_device, MOUSE_NAGA_MMO, MOUSE_NAGA_HEX, MOUSE_AMBI
 
 
 import gi
@@ -31,7 +31,7 @@ from gi.repository import Gtk, GLib, Gio
 
 
 from strop_core.layouts.mouse import (
-    COMMON_MOUSE_BUTTONS, NAGA_12_GRID, NAGA_HEX_7_GRID, FPS_SIDE_BUTTONS
+    COMMON_MOUSE_BUTTONS, NAGA_12_GRID, NAGA_HEX_7_GRID, FPS_SIDE_BUTTONS, AMBI_RIGHT_BUTTONS
 )
 
 
@@ -84,6 +84,12 @@ class RazerMouseStudioWindow(BaseStudioWindow):
                 "output": "", "target": "keyboard"
             }
         for item in FPS_SIDE_BUTTONS:
+            self.state[item["id"]] = {
+                "id": item["id"], "name": item["name"], "label": item["l"],
+                "code": item["c"], "aliases": item.get("aliases", []),
+                "output": "", "target": "keyboard"
+            }
+        for item in AMBI_RIGHT_BUTTONS:
             self.state[item["id"]] = {
                 "id": item["id"], "name": item["name"], "label": item["l"],
                 "code": item["c"], "aliases": item.get("aliases", []),
@@ -162,11 +168,23 @@ class RazerMouseStudioWindow(BaseStudioWindow):
         naga_box.append(naga_grid)
         side_stack.append_page(naga_box, Gtk.Label(label="12-Button MMO / Macro Grid Plate"))
 
+        # Plate 4: Ambidextrous Right-Side Buttons
+        ambi_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        ambi_box.set_margin_top(8)
+        ambi_box.set_halign(Gtk.Align.CENTER)
+
+        for item in AMBI_RIGHT_BUTTONS:
+            btn = self._create_mouse_button_widget(item, width=130, height=48)
+            ambi_box.append(btn)
+        side_stack.append_page(ambi_box, Gtk.Label(label="Ambidextrous Right Side Buttons"))
+
         # Auto-switch tab based on detected archetype
         if self.archetype == MOUSE_NAGA_MMO:
             side_stack.set_current_page(2)
         elif self.archetype == MOUSE_NAGA_HEX:
             side_stack.set_current_page(1)
+        elif self.archetype == MOUSE_AMBI:
+            side_stack.set_current_page(3)
         else:
             side_stack.set_current_page(0)
 

@@ -113,7 +113,7 @@ class RazerLightingEngine:
         """
         if not self.is_available:
             self._init_openrazer()
-        if not self._manager:
+        if not self._manager or not self._manager.devices:
             return False
 
         success = True
@@ -121,12 +121,16 @@ class RazerLightingEngine:
             try:
                 if hasattr(dev, "fx") and hasattr(dev.fx, "static"):
                     dev.fx.static(*color)
+                elif hasattr(dev, "fx") and hasattr(dev.fx, "misc") and hasattr(dev.fx.misc, "set_static_effect"):
+                    dev.fx.misc.set_static_effect(*color)
                 elif hasattr(dev, "fx") and hasattr(dev.fx, "advanced"):
                     adv = dev.fx.advanced
                     for r in range(adv.rows):
                         for c in range(adv.cols):
                             adv.matrix[r, c] = color
                     adv.draw()
+                else:
+                    success = False
             except Exception as e:
                 print(f"Failed to set lighting for {dev.name}: {e}")
                 success = False

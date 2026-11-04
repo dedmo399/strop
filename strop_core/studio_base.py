@@ -573,15 +573,13 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
     def _start_recording(self):
         self.is_recording_input = True
         self.btn_record_input.set_label("⏹ Press Key Combo...")
-        self.btn_record_input.remove_css_class("record-btn")
-        self.btn_record_input.add_css_class("recording-pulse")
+        self.btn_record_input.add_css_class("recording")
         self.entry_output.set_placeholder_text("Listening for physical keystroke...")
 
     def _stop_recording(self, cancelled=False):
         self.is_recording_input = False
         self.btn_record_input.set_label("🔴 Record Input")
-        self.btn_record_input.remove_css_class("recording-pulse")
-        self.btn_record_input.add_css_class("record-btn")
+        self.btn_record_input.remove_css_class("recording")
         self.entry_output.set_placeholder_text("e.g. KEY_A, mouse(1), disable")
 
     def _on_key_pressed(self, controller, keyval, keycode, state):
@@ -792,14 +790,17 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
         try:
             if self.apply_color_all_devices:
-                lighting.apply_all_connected_devices_lighting(rgb)
+                applied = lighting.apply_all_connected_devices_lighting(rgb)
                 target_desc = "all connected Razer devices"
             else:
-                lighting.apply_device_lighting(dev_name, rgb)
+                applied = lighting.apply_device_lighting(dev_name, rgb)
                 target_desc = dev_name
 
             if hasattr(self, "toast"):
-                self.toast.show_message(f"Set {self.selected_color_name} lighting on {target_desc}", icon=cinfo.get("icon", "💡"))
+                if applied:
+                    self.toast.show_message(f"Set {self.selected_color_name} lighting on {target_desc}", icon=cinfo.get("icon", "💡"))
+                else:
+                    self.toast.show_message(f"Could not apply lighting to {target_desc} (check OpenRazer daemon).", icon="⚠️")
         except Exception as e:
             logger.error(f"Failed to apply lighting: {e}")
 
@@ -908,7 +909,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
             has_output = bool(s.get("output") and s["output"].strip())
             custom_name = s.get("custom_name", "").strip()
-            if has_output or custom_name:
+            if has_output:
                 btn.add_css_class("assigned")
                 disp_text = custom_name if custom_name else self._format_display_text(s.get("output", ""))
                 if lbl:
@@ -947,7 +948,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         # 3. Update Remaps List & Badges
         assigned_items = [
             (kid, s) for kid, s in self.state.items()
-            if (s.get("output") and s["output"].strip()) or (s.get("custom_name") and s["custom_name"].strip())
+            if s.get("output") and s["output"].strip()
         ]
         count = len(assigned_items)
 
@@ -1003,8 +1004,25 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
     # Preset Matching, Loading, Direct Saving, and Applying
     # ------------------------------------------------------------------
-    def _match_preset_key(self, code: Optional[int], name: str, origin_hash: Optional[str] = None) -> Optional[str]:
+    def _match_preset_key(
+        self,
+        code: Optional[int],
+        name: str,
+        origin_hash: Optional[str] = None,
+        combination: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[str]:
         """Robustly matches an input-remapper JSON mapping to a state key."""
+        if combination and len(combination) > 1:
+            preset_codes = sorted(
+                item.get("code") for item in combination if isinstance(item.get("code"), int)
+            )
+            combo_matches = [
+                kid for kid, state in self.state.items()
+                if state.get("code") is None and sorted(state.get("combo") or []) == preset_codes
+            ]
+            if len(combo_matches) == 1:
+                return combo_matches[0]
+
         if code is not None:
             candidates = [
                 kid for kid, state in self.state.items()
@@ -1039,7 +1057,8 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             s["output"] = ""
             s["target"] = "keyboard"
             s["custom_name"] = ""
-            s.pop("combo", None)
+            if s.get("code") is not None:
+                s.pop("combo", None)
 
         matched_count = 0
         unrepresented_entries = []
@@ -1063,7 +1082,10 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             name = item.get("name", "")
             custom_name = item.get("custom_name") or ""
 
-            matched_key = self._match_preset_key(code, name, first_input.get("origin_hash"))
+            try:
+                matched_key = self._match_preset_key(code, name, first_input.get("origin_hash"), combination)
+            except TypeError:
+                matched_key = self._match_preset_key(code, name, first_input.get("origin_hash"))
             if matched_key:
                 # One Strop key state represents one input combination. Do
                 # not silently overwrite another mapping with the same key.

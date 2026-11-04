@@ -694,5 +694,192 @@ class TestStropThemeAndAbout(unittest.TestCase):
             self.assertEqual(dlg.get_program_name(), "Strop")
 
 
+class TestReviewFixes(unittest.TestCase):
+    def test_serialize_preset_skips_empty_output_with_custom_name(self):
+        from strop_core.presets import serialize_preset_data, validate_preset_data
+
+        state = {
+            "k01": {
+                "code": 30, "name": "Key 01", "label": "01",
+                "output": "", "custom_name": "Leftover Label", "target": "keyboard",
+            },
+            "k02": {
+                "code": 48, "name": "Key 02", "label": "02",
+                "output": "b", "custom_name": "Jump", "target": "keyboard",
+            },
+        }
+        serialized = serialize_preset_data(state, {"key_to_hash": {30: "h1", 48: "h1"}})
+        self.assertEqual(len(serialized), 1)
+        self.assertEqual(serialized[0]["output_symbol"], "b")
+        self.assertIsNone(validate_preset_data(serialized))
+
+    def test_diagonal_dpad_combo_round_trips_without_clobbering_cardinal_keys(self):
+        from types import SimpleNamespace
+        from strop_core.studio_base import BaseStudioWindow
+        from strop_core.presets import serialize_preset_data
+
+        state = {
+            "dpad-n": {
+                "id": "dpad-n", "code": 103, "name": "D-Pad Up", "label": "N",
+                "output": "KEY_UP", "target": "keyboard",
+            },
+            "dpad-e": {
+                "id": "dpad-e", "code": 106, "name": "D-Pad Right", "label": "E",
+                "output": "KEY_RIGHT", "target": "keyboard",
+            },
+            "dpad-ne": {
+                "id": "dpad-ne", "code": None, "combo": [103, 106], "name": "D-Pad Up-Right",
+                "label": "NE", "output": "w + d", "target": "keyboard",
+            },
+        }
+        fake_studio = SimpleNamespace(
+            state=state,
+            detected_device={"key_to_hash": {103: "hash-dpad", 106: "hash-dpad"}},
+            selected_key_id=None,
+            entry_preset_name=SimpleNamespace(set_text=lambda _t: None),
+            _update_all_visuals=lambda: None,
+        )
+        fake_studio._match_preset_key = (
+            lambda code, name, origin_hash=None, combination=None: BaseStudioWindow._match_preset_key(
+                fake_studio, code, name, origin_hash, combination
+            )
+        )
+
+        exported = serialize_preset_data(state, fake_studio.detected_device)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "dpad.json"
+            path.write_text(json.dumps(exported), encoding="utf-8")
+            matched, total = BaseStudioWindow._load_preset_file_data(fake_studio, str(path))
+
+        self.assertEqual((matched, total), (3, 3))
+        self.assertEqual(state["dpad-n"]["output"], "KEY_UP")
+        self.assertEqual(state["dpad-e"]["output"], "KEY_RIGHT")
+        self.assertEqual(state["dpad-ne"]["output"], "w + d")
+        self.assertEqual(state["dpad-ne"]["combo"], [103, 106])
+
+        # Reloading an empty preset must keep the intrinsic combo on dpad-ne intact
+        with tempfile.TemporaryDirectory() as temp_dir:
+            empty_path = Path(temp_dir) / "empty.json"
+            empty_path.write_text("[]", encoding="utf-8")
+            BaseStudioWindow._load_preset_file_data(fake_studio, str(empty_path))
+        self.assertEqual(state["dpad-ne"]["combo"], [103, 106])
+
+    def test_keypad_batch_actions_clear_custom_name_and_preserve_scroll_target(self):
+        from types import SimpleNamespace
+        import strop_keypad
+
+        win = SimpleNamespace(
+            state={},
+            archetype="tartarus",
+            selected_key_id="grid-0-0",
+            entry_output=SimpleNamespace(set_text=lambda _t: None),
+            entry_custom_label=SimpleNamespace(set_text=lambda _t: None),
+            _update_all_visuals=lambda: None,
+        )
+
+        strop_keypad.KeypadMainWindow._init_hardware_state(win)
+        self.assertEqual(win.state["scrollUp"]["id"], "scrollUp")
+        self.assertEqual(win.state["scrollDown"]["id"], "scrollDown")
+
+        win.state["grid-0-0"]["custom_name"] = "Custom"
+        win.state["scrollUp"]["target"] = "keyboard"
+        win.state["scrollUp"]["custom_name"] = "WheelCustom"
+
+        with patch.object(strop_keypad.Gtk, "AlertDialog", return_value=SimpleNamespace(show=lambda _s: None)):
+            strop_keypad.KeypadMainWindow._on_set_all_to_default(win, None)
+            self.assertEqual(win.state["grid-0-0"]["custom_name"], "")
+            self.assertEqual(win.state["scrollUp"]["custom_name"], "")
+            self.assertEqual(win.state["scrollUp"]["target"], "mouse")
+
+            win.state["grid-0-0"]["custom_name"] = "CustomAgain"
+            strop_keypad.KeypadMainWindow._on_set_all_to_disable(win, None)
+            self.assertEqual(win.state["grid-0-0"]["custom_name"], "")
+            self.assertEqual(win.state["grid-0-0"]["output"], "disable")
+
+    def test_macro_studio_custom_step_handles_invalid_syntax_gracefully(self):
+        from types import SimpleNamespace
+        import strop_macro
+
+        toasts = []
+        win = SimpleNamespace(
+            entry_custom_step=SimpleNamespace(
+                get_text=lambda: "key(",
+                set_text=lambda _t: None,
+            ),
+            current_steps=[],
+            _render_timeline=lambda: None,
+            toast=SimpleNamespace(show_message=lambda msg, icon="": toasts.append((msg, icon))),
+        )
+        strop_macro.StropMacroStudioWindow._on_add_custom_step(win)
+        self.assertEqual(len(win.current_steps), 0)
+        self.assertEqual(len(toasts), 1)
+        self.assertIn("Invalid macro syntax", toasts[0][0])
+
+    def test_lighting_engine_returns_false_when_no_devices_or_unsupported_fx(self):
+        from types import SimpleNamespace
+        import strop_core.studio_base as studio_base
+        from strop_core.lighting import RazerLightingEngine
+        from strop_core.studio_base import BaseStudioWindow
+
+        engine = RazerLightingEngine()
+        engine._available = True
+        engine._manager = SimpleNamespace(devices=[])
+        self.assertFalse(engine.apply_all_connected_devices_lighting((0, 255, 0)))
+
+        engine._manager = SimpleNamespace(devices=[SimpleNamespace(name="NoFxDevice", fx=None)])
+        self.assertFalse(engine.apply_all_connected_devices_lighting((0, 255, 0)))
+
+        toasts = []
+        fake_studio = SimpleNamespace(
+            selected_color_name="Green",
+            detected_device={"name": "Razer Test"},
+            default_device_name="Razer Test",
+            apply_color_all_devices=True,
+            toast=SimpleNamespace(show_message=lambda msg, icon="": toasts.append((msg, icon))),
+        )
+        with patch.object(
+            studio_base,
+            "get_lighting_engine",
+            return_value=SimpleNamespace(apply_all_connected_devices_lighting=lambda _rgb: False),
+        ):
+            BaseStudioWindow._apply_lighting_to_hardware(fake_studio)
+        self.assertEqual(len(toasts), 1)
+        self.assertEqual(toasts[0][1], "⚠️")
+
+    def test_record_button_toggles_recording_css_class(self):
+        from types import SimpleNamespace
+        from strop_core.studio_base import BaseStudioWindow
+
+        classes = {"record-btn"}
+        btn = SimpleNamespace(
+            set_label=lambda _l: None,
+            add_css_class=lambda c: classes.add(c),
+            remove_css_class=lambda c: classes.discard(c),
+        )
+        fake_studio = SimpleNamespace(
+            is_recording_input=False,
+            btn_record_input=btn,
+            entry_output=SimpleNamespace(set_placeholder_text=lambda _t: None),
+        )
+        BaseStudioWindow._start_recording(fake_studio)
+        self.assertTrue(fake_studio.is_recording_input)
+        self.assertIn("record-btn", classes)
+        self.assertIn("recording", classes)
+
+        BaseStudioWindow._stop_recording(fake_studio)
+        self.assertFalse(fake_studio.is_recording_input)
+        self.assertIn("record-btn", classes)
+        self.assertNotIn("recording", classes)
+
+    def test_mouse_studio_initializes_ambidextrous_right_side_buttons(self):
+        from types import SimpleNamespace
+        import strop_mouse
+
+        win = SimpleNamespace(state={})
+        strop_mouse.RazerMouseStudioWindow._init_hardware_state(win)
+        self.assertIn("ambi_right_front", win.state)
+        self.assertIn("ambi_right_back", win.state)
+
+
 if __name__ == "__main__":
     unittest.main()

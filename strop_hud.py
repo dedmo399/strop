@@ -63,52 +63,6 @@ GRID_DATA = KEYPAD_GRID
 # ----------------------------------------------------------------------
 
 CSS_STYLE = b"""
-* {
-    font-family: "Ubuntu", "Inter", "Cantarell", "DejaVu Sans", "Liberation Sans", "Noto Sans", sans-serif;
-}
-
-window.hud-window {
-    background-color: rgba(18, 22, 29, 0.92);
-    color: #e2e8f0;
-    border-radius: 10px;
-    border: 1px solid rgba(34, 197, 94, 0.45);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.65);
-}
-
-.hud-container {
-    padding: 6px 8px;
-}
-
-/* Minimalist Polychromatic Inline Header */
-.hud-header {
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: 4px;
-}
-
-.drag-handle {
-    color: #22c55e;
-    font-weight: bold;
-    font-size: 10.5px;
-}
-
-.hud-btn {
-    background: rgba(26, 32, 42, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #cbd5e1;
-    font-size: 9.5px;
-    font-weight: 600;
-    border-radius: 4px;
-    padding: 1px 5px;
-    min-height: 20px;
-}
-
-.hud-btn:hover {
-    border-color: #22c55e;
-    color: #86efac;
-    background: rgba(32, 42, 54, 0.95);
-}
-
 dropdown button {
     background: rgba(26, 32, 42, 0.85);
     border: 1px solid rgba(34, 197, 94, 0.35);

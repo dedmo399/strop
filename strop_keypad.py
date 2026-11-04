@@ -76,6 +76,7 @@ class KeypadMainWindow(BaseStudioWindow):
         # Scroll Wheel Up & Down
         for sdata in [SCROLL_UP_DATA, SCROLL_DOWN_DATA]:
             self.state[sdata["id"]] = {
+                "id": sdata["id"],
                 "name": sdata["name"],
                 "label": sdata["l"],
                 "code": sdata["c"],
@@ -320,11 +321,13 @@ class KeypadMainWindow(BaseStudioWindow):
 
     def _on_set_all_to_default(self, widget):
         """Restores every key mapping back to factory stock (empty output)."""
-        for s in self.state.values():
+        for kid, s in self.state.items():
             s["output"] = ""
-            s["target"] = "mouse" if s.get("id", "").startswith("scroll") else "keyboard"
+            s["custom_name"] = ""
+            s["target"] = "mouse" if kid.startswith("scroll") else "keyboard"
         if self.selected_key_id:
             self.entry_output.set_text("")
+            self.entry_custom_label.set_text("")
         self._update_all_visuals()
         alert = Gtk.AlertDialog(
             message="Restored All Keys to Default",
@@ -336,9 +339,11 @@ class KeypadMainWindow(BaseStudioWindow):
         """Sets every key mapping to 'disable'."""
         for s in self.state.values():
             s["output"] = "disable"
+            s["custom_name"] = ""
             s["target"] = "keyboard"
         if self.selected_key_id:
             self.entry_output.set_text("disable")
+            self.entry_custom_label.set_text("")
         self._update_all_visuals()
         alert = Gtk.AlertDialog(
             message="All Keys Disabled",
@@ -365,10 +370,12 @@ class KeypadMainWindow(BaseStudioWindow):
             kid = f"dpad-{dir_key}"
             if kid in self.state:
                 self.state[kid]["output"] = key_sym
+                self.state[kid]["custom_name"] = ""
                 self.state[kid]["target"] = "keyboard"
 
         if self.selected_key_id and self.selected_key_id.startswith("dpad-"):
             self.entry_output.set_text(self.state[self.selected_key_id]["output"])
+            self.entry_custom_label.set_text("")
 
         self._update_all_visuals()
         alert = Gtk.AlertDialog(
@@ -400,9 +407,11 @@ class KeypadMainWindow(BaseStudioWindow):
             kid = f"dpad-{dir_key}"
             if kid in self.state:
                 self.state[kid]["output"] = sym
+                self.state[kid]["custom_name"] = ""
                 self.state[kid]["target"] = "gamepad"
         if self.selected_key_id and self.selected_key_id.startswith("dpad-"):
             self.entry_output.set_text(self.state[self.selected_key_id]["output"])
+            self.entry_custom_label.set_text("")
         self._update_all_visuals()
         alert = Gtk.AlertDialog(
             message="Mapped to Gamepad D-Pad Buttons",

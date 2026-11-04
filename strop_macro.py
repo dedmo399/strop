@@ -536,7 +536,10 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         self.entry_badge.set_text(m.get("label", m.get("title", "")))
         self.entry_category.set_text(m.get("category", "Custom"))
 
-        self.current_steps = parse_macro_steps(m.get("macro", ""))
+        try:
+            self.current_steps = parse_macro_steps(m.get("macro", ""))
+        except ValueError:
+            self.current_steps = []
         self._render_timeline()
 
         # Disable delete for built-in templates
@@ -553,7 +556,11 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         if not val:
             return
         # Parse potential multi-step expression or single step
-        parsed = parse_dsl_sequence(val)
+        try:
+            parsed = parse_dsl_sequence(val)
+        except ValueError as exc:
+            self.toast.show_message(f"Invalid macro syntax: {exc}", icon="⚠️")
+            return
         if parsed:
             self.current_steps.extend(parsed)
             self._render_timeline()

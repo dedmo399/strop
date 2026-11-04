@@ -234,7 +234,7 @@ def serialize_preset_data(
         if output_event:
             output_type, output_code = output_event
             out_sym = ""
-        if not out_sym and not custom_name and (output_type is None or output_code is None):
+        if not out_sym and (output_type is None or output_code is None):
             continue
 
         from strop_core.macros import normalize_macro_to_input_remapper

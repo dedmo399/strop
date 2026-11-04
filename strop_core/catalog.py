@@ -2196,9 +2196,6 @@ def get_archetype_for_device(device_name: str) -> str:
         return dev["archetype"]
     
     # Heuristic fallback if unknown device
-
-    if "naga hex" in nl or "trinity hex" in nl:
-        return MOUSE_NAGA_HEX
     if "naga" in nl:
         return MOUSE_NAGA_MMO
     if "basilisk" in nl:
@@ -2207,10 +2204,8 @@ def get_archetype_for_device(device_name: str) -> str:
         return MOUSE_AMBI
     if "mouse" in nl or "deathadder" in nl or "mamba" in nl or "cobra" in nl or "abyssus" in nl or "orochi" in nl:
         return MOUSE_FPS
-    if "mini" in nl or "60" in nl:
+    if "60" in nl:
         return KEYBOARD_60
-    if "tkl" in nl or "tournament" in nl or "tenkeyless" in nl:
-        return KEYBOARD_TKL
     if "blade" in nl:
         return KEYBOARD_BLADE
     return KEYBOARD_FULL

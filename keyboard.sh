@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-cd "$(dirname "$0")"
-python3 ./strop_keyboard.py "$@"
+set -e
+cd -- "$(dirname -- "$0")"
+exec python3 ./strop_keyboard.py "$@"

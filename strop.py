@@ -15,9 +15,7 @@ script_dir = Path(__file__).resolve().parent
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
-from strop_core.presets import (
-    get_presets_base_dir, get_active_profile,
-)
+from strop_core.presets import get_active_profile
 
 from strop_core.theme import apply_theme, show_about_dialog
 from strop_core.catalog import get_device_catalog
@@ -626,42 +624,9 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
         return card
 
-    def _create_folder_card(self):
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        card.add_css_class("hub-card")
-        card.set_hexpand(True)
-        card.set_vexpand(True)
-
-        lbl_t = Gtk.Label()
-        lbl_t.set_markup("<span weight='bold' size='medium' color='#f8fafc'>📁 Preset Storage</span>")
-        lbl_t.set_xalign(0)
-        card.append(lbl_t)
-
-        lbl_d = Gtk.Label(label="Manage JSON keymaps and macro presets in your system input-remapper directory.")
-        lbl_d.add_css_class("dim-text")
-        lbl_d.set_wrap(True)
-        lbl_d.set_xalign(0)
-        lbl_d.set_vexpand(True)
-        card.append(lbl_d)
-
-        btn = Gtk.Button(label="Open Presets Folder")
-        btn.add_css_class("ghost-btn")
-        btn.connect("clicked", lambda w: self._open_presets_folder())
-        card.append(btn)
-
-        return card
-
     def _open_catalog_browser(self):
         dlg = StropCatalogDialog(self)
         dlg.present()
-
-    def _open_presets_folder(self):
-        pdir = get_presets_base_dir()
-        pdir.mkdir(parents=True, exist_ok=True)
-        try:
-            subprocess.Popen(["xdg-open", str(pdir)])
-        except Exception:
-            pass
 
     def _launch_studio_for_device(self, device_name: str):
         script_path = Path(__file__).parent / "strop_studio.py"

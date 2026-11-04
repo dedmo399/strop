@@ -135,7 +135,7 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
 The official 1.1 target is Ubuntu 26.04.1 LTS on the Steam PC. Other distributions are not in the support matrix.
 
 ### Install Debian Package (.deb)
-Download `strop_1.1.0_all.deb`, `strop_1.1.0.tar.gz`, and `SHA256SUMS` from the [Strop 1.1.0 release](https://github.com/dedmo399/strop/releases/tag/v1.1.0) into the same directory. Verify both downloads before installing:
+Download `strop_1.1.1_all.deb`, `strop_1.1.1.tar.gz`, and `SHA256SUMS` from the [Strop 1.1.1 release](https://github.com/dedmo399/strop/releases/tag/v1.1.1) into the same directory. Verify both downloads before installing:
 
 ```bash
 sha256sum --check SHA256SUMS
@@ -145,7 +145,7 @@ Both files should report `OK`. Checksums detect corrupted or changed downloads; 
 
 Install the verified Debian package with `apt`:
 ```bash
-sudo apt install ./strop_1.1.0_all.deb
+sudo apt install ./strop_1.1.1_all.deb
 ```
 
 To build fresh `.deb` and `.tar.gz` release artifacts at any time:
@@ -169,7 +169,7 @@ For setup and troubleshooting, read the [user guide](docs/USER_GUIDE.md) and [su
 
 ## 📜 Version & License
 
-- **Version**: `1.1.0`
+- **Version**: `1.1.1`
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 
 Maintained by Strop Contributors. Source and issue tracking: [dedmo399/strop](https://github.com/dedmo399/strop).
