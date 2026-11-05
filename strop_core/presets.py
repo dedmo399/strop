@@ -124,10 +124,32 @@ def set_active_profile(device_name: str, preset_name: str) -> bool:
     profiles[device_name] = preset_name
     try:
         _atomic_write_json(get_active_profiles_file(), profiles)
+        _sync_input_remapper_autoload(device_name, preset_name)
         return True
     except Exception as e:
         logger.warning(f"Failed to write active profile: {e}")
         return False
+
+
+def _sync_input_remapper_autoload(device_name: str, preset_name: Optional[str]) -> None:
+    """Keep ~/.config/input-remapper-2/config.json autoload mapping synchronized."""
+    try:
+        ir_cfg_path = _profile_config_dir() / "config.json"
+        if not ir_cfg_path.is_file():
+            return
+        with open(ir_cfg_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        autoload = data.setdefault("autoload", {})
+        clean = device_name.replace("Razer ", "")
+        ir_key = f"Razer Razer {clean}" if not device_name.startswith("Razer Razer") else device_name
+        if preset_name:
+            autoload[ir_key] = preset_name
+        else:
+            autoload.pop(ir_key, None)
+            autoload.pop(device_name, None)
+        _atomic_write_json(ir_cfg_path, data)
+    except Exception as e:
+        logger.warning(f"Failed to sync autoload to input-remapper config: {e}")
 
 
 def clear_active_profile(device_name: str) -> bool:
@@ -146,6 +168,7 @@ def clear_active_profile(device_name: str) -> bool:
         del profiles[key]
         try:
             _atomic_write_json(get_active_profiles_file(), profiles)
+            _sync_input_remapper_autoload(device_name, None)
             return True
         except Exception as e:
             logger.warning(f"Could not clear active profile: {e}")
@@ -405,15 +428,28 @@ def _profile_config_dir() -> Path:
     return get_presets_base_dir().parent
 
 
+_DEVICE_KEYS_CACHE: Tuple[float, List[str]] = (0.0, [])
+
+
 def _list_input_remapper_devices(ctrl_bin: str) -> List[str]:
+    global _DEVICE_KEYS_CACHE
+    now = time.monotonic()
+    last_time, cached_keys = _DEVICE_KEYS_CACHE
+    if cached_keys and (now - last_time < 30.0):
+        return list(cached_keys)
+
     result = subprocess.run(
         [ctrl_bin, "--list-devices"], capture_output=True, text=True, timeout=3.0,
         env=dict(os.environ, PYTHONWARNINGS="ignore"),
     )
     if result.returncode != 0:
+        if cached_keys:
+            return list(cached_keys)
         detail = (result.stderr or result.stdout or "Unable to enumerate input-remapper devices").strip()
         raise RuntimeError(detail[-500:])
-    return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+    keys = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+    _DEVICE_KEYS_CACHE = (now, keys)
+    return keys
 
 
 def _resolve_input_remapper_device(device_name: str, group_keys: List[str]) -> Optional[str]:
@@ -465,6 +501,34 @@ def _wait_for_injector_state(group_key: str, expected: set, timeout: float = 4.0
 
 def get_injection_state(device_name: str) -> str:
     """Return running, stopped, or unknown using input-remapper's D-Bus state."""
+    # Fast path: query D-Bus directly for candidate group names to avoid subprocess overhead
+    clean = device_name.replace("Razer ", "")
+    candidates = [
+        device_name,
+        f"Razer {device_name}" if not device_name.startswith("Razer ") else device_name,
+        f"Razer Razer {clean}",
+    ]
+    seen = set()
+    unique_candidates = [c for c in candidates if not (c in seen or seen.add(c))]
+
+    try:
+        from pydbus import SystemBus
+        daemon = SystemBus().get("inputremapper.Control")
+        for cand in unique_candidates:
+            raw_state = daemon.get_state(cand, timeout=1)
+            state = getattr(raw_state, "value", raw_state)
+            state_str = str(state).upper().rsplit(".", 1)[-1]
+            if state_str == "RUNNING":
+                return "running"
+            if state_str == "STARTING":
+                return "starting"
+            if state_str in {"FAILED", "NO_GRAB", "UPGRADE_EVDEV"}:
+                return "failed"
+            if state_str == "STOPPED":
+                return "stopped"
+    except Exception:
+        pass
+
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
         return "unknown"
@@ -649,6 +713,15 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
         return ProfileOperationResult("stopped", "Injection stopped, but Strop could not clear its last-confirmed profile record.")
     return ProfileOperationResult("stopped", f"input-remapper reports no injection running for {device_name}.")
 
+def _is_dbus_daemon_active() -> bool:
+    try:
+        from pydbus import SystemBus
+        bus = SystemBus()
+        return "inputremapper.Control" in bus.get("org.freedesktop.DBus").ListNames()
+    except Exception:
+        return False
+
+
 def check_daemon_status() -> Tuple[str, str]:
     """
     Checks if input-remapper is installed and its system daemon is currently running.
@@ -657,6 +730,10 @@ def check_daemon_status() -> Tuple[str, str]:
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
         return "not_installed", "input-remapper is not installed. Install via your package manager."
+
+    # Direct D-Bus check avoiding subprocess spawn and daemon log spam
+    if _is_dbus_daemon_active():
+        return "running", "input-remapper daemon is active."
 
     try:
         sub_env = dict(os.environ, PYTHONWARNINGS="ignore")

@@ -516,10 +516,21 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
     def test_daemon_check_uses_supported_hello_command(self):
         from strop_core.presets import check_daemon_status
         with patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+             patch("strop_core.presets._is_dbus_daemon_active", return_value=False), \
              patch("strop_core.presets.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "hello", "")) as run:
             status, _ = check_daemon_status()
             self.assertEqual(status, "running")
             self.assertIn("hello", run.call_args.args[0])
+
+    def test_daemon_check_uses_dbus_when_available(self):
+        from strop_core.presets import check_daemon_status
+        with patch("strop_core.presets.shutil.which", return_value="/usr/bin/input-remapper-control"), \
+             patch("strop_core.presets._is_dbus_daemon_active", return_value=True), \
+             patch("strop_core.presets.subprocess.run") as run:
+            status, msg = check_daemon_status()
+            self.assertEqual(status, "running")
+            self.assertIn("active", msg)
+            run.assert_not_called()
 
     def test_apply_profile_missing_executable_does_not_record_active_profile(self):
         from strop_core.presets import apply_profile, get_active_profile
