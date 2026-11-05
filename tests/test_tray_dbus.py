@@ -104,6 +104,19 @@ def test_tray_exports_menu_actions_and_recovers_host(host):
         clicked.assert_called_once()
         call(peer, dest, "/Menu", "com.canonical.dbusmenu", "AboutToShow", GLib.Variant("(i)", (0,)))
         refreshed.assert_called_once()
+        # Expanding a submenu does not trigger refresh
+        call(peer, dest, "/Menu", "com.canonical.dbusmenu", "AboutToShow", GLib.Variant("(i)", (profile_id,)))
+        refreshed.assert_called_once()
+
+        # Updating item properties emits ItemsPropertiesUpdated without breaking menu layout
+        prop_updates = []
+        sub = peer.signal_subscribe(dest, "com.canonical.dbusmenu", "ItemsPropertiesUpdated",
+                                    "/Menu", None, Gio.DBusSignalFlags.NONE,
+                                    lambda conn, sender, path, iface, signal, params: prop_updates.append(params.unpack()))
+        tray.update([MenuItem("device", "Keypad", children=[MenuItem("profile", "Updated Game", clicked)])])
+        until(lambda: prop_updates)
+        peer.signal_unsubscribe(sub)
+        assert any(item[0] == profile_id and "label" in item[1] for item in prop_updates[0][0])
         call(peer, dest, "/StatusNotifierItem", "org.kde.StatusNotifierItem", "Activate",
              GLib.Variant("(ii)", (0, 0)))
         activated.assert_called_once()

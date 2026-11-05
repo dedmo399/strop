@@ -136,3 +136,45 @@ def test_activation_reuses_hub_and_lost_tray_restores_window():
     StropApplication.tray_availability_changed(app, False)
     app.activate.assert_called_once()
     window.set_tray_available.assert_called_once_with(False)
+
+
+def test_menu_model_property_update_and_layout_stability():
+    model = MenuModel()
+    layout_changed, props = model.replace([
+        MenuItem("daemon", "Remapping daemon: checking", enabled=False),
+        MenuItem("dev", "Mouse", children=[MenuItem("sub", "Sub")])
+    ])
+    assert layout_changed
+    assert model.revision == 1
+    assert props == []
+
+    # Update only a property (label) on an existing item:
+    layout_changed, props = model.replace([
+        MenuItem("daemon", "Remapping daemon: running", enabled=False),
+        MenuItem("dev", "Mouse", children=[MenuItem("sub", "Sub")])
+    ])
+    assert not layout_changed
+    assert model.revision == 1
+    daemon_id = model.ids["daemon"]
+    assert any(item_id == daemon_id and changed.get("label").unpack() == "Remapping daemon: running"
+               for item_id, changed in props)
+
+    # Reorder or add a child to change layout:
+    layout_changed, props = model.replace([
+        MenuItem("daemon", "Remapping daemon: running", enabled=False),
+        MenuItem("dev", "Mouse", children=[MenuItem("sub", "Sub"), MenuItem("sub2", "Sub2")])
+    ])
+    assert layout_changed
+    assert model.revision == 2
+
+
+def test_tray_controller_initializes_daemon_status_and_avoids_stuck_checking():
+    app = Mock()
+    app.get_dbus_connection.return_value = None
+    with patch("strop_core.tray_controller.check_daemon_status", return_value=("running", "Ready")), \
+         patch("strop_core.tray_controller.GLib.timeout_add_seconds", return_value=1), \
+         patch.object(TrayController, "refresh"):
+        ctrl = TrayController(app)
+        assert ctrl.daemon_status == ("running", "Ready")
+        items = {item.key: item for item in ctrl.menu_items()}
+        assert items["daemon"].label == "Remapping daemon: running"

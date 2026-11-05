@@ -78,6 +78,7 @@ class MenuModel:
         self.revision = 0
 
     def replace(self, children):
+        old_items = self.items
         items = {}
 
         def visit(item):
@@ -88,8 +89,41 @@ class MenuModel:
                 visit(child)
 
         visit(MenuItem("root", children=children))
+
+        old_structure = {
+            i: [self.ids[c.key] for c in item.children]
+            for i, item in old_items.items()
+        }
+        new_structure = {
+            i: [self.ids[c.key] for c in item.children]
+            for i, item in items.items()
+        }
+        layout_changed = (
+            self.revision == 0
+            or set(old_items.keys()) != set(items.keys())
+            or old_structure != new_structure
+        )
+
+        updated_props = []
+        if self.revision > 0:
+            for item_id, item in items.items():
+                if item_id in old_items:
+                    old = old_items[item_id]
+                    changed = {}
+                    if old.label != item.label:
+                        changed["label"] = GLib.Variant("s", item.label)
+                    if old.enabled != item.enabled:
+                        changed["enabled"] = GLib.Variant("b", item.enabled)
+                    if bool(old.children) != bool(item.children):
+                        if item.children or item_id == 0:
+                            changed["children-display"] = GLib.Variant("s", "submenu")
+                    if changed:
+                        updated_props.append((item_id, changed))
+
         self.items = items
-        self.revision += 1
+        if layout_changed:
+            self.revision += 1
+        return layout_changed, updated_props
 
     def properties(self, item_id, names=()):
         item = self.items[item_id]
@@ -145,6 +179,8 @@ class TrayService:
         self.closed = False
         self.epoch = 0
         self.menu = MenuModel()
+        self.menu_open = False
+        self.pending_layout_update = False
         self.pixmaps = icon_pixmaps()
         self.registrations = []
         for path, xml, method, prop in ((ITEM_PATH, ITEM_XML, self._item_method, self._item_property),
@@ -204,9 +240,27 @@ class TrayService:
     def update(self, items):
         if self.closed:
             return
-        self.menu.replace(items)
-        self.connection.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
-                                    GLib.Variant("(ui)", (self.menu.revision, 0)))
+        layout_changed, updated_props = self.menu.replace(items)
+        if layout_changed:
+            if self.menu_open:
+                self.pending_layout_update = True
+            else:
+                self.connection.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
+                                            GLib.Variant("(ui)", (self.menu.revision, 0)))
+        if updated_props:
+            self.connection.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "ItemsPropertiesUpdated",
+                                        GLib.Variant("(a(ia{sv})a(ias))", (updated_props, [])))
+
+    def _handle_event(self, item_id, event):
+        if event == "opened":
+            self.menu_open = True
+        elif event == "closed":
+            if item_id == 0:
+                self.menu_open = False
+                if self.pending_layout_update:
+                    self.pending_layout_update = False
+                    self.connection.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
+                                                GLib.Variant("(ui)", (self.menu.revision, 0)))
 
     def _item_property(self, connection, sender, path, interface, name):
         strings = {"Category": "ApplicationStatus", "Id": "strop", "Title": "Strop",
@@ -249,17 +303,25 @@ class TrayService:
             elif method == "Event":
                 if not self.menu.activate(args[0], args[1]):
                     raise KeyError(args[0])
+                self._handle_event(args[0], args[1])
                 result = None
             elif method == "EventGroup":
-                errors = [event[0] for event in args[0] if not self.menu.activate(event[0], event[1])]
+                errors = []
+                for event in args[0]:
+                    if not self.menu.activate(event[0], event[1]):
+                        errors.append(event[0])
+                    else:
+                        self._handle_event(event[0], event[1])
                 result = GLib.Variant("(ai)", (errors,))
             elif method == "AboutToShow":
                 if args[0] not in self.menu.items:
                     raise KeyError(args[0])
-                self.refresh()
+                if args[0] == 0 and self.refresh:
+                    self.refresh()
                 result = GLib.Variant("(b)", (False,))
             elif method == "AboutToShowGroup":
-                self.refresh()
+                if 0 in args[0] and self.refresh:
+                    self.refresh()
                 result = GLib.Variant("(aiai)", ([], [i for i in args[0] if i not in self.menu.items]))
             else:
                 invocation.return_dbus_error("com.canonical.dbusmenu.Error.UnknownMethod", method)

@@ -28,7 +28,10 @@ class TrayController:
         self.last_profiles = {}
         self.results = {}
         self.diagnostics = []
-        self.daemon_status = ("checking", "Checking remapping daemon…")
+        try:
+            self.daemon_status = check_daemon_status()
+        except Exception:
+            self.daemon_status = ("unknown", "Could not check remapping daemon")
         self.busy = set()
         self.huds = {}
         self.closed = False
