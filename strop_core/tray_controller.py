@@ -164,6 +164,7 @@ class TrayController:
     def menu_items(self):
         items = [MenuItem("hub", "Open Hub", self.app.activate),
                  MenuItem("macros", "Macro Studio", lambda: self.launch("strop_macro.py")),
+                 MenuItem("lighting", "Lighting Studio", lambda: self.launch("strop_lighting.py")),
                  MenuItem("refresh", "Refresh Devices", self.refresh),
                  MenuItem("daemon", "Remapping daemon: " + self.daemon_status[0], enabled=False)]
         for device in self.devices:

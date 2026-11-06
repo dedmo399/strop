@@ -40,7 +40,7 @@ mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps"
 mkdir -p "${PKG_DIR}/usr/share/doc/strop"
 
 # 2. Copy application source files
-cp -r strop.py strop_keypad.py strop_keyboard.py strop_mouse.py strop_hud.py strop_studio.py strop_macro.py strop_core "${PKG_DIR}/usr/lib/strop/"
+cp -r strop.py strop_keypad.py strop_keyboard.py strop_mouse.py strop_hud.py strop_studio.py strop_macro.py strop_lighting.py strop_core "${PKG_DIR}/usr/lib/strop/"
 cp -r assets "${PKG_DIR}/usr/lib/strop/"
 find "${PKG_DIR}/usr/lib/strop" -type d -name "__pycache__" -exec rm -rf {} +
 find "${PKG_DIR}/usr/lib/strop" -type f -name "*.pyc" -delete
@@ -88,6 +88,12 @@ cat << 'BIN_EOF' > "${PKG_DIR}/usr/bin/strop-macro"
 exec python3 /usr/lib/strop/strop_macro.py "$@"
 BIN_EOF
 chmod +x "${PKG_DIR}/usr/bin/strop-macro"
+
+cat << 'BIN_EOF' > "${PKG_DIR}/usr/bin/strop-lighting"
+#!/usr/bin/env bash
+exec python3 /usr/lib/strop/strop_lighting.py "$@"
+BIN_EOF
+chmod +x "${PKG_DIR}/usr/bin/strop-lighting"
 
 cat << 'BIN_EOF' > "${PKG_DIR}/usr/bin/strop-studio"
 #!/usr/bin/env bash

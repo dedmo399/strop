@@ -19,7 +19,7 @@ if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 from strop_core.catalog import (
-    get_device_catalog, get_device_by_name, get_archetype_for_device,
+    get_device_by_name, get_archetype_for_device,
     KEYPAD_TARTARUS, KEYPAD_ORBWEAVER, KEYPAD_NOSTROMO,
     KEYBOARD_FULL, KEYBOARD_TKL, KEYBOARD_75, KEYBOARD_65, KEYBOARD_60, KEYBOARD_BLADE,
     MOUSE_NAGA_MMO, MOUSE_NAGA_HEX, MOUSE_BASILISK_FPS, MOUSE_FPS, MOUSE_AMBI
@@ -54,22 +54,14 @@ def launch_for_device(device_name: str):
 def main():
     parser = argparse.ArgumentParser(description="Strop Universal Razer Studio Launcher")
     parser.add_argument("--device", "-d", type=str, help="Device name to launch (e.g. 'Razer Naga Pro', 'Razer Huntsman Mini')")
-    parser.add_argument("--list", "-l", action="store_true", help="List catalog device/layout entries (not verified support)")
+    parser.add_argument("--lighting", action="store_true", help="Launch Lighting Studio for the target device")
     args, unknown = parser.parse_known_args()
 
-    if args.list:
-        catalog = get_device_catalog()
-        print(f"🗡️ STROP — Device Catalog Layout Entries ({len(catalog)} total; not a support list):\n")
-        current_cat = None
-        for d in catalog:
-            cat = d["category"].upper()
-            if cat != current_cat:
-                print(f"\n=== {cat}S ===")
-                current_cat = cat
-            print(f"  • {d['name']:<40} [PID: {d['pid']:<6}] ({d['archetype']})")
-        return 0
-
     target = args.device or "Razer Tartarus Pro"
+    if args.lighting:
+        from strop_lighting import main as lighting_main
+        return lighting_main([f"--device={target}"])
+
     return launch_for_device(target)
 
 

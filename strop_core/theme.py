@@ -429,6 +429,41 @@ window.hud-window {
     border-width: 2px;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
 }
+
+/* Mouse DPI Stage Buttons & Sensor Badge */
+.dpi-stage-btn {
+    background: #18202b;
+    border: 1px solid #2b384a;
+    border-radius: 6px;
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 7px;
+}
+
+.dpi-stage-btn:hover {
+    border-color: #22c55e;
+    color: #86efac;
+    background: #1e2837;
+}
+
+.dpi-stage-btn.active {
+    background: #14281e;
+    border: 1px solid #22c55e;
+    color: #86efac;
+    font-weight: 700;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+}
+
+.badge-sensor {
+    background: #132219;
+    color: #86efac;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid #22c55e;
+}
 """
 
 

@@ -29,6 +29,8 @@ from strop_core.catalog import (
     MOUSE_NAGA_MMO,
     MOUSE_NAGA_HEX,
     MOUSE_BASILISK_FPS,
+    MOUSE_FPS,
+    MOUSE_AMBI,
 )
 from strop_core.macros import (
     MACRO_TEMPLATES,
@@ -890,6 +892,824 @@ class TestReviewFixes(unittest.TestCase):
         strop_mouse.RazerMouseStudioWindow._init_hardware_state(win)
         self.assertIn("ambi_right_front", win.state)
         self.assertIn("ambi_right_back", win.state)
+
+
+class TestStropDPIAndSensor(unittest.TestCase):
+    def _make_fake_mouse(
+        self,
+        name="Razer Naga Trinity",
+        pid=0x0067,
+        dpi=(3800, 3800),
+        max_dpi=16000,
+        poll_rate=1000,
+        features=None,
+        available_dpi=None,
+    ):
+        features = features if features is not None else {"dpi", "poll_rate"}
+
+        class FakeMouse:
+            def __init__(self):
+                self.name = name
+                self.type = "mouse"
+                self.serial = "TESTSERIAL123"
+                self._vid = 0x1532
+                self._pid = pid
+                self._dpi = dpi
+                self.max_dpi = max_dpi
+                self._poll_rate = poll_rate
+                self.available_dpi = available_dpi or []
+                self.supported_poll_rates = [125, 500, 1000]
+                self.dpi_stages = (1, [(800, 800), (1600, 1600)])
+
+            def has(self, feat):
+                return feat in features
+
+            @property
+            def dpi(self):
+                return self._dpi
+
+            @dpi.setter
+            def dpi(self, val):
+                self._dpi = (int(val[0]), int(val[1]))
+
+            @property
+            def poll_rate(self):
+                return self._poll_rate
+
+            @poll_rate.setter
+            def poll_rate(self, val):
+                self._poll_rate = int(val)
+
+        return FakeMouse()
+
+    def test_discover_capabilities_and_stable_pid_matching(self):
+        from strop_core.dpi import RazerDPIEngine
+
+        naga = self._make_fake_mouse(name="Razer Naga Trinity", pid=0x0067, dpi=(3800, 3800))
+        other = self._make_fake_mouse(name="Razer DeathAdder V2", pid=0x0084, dpi=(1600, 1600))
+        engine = RazerDPIEngine()
+        engine._connected = True
+        engine._manager = SimpleNamespace(devices=[other, naga])
+
+        # Match by exact PID even if name differs slightly
+        matched = engine.get_razer_mouse("Custom Label", pid=0x0067)
+        self.assertIs(matched, naga)
+
+        caps = engine.discover_capabilities("Razer Naga Trinity", pid=0x0067)
+        self.assertTrue(caps.available)
+        self.assertEqual(caps.device_name, "Razer Naga Trinity")
+        self.assertEqual(caps.pid, 0x0067)
+        self.assertTrue(caps.has_dpi)
+        self.assertTrue(caps.has_independent_xy)
+        self.assertEqual(caps.max_dpi, 16000)
+        self.assertEqual(caps.current_dpi, (3800, 3800))
+        self.assertTrue(caps.has_poll_rate)
+        self.assertEqual(caps.current_poll_rate, 1000)
+
+    def test_apply_dpi_linked_independent_and_discrete_available_dpi(self):
+        from strop_core.dpi import RazerDPIEngine
+
+        naga = self._make_fake_mouse()
+        engine = RazerDPIEngine()
+        engine._connected = True
+        engine._manager = SimpleNamespace(devices=[naga])
+
+        # Linked X=Y DPI
+        res = engine.apply_dpi("Razer Naga Trinity", 1600, 1600, pid=0x0067)
+        self.assertTrue(res.success)
+        self.assertEqual(res.dpi, (1600, 1600))
+        self.assertEqual(naga.dpi, (1600, 1600))
+
+        # Independent X/Y DPI + clamping above max_dpi
+        res_xy = engine.apply_dpi("Razer Naga Trinity", 2400, 99999, pid=0x0067)
+        self.assertTrue(res_xy.success)
+        self.assertEqual(res_xy.dpi, (2400, 16000))
+        self.assertEqual(naga.dpi, (2400, 16000))
+
+        # Discrete available_dpi mouse (X-only, sends Y=0 to OpenRazer)
+        discrete_mouse = self._make_fake_mouse(
+            name="Razer Abyssus",
+            pid=0x0042,
+            dpi=(1800, 0),
+            features={"dpi", "available_dpi"},
+            available_dpi=[450, 1800, 3500],
+        )
+        engine._manager = SimpleNamespace(devices=[discrete_mouse])
+        res_disc = engine.apply_dpi("Razer Abyssus", 1700, 1700, pid=0x0042)
+        self.assertTrue(res_disc.success)
+        self.assertEqual(discrete_mouse._dpi, (1800, 0))
+        self.assertEqual(res_disc.dpi, (1800, 1800))
+
+    def test_apply_poll_rate_and_error_reporting(self):
+        from strop_core.dpi import RazerDPIEngine
+
+        naga = self._make_fake_mouse()
+        engine = RazerDPIEngine()
+        engine._connected = True
+        engine._manager = SimpleNamespace(devices=[naga])
+
+        res_ok = engine.apply_poll_rate("Razer Naga Trinity", 500, pid=0x0067)
+        self.assertTrue(res_ok.success)
+        self.assertEqual(res_ok.poll_rate, 500)
+        self.assertEqual(naga.poll_rate, 500)
+
+        res_bad = engine.apply_poll_rate("Razer Naga Trinity", 333, pid=0x0067)
+        self.assertFalse(res_bad.success)
+        self.assertIn("Unsupported polling rate", res_bad.message)
+
+    def test_mouse_settings_persistence_roundtrip(self):
+        from strop_core.dpi import (
+            MouseSensorCapabilities,
+            MouseSensorSettings,
+            load_mouse_settings,
+            save_mouse_settings,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_file = Path(temp_dir) / "mouse_settings.json"
+            with patch("strop_core.dpi.get_mouse_settings_file", return_value=settings_file):
+                custom = MouseSensorSettings(
+                    dpi_x=1200,
+                    dpi_y=1600,
+                    linked_xy=False,
+                    active_stage=2,
+                    stages=[(400, 400), (1200, 1600), (2400, 2400), (3800, 3800), (6400, 6400)],
+                    poll_rate=500,
+                )
+                self.assertTrue(save_mouse_settings("Razer Naga Trinity", custom))
+
+                offline_caps = MouseSensorCapabilities(available=False, max_dpi=16000)
+                loaded = load_mouse_settings("Razer Naga Trinity", offline_caps)
+                self.assertEqual(loaded.dpi_x, 1200)
+                self.assertEqual(loaded.dpi_y, 1600)
+                self.assertFalse(loaded.linked_xy)
+                self.assertEqual(loaded.active_stage, 2)
+                self.assertEqual(loaded.stages[1], (1200, 1600))
+                self.assertEqual(loaded.poll_rate, 500)
+
+    def test_mouse_studio_stage_and_link_xy_handlers(self):
+        import strop_mouse
+        from strop_core.dpi import MouseSensorCapabilities, MouseSensorSettings, SensorOperationResult
+
+        toasts = []
+        applied_calls = []
+
+        fake_engine = SimpleNamespace(
+            discover_capabilities=lambda _name, pid=None: MouseSensorCapabilities(
+                available=True,
+                device_name="Razer Naga Trinity",
+                has_dpi=True,
+                has_independent_xy=True,
+                min_dpi=100,
+                max_dpi=16000,
+                current_dpi=(1600, 1600),
+                has_poll_rate=True,
+                supported_poll_rates=[125, 500, 1000],
+                current_poll_rate=1000,
+            ),
+            apply_sensor_settings=lambda name, settings, pid=None: (
+                applied_calls.append((name, settings.dpi_x, settings.dpi_y, settings.poll_rate))
+                or SensorOperationResult(True, "Applied 1600 DPI", dpi=(settings.dpi_x, settings.dpi_y), poll_rate=settings.poll_rate)
+            ),
+        )
+
+        win = SimpleNamespace(
+            _updating_dpi_controls=False,
+            detected_device={"name": "Razer Naga Trinity", "product": 0x0067},
+            default_device_name="Razer Naga Trinity",
+            sensor_caps=fake_engine.discover_capabilities("Razer Naga Trinity"),
+            sensor_settings=MouseSensorSettings(
+                dpi_x=3800,
+                dpi_y=3800,
+                linked_xy=True,
+                active_stage=4,
+                stages=[(800, 800), (1600, 1600), (3200, 3200), (3800, 3800), (6400, 6400)],
+                poll_rate=1000,
+            ),
+            stage_buttons=[],
+            lbl_sensor_badge=None,
+            toast=SimpleNamespace(show_message=lambda msg, icon="": toasts.append((msg, icon))),
+        )
+        # Bind helper methods from RazerMouseStudioWindow
+        for method_name in (
+            "_format_dpi_pair",
+            "_refresh_stage_buttons",
+            "_update_sensor_sensitivity_states",
+            "_update_sensor_badge",
+            "_sync_sensor_widgets_from_state",
+            "_match_stage_for_current_dpi",
+            "_on_dpi_stage_clicked",
+            "_on_link_xy_toggled",
+            "_apply_sensor_to_hardware",
+        ):
+            setattr(
+                win,
+                method_name,
+                getattr(strop_mouse.RazerMouseStudioWindow, method_name).__get__(win, strop_mouse.RazerMouseStudioWindow),
+            )
+
+        with patch.object(strop_mouse, "get_dpi_engine", return_value=fake_engine):
+            win._on_dpi_stage_clicked(None, 2)
+            self.assertEqual(win.sensor_settings.active_stage, 2)
+            self.assertEqual((win.sensor_settings.dpi_x, win.sensor_settings.dpi_y), (1600, 1600))
+            self.assertEqual(len(applied_calls), 1)
+            self.assertEqual(applied_calls[0], ("Razer Naga Trinity", 1600, 1600, 1000))
+
+            # Unlock X=Y, change Y, then re-lock X=Y
+            win.sensor_settings.dpi_x = 2000
+            win.sensor_settings.dpi_y = 1200
+            win.sensor_settings.linked_xy = False
+            win._on_link_xy_toggled(SimpleNamespace(get_active=lambda: True))
+            self.assertTrue(win.sensor_settings.linked_xy)
+            self.assertEqual(win.sensor_settings.dpi_y, 2000)
+
+
+class TestStropSidePlateDetection(unittest.TestCase):
+    """Tests multi-plate mouse side plate detection and GUI focus on open and rescan."""
+
+    def test_is_multi_plate_mouse_identifies_modular_naga_models(self):
+        from strop_core.catalog import is_multi_plate_mouse
+
+        self.assertTrue(is_multi_plate_mouse("Razer Naga Trinity"))
+        self.assertTrue(is_multi_plate_mouse("Razer Naga Pro"))
+        self.assertTrue(is_multi_plate_mouse("Razer Naga V2 Pro"))
+        self.assertTrue(is_multi_plate_mouse("Unknown Device", pid=0x0067))
+        self.assertTrue(is_multi_plate_mouse("Unknown Device", pid=0x0090))
+        self.assertFalse(is_multi_plate_mouse("Razer DeathAdder V3"))
+        self.assertFalse(is_multi_plate_mouse("Razer Basilisk V3"))
+        self.assertFalse(is_multi_plate_mouse("Razer Tartarus Pro"))
+
+    def test_detect_side_plate_from_preset_entries_and_state(self):
+        from strop_core.device import (
+            SIDE_PLATE_AMBI,
+            SIDE_PLATE_FPS_2,
+            SIDE_PLATE_HEX_7,
+            SIDE_PLATE_MMO_12,
+            detect_side_plate_from_preset_entries,
+            detect_side_plate_from_state,
+        )
+
+        fps_entries = [
+            {
+                "input_combination": [{"type": 1, "code": 276, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "4",
+                "name": "Forward Button (Front)",
+                "mapping_type": "key_macro",
+            },
+            {
+                "input_combination": [{"type": 1, "code": 275, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "5",
+                "name": "Back Button (Rear)",
+                "mapping_type": "key_macro",
+            },
+        ]
+        self.assertEqual(detect_side_plate_from_preset_entries(fps_entries), SIDE_PLATE_FPS_2)
+
+        hex_entries = [
+            {
+                "input_combination": [{"type": 1, "code": 2, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "1",
+                "name": "Hex Side Button 1",
+                "mapping_type": "key_macro",
+            },
+            {
+                "input_combination": [{"type": 1, "code": 8, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "7",
+                "name": "Hex Side Button 7",
+                "mapping_type": "key_macro",
+            },
+        ]
+        self.assertEqual(detect_side_plate_from_preset_entries(hex_entries), SIDE_PLATE_HEX_7)
+
+        mmo_entries = [
+            {
+                "input_combination": [{"type": 1, "code": 2, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "1",
+                "name": "Naga Side Button 1",
+                "mapping_type": "key_macro",
+            },
+            {
+                "input_combination": [{"type": 1, "code": 13, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "equal",
+                "name": "Naga Side Button 12",
+                "mapping_type": "key_macro",
+            },
+        ]
+        self.assertEqual(detect_side_plate_from_preset_entries(mmo_entries), SIDE_PLATE_MMO_12)
+
+        ambi_entries = [
+            {
+                "input_combination": [{"type": 1, "code": 278, "origin_hash": "abc"}],
+                "target_uinput": "keyboard",
+                "output_symbol": "r",
+                "name": "Right Side Front Button",
+                "mapping_type": "key_macro",
+            }
+        ]
+        self.assertEqual(detect_side_plate_from_preset_entries(ambi_entries), SIDE_PLATE_AMBI)
+
+        # State-based detection
+        self.assertEqual(
+            detect_side_plate_from_state({"fps_forward": {"output": "4"}, "naga_1": {"output": ""}}),
+            SIDE_PLATE_FPS_2,
+        )
+        self.assertEqual(
+            detect_side_plate_from_state({"naga_hex_3": {"output": "q"}}),
+            SIDE_PLATE_HEX_7,
+        )
+        self.assertEqual(
+            detect_side_plate_from_state({"naga_12": {"output": "f12"}}),
+            SIDE_PLATE_MMO_12,
+        )
+
+    def test_scan_and_rescan_detect_attached_side_plate(self):
+        import tempfile
+        from unittest.mock import Mock
+        from strop_core.device import (
+            SIDE_PLATE_FPS_2,
+            SIDE_PLATE_HEX_7,
+            SIDE_PLATE_MMO_12,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_home = Path(tmpdir)
+            strop_dir = tmp_home / ".config" / "strop"
+            strop_dir.mkdir(parents=True, exist_ok=True)
+            preset_dir = tmp_home / ".config" / "input-remapper-2" / "presets" / "Razer Razer Naga Trinity"
+            preset_dir.mkdir(parents=True, exist_ok=True)
+
+            # Initial scan: active profile 'fps_profile' uses 2-button FPS side plate (codes 275, 276)
+            (strop_dir / "active_profiles.json").write_text(
+                json.dumps({"Razer Naga Trinity": "fps_profile"}), encoding="utf-8"
+            )
+            (preset_dir / "fps_profile.json").write_text(
+                json.dumps([
+                    {
+                        "input_combination": [{"type": 1, "code": 276, "origin_hash": "h1"}],
+                        "target_uinput": "keyboard",
+                        "output_symbol": "4",
+                        "name": "Forward Button (Front)",
+                        "mapping_type": "key_macro",
+                    }
+                ]),
+                encoding="utf-8",
+            )
+            (preset_dir / "hex_profile.json").write_text(
+                json.dumps([
+                    {
+                        "input_combination": [{"type": 1, "code": 5, "origin_hash": "h2"}],
+                        "target_uinput": "keyboard",
+                        "output_symbol": "e",
+                        "name": "Hex Side Button 4",
+                        "mapping_type": "key_macro",
+                    }
+                ]),
+                encoding="utf-8",
+            )
+            (preset_dir / "mmo_profile.json").write_text(
+                json.dumps([
+                    {
+                        "input_combination": [{"type": 1, "code": 12, "origin_hash": "h2"}],
+                        "target_uinput": "keyboard",
+                        "output_symbol": "minus",
+                        "name": "Naga Side Button 11",
+                        "mapping_type": "key_macro",
+                    }
+                ]),
+                encoding="utf-8",
+            )
+
+            node = Mock(name="Razer Razer Naga Trinity")
+            node.name = "Razer Razer Naga Trinity"
+            node.path = "/dev/input/event5"
+            node.info = SimpleNamespace(vendor=0x1532, product=0x0067)
+            node.capabilities.return_value = {1: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 272, 273, 274, 275, 276]}
+            evdev = SimpleNamespace(
+                list_devices=lambda: ["/dev/input/event5"],
+                InputDevice=lambda _p: node,
+                ecodes=SimpleNamespace(EV_KEY=1),
+            )
+
+            with patch.dict("sys.modules", {"evdev": evdev}), patch("pathlib.Path.home", return_value=tmp_home):
+                dev1 = detect_device("naga", "Razer Naga Trinity")
+                self.assertTrue(dev1["multi_plate"])
+                self.assertEqual(dev1["side_plate"], SIDE_PLATE_FPS_2)
+                self.assertEqual(dev1["side_plate_page"], 0)
+                self.assertEqual(dev1["archetype"], MOUSE_FPS)
+
+                # Rescan after switching to 7-button Hex profile
+                (strop_dir / "active_profiles.json").write_text(
+                    json.dumps({"Razer Naga Trinity": "hex_profile"}), encoding="utf-8"
+                )
+                dev2 = detect_device("naga", "Razer Naga Trinity")
+                self.assertEqual(dev2["side_plate"], SIDE_PLATE_HEX_7)
+                self.assertEqual(dev2["side_plate_page"], 1)
+                self.assertEqual(dev2["archetype"], MOUSE_NAGA_HEX)
+
+                # Rescan after switching to 12-button MMO profile
+                (strop_dir / "active_profiles.json").write_text(
+                    json.dumps({"Razer Naga Trinity": "mmo_profile"}), encoding="utf-8"
+                )
+                dev3 = detect_device("naga", "Razer Naga Trinity")
+                self.assertEqual(dev3["side_plate"], SIDE_PLATE_MMO_12)
+                self.assertEqual(dev3["side_plate_page"], 2)
+                self.assertEqual(dev3["archetype"], MOUSE_NAGA_MMO)
+
+    def test_mouse_studio_focuses_detected_side_plate_on_open_and_rescan(self):
+        import strop_mouse
+        from strop_core.device import (
+            SIDE_PLATE_FPS_2,
+            SIDE_PLATE_HEX_7,
+            SIDE_PLATE_MMO_12,
+        )
+
+        current_page = [2]
+        focused_calls = []
+
+        fake_stack = SimpleNamespace(
+            set_current_page=lambda idx: current_page.__setitem__(0, idx),
+            get_current_page=lambda: current_page[0],
+            grab_focus=lambda: focused_calls.append(("stack", current_page[0])),
+        )
+        fake_pages = {
+            i: SimpleNamespace(grab_focus=lambda p=i: focused_calls.append(("page", p)))
+            for i in range(4)
+        }
+        badge_markup = [""]
+        fake_badge = SimpleNamespace(
+            set_markup=lambda m: badge_markup.__setitem__(0, m),
+            set_tooltip_text=lambda _t: None,
+        )
+        toasts = []
+
+        win = SimpleNamespace(
+            device_override="Razer Naga Trinity",
+            default_device_name="Razer Naga Trinity",
+            detected_device={
+                "name": "Razer Naga Trinity",
+                "product": 0x0067,
+                "multi_plate": True,
+                "side_plate": SIDE_PLATE_FPS_2,
+                "side_plate_page": 0,
+                "side_plate_label": "2-Button FPS / Ergonomic Plate",
+                "archetype": MOUSE_FPS,
+            },
+            archetype=MOUSE_FPS,
+            active_side_plate=SIDE_PLATE_FPS_2,
+            _switching_side_plate_programmatically=False,
+            state={},
+            side_stack=fake_stack,
+            side_plate_pages=fake_pages,
+            lbl_side_plate_badge=fake_badge,
+            toast=SimpleNamespace(show_message=lambda msg, icon="": toasts.append((msg, icon))),
+        )
+
+        for method_name in (
+            "_plate_id_for_page",
+            "_update_side_plate_badge",
+            "_focus_detected_side_plate",
+            "rescan_device_and_side_plate",
+        ):
+            setattr(
+                win,
+                method_name,
+                getattr(strop_mouse.RazerMouseStudioWindow, method_name).__get__(
+                    win, strop_mouse.RazerMouseStudioWindow
+                ),
+            )
+
+        # 1. Focus on initial open -> focuses Page 0 (2-Button FPS Plate)
+        plate = win._focus_detected_side_plate(focus_widget=True)
+        self.assertEqual(plate, SIDE_PLATE_FPS_2)
+        self.assertEqual(current_page[0], 0)
+        self.assertIn(("page", 0), focused_calls)
+        self.assertIn(("stack", 0), focused_calls)
+        self.assertIn("2-Button FPS Plate", badge_markup[0])
+
+        # 2. Rescan when 7-Button Hex plate is attached -> switches to Page 1 and focuses it
+        focused_calls.clear()
+        with patch.object(
+            strop_mouse,
+            "detect_device",
+            return_value={
+                "name": "Razer Naga Trinity",
+                "product": 0x0067,
+                "multi_plate": True,
+                "side_plate": SIDE_PLATE_HEX_7,
+                "side_plate_page": 1,
+                "side_plate_label": "7-Button MOBA / Action-RPG Hex Plate",
+                "archetype": MOUSE_NAGA_HEX,
+            },
+        ):
+            rescanned_plate = win.rescan_device_and_side_plate(show_toast=True)
+        self.assertEqual(rescanned_plate, SIDE_PLATE_HEX_7)
+        self.assertEqual(current_page[0], 1)
+        self.assertEqual(win.archetype, MOUSE_NAGA_HEX)
+        self.assertIn(("page", 1), focused_calls)
+        self.assertIn(("stack", 1), focused_calls)
+        self.assertIn("7-Button Hex Plate", badge_markup[0])
+        self.assertTrue(any("7-Button MOBA / Action-RPG Hex Plate" in msg for msg, _ in toasts))
+
+        # 3. Rescan when 12-Button MMO plate is attached -> switches to Page 2 and focuses it
+        focused_calls.clear()
+        with patch.object(
+            strop_mouse,
+            "detect_device",
+            return_value={
+                "name": "Razer Naga Trinity",
+                "product": 0x0067,
+                "multi_plate": True,
+                "side_plate": SIDE_PLATE_MMO_12,
+                "side_plate_page": 2,
+                "side_plate_label": "12-Button MMO / Macro Grid Plate",
+                "archetype": MOUSE_NAGA_MMO,
+            },
+        ):
+            rescanned_plate_mmo = win.rescan_device_and_side_plate(show_toast=True)
+        self.assertEqual(rescanned_plate_mmo, SIDE_PLATE_MMO_12)
+        self.assertEqual(current_page[0], 2)
+        self.assertEqual(win.archetype, MOUSE_NAGA_MMO)
+        self.assertIn(("page", 2), focused_calls)
+        self.assertIn(("stack", 2), focused_calls)
+
+
+class TestStropLightingStudio(unittest.TestCase):
+    """Tests the 60 FPS Lighting Studio engine, all 16 effects, color/gradient math, zones, and catalog removal."""
+
+    def test_color_and_gradient_utilities(self):
+        from strop_core.lighting import (
+            clamp_rgb,
+            rgb_to_hex,
+            hex_to_rgb,
+            rgb_to_hsv,
+            hsv_to_rgb,
+            sample_gradient,
+            add_colors,
+            scale_color,
+        )
+
+        # Clamping & Hex roundtrip
+        self.assertEqual(clamp_rgb(-15, 128.4, 999), (0, 128, 255))
+        self.assertEqual(rgb_to_hex((255, 0, 85)), "#FF0055")
+        self.assertEqual(hex_to_rgb("#FF0055"), (255, 0, 85))
+        self.assertEqual(hex_to_rgb("0f8"), (0, 255, 136))
+        self.assertIsNone(hex_to_rgb("not-a-hex"))
+
+        # HSV <-> RGB roundtrip
+        for sample in [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255), (0, 0, 0), (255, 120, 40)]:
+            h, s, v = rgb_to_hsv(*sample)
+            reconstructed = hsv_to_rgb(h, s, v)
+            for c1, c2 in zip(sample, reconstructed):
+                self.assertAlmostEqual(c1, c2, delta=2)
+
+        # Additive & brightness scaling
+        self.assertEqual(add_colors((200, 40, 10), (100, 50, 250)), (255, 90, 255))
+        self.assertEqual(scale_color((200, 100, 50), 0.5), (100, 50, 25))
+
+        # Multi-stop gradient (2 to 6 stops)
+        stops = [
+            (0.0, (255, 0, 0)),
+            (0.5, (0, 255, 0)),
+            (1.0, (0, 0, 255)),
+        ]
+        self.assertEqual(sample_gradient(stops, 0.0), (255, 0, 0))
+        self.assertEqual(sample_gradient(stops, 0.5), (0, 255, 0))
+        self.assertEqual(sample_gradient(stops, 1.0), (0, 0, 255))
+        mid = sample_gradient(stops, 0.25)
+        self.assertTrue(120 <= mid[0] <= 135 and 120 <= mid[1] <= 135 and mid[2] == 0)
+
+    def test_device_topologies_and_preset_clusters_and_marquee(self):
+        from strop_core.lighting import (
+            DEVICE_CATEGORIES,
+            build_device_topology,
+            get_preset_clusters,
+            select_nodes_in_rect,
+        )
+
+        for cat in DEVICE_CATEGORIES:
+            nodes = build_device_topology(cat)
+            self.assertGreater(len(nodes), 10, f"Topology for {cat} should have LEDs")
+            clusters = get_preset_clusters(cat, nodes)
+            self.assertGreaterEqual(len(clusters), 3)
+            for cname, cset in clusters.items():
+                self.assertGreater(len(cset), 0, f"Preset cluster {cname} on {cat} should not be empty")
+
+        # Specific required clusters per Section 3.3
+        kb_clusters = get_preset_clusters("keyboard")
+        for req in ("All Keys", "WASD + Arrow Keys", "Number Row (1–0)", "Numpad", "Function Row (F1–F12)", "Perimeter Underglow"):
+            self.assertIn(req, kb_clusters)
+        self.assertTrue({"w", "a", "s", "d", "up", "down", "left", "right"}.issubset(kb_clusters["WASD + Arrow Keys"]))
+
+        mouse_clusters = get_preset_clusters("mouse")
+        for req in ("Scroll Wheel", "Palm/Body Logo", "Left/Right Accent Rails"):
+            self.assertIn(req, mouse_clusters)
+
+        ctrl_clusters = get_preset_clusters("controller")
+        for req in ("Left/Right Thumbstick Halos", "Action Face Buttons", "Top/Bottom Lightbar"):
+            self.assertIn(req, ctrl_clusters)
+
+        # Marquee box hit-testing
+        kb_nodes = build_device_topology("keyboard")
+        all_hit = select_nodes_in_rect(kb_nodes, -10.0, -10.0, 5000.0, 5000.0)
+        self.assertEqual(len(all_hit), len(kb_nodes))
+        none_hit = select_nodes_in_rect(kb_nodes, -500.0, -500.0, -100.0, -100.0)
+        self.assertEqual(len(none_hit), 0)
+
+    def test_all_16_lighting_effects_evaluate_cleanly(self):
+        from strop_core.lighting import (
+            EFFECT_SPECIFICATIONS,
+            EffectRuntimeState,
+            PressEvent,
+            build_device_topology,
+            evaluate_effect,
+            get_default_effect_params,
+        )
+
+        expected_16 = {
+            "breathing", "fire", "ripple", "spectrum_cycling",
+            "starlight", "static", "wave", "wheel",
+            "reactive", "rain",
+            "scanner", "color_pulse", "ripple_line", "gradient_fill",
+            "checkerboard", "heatmap",
+        }
+        self.assertEqual(set(EFFECT_SPECIFICATIONS.keys()), expected_16)
+
+        kb_nodes = build_device_topology("keyboard")
+        for eff_id in expected_16:
+            rt = EffectRuntimeState()
+            # Seed a press event and heatmap count for input-driven effects
+            target_node = kb_nodes[10]
+            rt.press_events.append(PressEvent(
+                node_id=target_node.id,
+                row=target_node.row,
+                col=target_node.col,
+                x_mm=target_node.x_mm,
+                y_mm=target_node.y_mm,
+                pressed_at=0.1,
+                color=(255, 0, 128),
+            ))
+            rt.active_keys[target_node.id] = rt.press_events[0]
+            rt.heatmap_counts[target_node.id] = 6.0
+
+            params = get_default_effect_params(eff_id)
+            for t in (0.0, 0.25, 1.1, 4.05):
+                frame = evaluate_effect(eff_id, kb_nodes, t, 1.0 / 60.0, params, rt)
+                self.assertEqual(len(frame), len(kb_nodes), f"Effect {eff_id} at t={t} did not return all nodes")
+                for col in frame.values():
+                    self.assertEqual(len(col), 3)
+                    self.assertTrue(all(0 <= ch <= 255 for ch in col))
+
+        # Verify Breathing 200ms dark hold at end of cycle
+        b_rt = EffectRuntimeState()
+        b_params = {"speed_s": 4.0, "color_mode": "Single", "color1": (0, 255, 0)}
+        peak_frame = evaluate_effect("breathing", kb_nodes[:2], 2.0, 0.016, b_params, b_rt)
+        hold_frame = evaluate_effect("breathing", kb_nodes[:2], 4.1, 0.016, b_params, b_rt)
+        self.assertEqual(peak_frame[kb_nodes[0].id], (0, 255, 0))
+        self.assertEqual(hold_frame[kb_nodes[0].id], (0, 0, 0))
+
+    def test_compositor_layers_sync_global_controls_and_persistence(self):
+        from strop_core.lighting import (
+            LightingStudioController,
+            load_lighting_settings,
+            save_lighting_settings,
+        )
+
+        ctrl = LightingStudioController()
+        ctrl.sync_all_devices = True
+        ctrl.set_Effect_on_selection("keyboard", "static", params={"color1": (0, 100, 255)})
+
+        # Because sync_all_devices is True, mouse and controller also get static (0, 100, 255)
+        self.assertEqual(ctrl.device_layers["mouse"][0].effect_id, "static")
+        self.assertEqual(ctrl.device_layers["controller"][0].params["color1"], (0, 100, 255))
+
+        # Add a custom WASD overlay layer (Static Red over Static Blue background)
+        ctrl.whole_device_mode["keyboard"] = False
+        ctrl.set_Effect_on_selection(
+            "keyboard",
+            "static",
+            params={"color1": (255, 0, 0)},
+            selected_leds={"w", "a", "s", "d"},
+            layer_name="WASD Red",
+        )
+        frame_full = ctrl.render_device_frame("keyboard", t=1.0)
+        self.assertEqual(frame_full["w"], (255, 0, 0))
+        self.assertEqual(frame_full["esc"], (0, 100, 255))
+
+        # Master Brightness scaling at 50%
+        ctrl.master_brightness = 0.5
+        frame_half = ctrl.render_device_frame("keyboard", t=1.0)
+        self.assertEqual(frame_half["w"], (128, 0, 0))
+        self.assertEqual(frame_half["esc"], (0, 50, 128))
+
+        # Global speed clock advancement
+        ctrl.global_speed = 2.5
+        t_after, scaled_dt = ctrl.step_clock(dt_wall=0.1)
+        self.assertAlmostEqual(scaled_dt, 0.25, places=4)
+        self.assertAlmostEqual(t_after, 0.25, places=4)
+
+        # Persistence roundtrip
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = Path(tmpdir) / "lighting_settings.json"
+            ctrl.user_swatches[0] = (12, 34, 56)
+            self.assertTrue(save_lighting_settings(ctrl, path=cfg_path))
+
+            loaded_ctrl = LightingStudioController()
+            self.assertTrue(load_lighting_settings(loaded_ctrl, path=cfg_path))
+            self.assertAlmostEqual(loaded_ctrl.master_brightness, 0.5, places=3)
+            self.assertAlmostEqual(loaded_ctrl.global_speed, 2.5, places=3)
+            self.assertEqual(loaded_ctrl.user_swatches[0], (12, 34, 56))
+            self.assertEqual(len(loaded_ctrl.device_layers["keyboard"]), 2)
+            self.assertEqual(loaded_ctrl.device_layers["keyboard"][1].target_leds, {"w", "a", "s", "d"})
+
+    def test_hardware_catalog_removed_from_hub(self):
+        import strop
+        import strop_studio
+
+        self.assertFalse(hasattr(strop, "StropCatalogDialog"))
+        self.assertFalse(hasattr(strop.StropHubWindow, "_create_catalog_card"))
+        self.assertFalse(hasattr(strop.StropHubWindow, "_open_catalog_browser"))
+
+    def test_profile_switching_clears_previous_layers_and_resets_hardware_matrix(self):
+        from strop_core.lighting import (
+            LightingStudioController,
+            RazerLightingEngine,
+            build_device_topology,
+        )
+
+        ctrl = LightingStudioController()
+        ctrl.whole_device_mode["keyboard"] = False
+        ctrl.set_Effect_on_selection(
+            "keyboard",
+            "scanner",
+            selected_leds={"w", "a", "s", "d"},
+            layer_name="WASD Scanner",
+        )
+        self.assertEqual(len(ctrl.device_layers["keyboard"]), 2)
+
+        # Switching back to Whole Device / selecting a new whole-device profile clears all old zone layers
+        ctrl.clear_zone_layers("keyboard")
+        ctrl.set_Effect_on_selection("keyboard", "rain", selected_leds=None)
+        self.assertEqual(len(ctrl.device_layers["keyboard"]), 1)
+        self.assertEqual(ctrl.device_layers["keyboard"][0].effect_id, "rain")
+        self.assertIsNone(ctrl.device_layers["keyboard"][0].target_leds)
+
+        # Verify 1x21 linear keypad matrix mapping (Tartarus Pro) and 6x22 keyboard matrix reset
+        calls = []
+
+        class FakeMatrix:
+            def __init__(self, rows, cols):
+                self.rows = rows
+                self.cols = cols
+                self.cells = {}
+
+            def reset(self):
+                calls.append("reset")
+                self.cells.clear()
+
+            def __setitem__(self, key, val):
+                self.cells[key] = val
+
+        class FakeAdv:
+            def __init__(self, rows, cols):
+                self.rows = rows
+                self.cols = cols
+                self.matrix = FakeMatrix(rows, cols)
+
+            def draw(self):
+                calls.append("draw")
+
+        # 1x21 Keypad (Razer Tartarus Pro)
+        adv_kp = FakeAdv(1, 21)
+        kp_nodes = build_device_topology("keypad")
+        for n in kp_nodes:
+            RazerLightingEngine._write_node_to_matrix(adv_kp, n, (0, 255, 0))
+        # All 21 linear columns (0..20) should be populated (keys 01-19 -> 0..18, scroll -> 19, spacebar -> 20)
+        for col_idx in range(21):
+            self.assertEqual(adv_kp.matrix.cells.get((0, col_idx)), (0, 255, 0))
+
+        # 6x22 Keyboard (Razer BlackWidow V3) — underglow must not overwrite key switches
+        # and all QWERTY row keys (including tab, w, r, y, i, p) must populate their hardware cells
+        from strop_core.lighting import OPENRAZER_KEYBOARD_6X22_MAP
+
+        adv_kb = FakeAdv(6, 22)
+        kb_nodes = build_device_topology("keyboard")
+        for n in kb_nodes:
+            col = (255, 0, 0) if n.zone == "underglow" else (0, 255, 0)
+            RazerLightingEngine._write_node_to_matrix(adv_kb, n, col)
+        self.assertNotIn((255, 0, 0), adv_kb.matrix.cells.values())
+        for key_id in ("tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "lbrk", "rbrk", "bslash"):
+            for mr, mc in OPENRAZER_KEYBOARD_6X22_MAP[key_id]:
+                self.assertEqual(
+                    adv_kb.matrix.cells.get((mr, mc)),
+                    (0, 255, 0),
+                    f"Key '{key_id}' cell ({mr}, {mc}) was not lit",
+                )
 
 
 if __name__ == "__main__":

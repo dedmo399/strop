@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Strop — Unified Razer Linux Peripheral Suite Hub
-Native Linux GTK4 dashboard for managing Razer keypads, keyboards, mice, and in-game HUDs.
-The catalog contains layout references; official 1.1 device support is limited to the published support matrix.
+Native Linux GTK4 dashboard for managing Razer keypads, keyboards, mice, lighting, and in-game HUDs.
+Official 1.1 device support is limited to the published support matrix.
 """
 
 import sys
@@ -18,7 +18,6 @@ if str(script_dir) not in sys.path:
 from strop_core.presets import get_active_profile
 
 from strop_core.theme import apply_theme, show_about_dialog
-from strop_core.catalog import get_device_catalog
 from strop_core.tray_controller import TrayController
 
 import gi
@@ -26,132 +25,6 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf
-
-
-class StropCatalogDialog(Gtk.Window):
-    """Browse catalog layouts; catalog entries are not verified device support."""
-    def __init__(self, parent):
-        super().__init__(title="Razer Device Catalog (layout references)")
-        self.set_transient_for(parent)
-        self.set_modal(True)
-        self.set_default_size(700, 520)
-        self.add_css_class("hub-window")
-
-        self.all_devices = get_device_catalog()
-        self.filtered_devices = list(self.all_devices)
-        self._build_ui()
-
-    def _build_ui(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        box.set_margin_top(12)
-        box.set_margin_bottom(12)
-        box.set_margin_start(16)
-        box.set_margin_end(16)
-        self.set_child(box)
-
-        # Header
-        lbl_title = Gtk.Label()
-        lbl_title.set_markup(f"<span size='medium' weight='bold' color='#f8fafc'>Catalog Layouts <span color='#22c55e'>({len(self.all_devices)} models)</span></span>")
-        lbl_title.set_xalign(0)
-        box.append(lbl_title)
-
-        # Filter bar
-        filter_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.search_entry = Gtk.SearchEntry()
-        self.search_entry.set_placeholder_text("Search Razer models (e.g. Naga, Huntsman, Tartarus, Basilisk)...")
-        self.search_entry.set_hexpand(True)
-        self.search_entry.connect("search-changed", self._on_search_changed)
-        filter_bar.append(self.search_entry)
-
-        self.cat_dropdown = Gtk.DropDown.new_from_strings(["All Categories", "Keypads", "Keyboards", "Mice", "Laptops"])
-        self.cat_dropdown.connect("notify::selected", self._on_cat_changed)
-        filter_bar.append(self.cat_dropdown)
-
-        box.append(filter_bar)
-
-        # Scrolled device list
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scrolled.set_hexpand(True)
-        scrolled.set_vexpand(True)
-        box.append(scrolled)
-
-        self.list_box = Gtk.ListBox()
-        self.list_box.set_selection_mode(Gtk.SelectionMode.NONE)
-        scrolled.set_child(self.list_box)
-
-        self._populate_list()
-
-    def _populate_list(self):
-        while True:
-            row = self.list_box.get_row_at_index(0)
-            if row is None:
-                break
-            self.list_box.remove(row)
-
-        for dev in self.filtered_devices:
-            row = Gtk.ListBoxRow()
-            card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-            card.add_css_class("assigned-row")
-            card.set_margin_bottom(2)
-
-            info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            info_box.set_hexpand(True)
-
-            lbl_name = Gtk.Label()
-            lbl_name.set_markup(f"<span weight='bold' color='#f8fafc'>{dev['name']}</span>")
-            lbl_name.set_xalign(0)
-            info_box.append(lbl_name)
-
-            desc = dev.get("description", dev.get("archetype", "Standard Razer Device"))
-            esc_desc = GLib.markup_escape_text(desc)
-            lbl_meta = Gtk.Label()
-            lbl_meta.set_markup(f"<span size='small' color='#94a3b8'>Category: <b>{dev['category'].title()}</b> | <b>{esc_desc}</b> | PID: <tt>{dev.get('pid', 'N/A')}</tt></span>")
-            lbl_meta.set_xalign(0)
-            info_box.append(lbl_meta)
-
-
-            card.append(info_box)
-
-            btn_launch = Gtk.Button(label="Open Studio")
-            btn_launch.add_css_class("ghost-btn")
-            btn_launch.set_valign(Gtk.Align.CENTER)
-            btn_launch.connect("clicked", lambda w, dname=dev["name"]: self._launch_studio_and_close(dname))
-            card.append(btn_launch)
-
-            row.set_child(card)
-            self.list_box.append(row)
-
-    def _on_search_changed(self, entry):
-        self._apply_filters()
-
-    def _on_cat_changed(self, dropdown, param):
-        self._apply_filters()
-
-    def _apply_filters(self):
-        query = self.search_entry.get_text().strip().lower()
-        cat_idx = self.cat_dropdown.get_selected()
-        cat_map = {0: None, 1: "keypad", 2: "keyboard", 3: "mouse", 4: "laptop"}
-        selected_cat = cat_map.get(cat_idx)
-
-        res = self.all_devices
-        if selected_cat:
-            res = [d for d in res if d["category"] == selected_cat]
-        if query:
-            res = [d for d in res if query in d["name"].lower() or query in d.get("description", "").lower() or query in d.get("archetype", "").lower() or query in str(d.get("pid", "")).lower()]
-
-        self.filtered_devices = res
-        self._populate_list()
-
-
-    def _launch_studio_and_close(self, device_name: str):
-        script_path = Path(__file__).parent / "strop_studio.py"
-        try:
-            subprocess.Popen([sys.executable, str(script_path), f"--device={device_name}"])
-            self.close()
-        except Exception as e:
-            alert = Gtk.AlertDialog(message="Launch Failed", detail=str(e))
-            alert.show(self)
 
 
 class StropHubWindow(Gtk.ApplicationWindow):
@@ -390,8 +263,13 @@ class StropHubWindow(Gtk.ApplicationWindow):
         )
         grid.attach(c5, 1, 1, 1, 1)
 
-        # Card 6: Razer layout-reference catalog (not verified support)
-        c6 = self._create_catalog_card()
+        # Card 6: Dedicated RGB Lighting Studio
+        c6 = self._create_app_card(
+            title="💡 Lighting Studio",
+            desc="60 FPS Chroma lighting engine with 16 effects, HSV color wheel, multi-stop gradients, and per-zone mapping.",
+            btn_label="Launch Lighting Studio",
+            script="strop_lighting.py"
+        )
         grid.attach(c6, 2, 1, 1, 1)
 
 
@@ -454,14 +332,20 @@ class StropHubWindow(Gtk.ApplicationWindow):
                 badge = Gtk.Button()
                 dev_clean = d.get("clean_name", d["name"])
                 active_prof = get_active_profile(d["name"])
-                badge.set_child(Gtk.Label.new(f"🟢 {dev_clean}"))
+                side_plate_label = d.get("side_plate_label") if d.get("multi_plate") else None
+                badge_text = f"🟢 {dev_clean}"
+                if side_plate_label:
+                    short_plate = side_plate_label.split("/")[0].strip()
+                    badge_text = f"🟢 {dev_clean} · {short_plate}"
+                badge.set_child(Gtk.Label.new(badge_text))
                 badge.add_css_class("badge-device")
-                badge.set_tooltip_text(f"Hardware detected by Strop:\n{dev_clean}\nLast profile applied by Strop: {active_prof or 'None recorded'}\nBackend state is shown in the profile manager.\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
+                plate_tip = f"\nAttached Side Plate: {side_plate_label}" if side_plate_label else ""
+                badge.set_tooltip_text(f"Hardware detected by Strop:\n{dev_clean}{plate_tip}\nLast profile applied by Strop: {active_prof or 'None recorded'}\nBackend state is shown in the profile manager.\n\nScancode Capabilities Hash:\n{d['hash']}\n\nClick to launch studio!")
                 badge.connect("clicked", lambda w, dev=d: self._launch_studio_for_device(dev["name"]))
                 self.hardware_box.append(badge)
         else:
             no_dev = Gtk.Label()
-            no_dev.set_markup("<span color='#94a3b8'>No supported Razer input device detected. Catalog layouts are reference-only and do not indicate verified support.</span>")
+            no_dev.set_markup("<span color='#94a3b8'>No supported Razer input device detected.</span>")
             no_dev.set_wrap(True)
             no_dev.set_xalign(0)
             self.hardware_box.append(no_dev)
@@ -598,35 +482,6 @@ class StropHubWindow(Gtk.ApplicationWindow):
         card.append(btn)
 
         return card
-
-    def _create_catalog_card(self):
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        card.add_css_class("hub-card")
-        card.set_hexpand(True)
-        card.set_vexpand(True)
-
-        lbl_t = Gtk.Label()
-        lbl_t.set_markup("<span weight='bold' size='medium' color='#f8fafc'>📚 Hardware Catalog</span>")
-        lbl_t.set_xalign(0)
-        card.append(lbl_t)
-
-        lbl_d = Gtk.Label(label="Browse layout references for 230+ models. Catalog entries are not verified device support.")
-        lbl_d.add_css_class("dim-text")
-        lbl_d.set_wrap(True)
-        lbl_d.set_xalign(0)
-        lbl_d.set_vexpand(True)
-        card.append(lbl_d)
-
-        btn = Gtk.Button(label="Browse Catalog Layouts")
-        btn.add_css_class("ghost-btn")
-        btn.connect("clicked", lambda w: self._open_catalog_browser())
-        card.append(btn)
-
-        return card
-
-    def _open_catalog_browser(self):
-        dlg = StropCatalogDialog(self)
-        dlg.present()
 
     def _launch_studio_for_device(self, device_name: str):
         script_path = Path(__file__).parent / "strop_studio.py"

@@ -50,6 +50,11 @@ class DeviceInfo(TypedDict, total=False):
     path: str
     archetype: str
     vendor: Optional[int]
+    product: Optional[int]
     num_keys: int
     all_hashes: Dict[str, str]
     key_to_hash: Dict[int, str]
+    multi_plate: bool
+    side_plate: Optional[str]
+    side_plate_label: Optional[str]
+    side_plate_page: Optional[int]

@@ -467,6 +467,12 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         btn_apply_rgb.connect("clicked", self._on_apply_lighting_clicked)
         ctrl_bar.append(btn_apply_rgb)
 
+        btn_open_lighting_studio = Gtk.Button(label="🎨 Lighting Studio")
+        btn_open_lighting_studio.add_css_class("ghost-btn")
+        btn_open_lighting_studio.set_tooltip_text("Launch full 60 FPS RGB Lighting & Effects Studio")
+        btn_open_lighting_studio.connect("clicked", self._launch_lighting_studio)
+        ctrl_bar.append(btn_open_lighting_studio)
+
         lighting_box.append(ctrl_bar)
 
         notebook.append_page(lighting_box, Gtk.Label(label="💡 Lighting"))
@@ -781,6 +787,15 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
     def _on_apply_lighting_clicked(self, widget):
         self._apply_lighting_to_hardware()
+
+    def _launch_lighting_studio(self, widget):
+        import subprocess
+        dev_name = self.detected_device.get("name", self.default_device_name)
+        script_path = Path(__file__).resolve().parent.parent / "strop_lighting.py"
+        try:
+            subprocess.Popen([sys.executable, str(script_path), f"--device={dev_name}"])
+        except Exception as e:
+            logger.error(f"Failed to launch Lighting Studio: {e}")
 
     def _apply_lighting_to_hardware(self):
         cinfo = COLOR_PALETTE.get(self.selected_color_name, COLOR_PALETTE["Green"])

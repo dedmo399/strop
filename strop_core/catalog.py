@@ -21,6 +21,15 @@ MOUSE_BASILISK_FPS = "MOUSE_BASILISK_FPS"
 MOUSE_FPS = "MOUSE_FPS"
 MOUSE_AMBI = "MOUSE_AMBI"
 
+# Modular Razer Mice with Interchangeable Side Plates (2-Button FPS, 7-Button Hex/6-Button, 12-Button MMO)
+MULTI_PLATE_MOUSE_PIDS = {
+    0x0067,  # Razer Naga Trinity
+    0x008F,  # Razer Naga Pro (Wired)
+    0x0090,  # Razer Naga Pro (Wireless)
+    0x00A7,  # Razer Naga V2 Pro (Wired)
+    0x00A8,  # Razer Naga V2 Pro (Wireless)
+}
+
 RAZER_DEVICE_CATALOG: List[Dict[str, Any]] = [
     {
         "name": "RazerAnansi",
@@ -2209,6 +2218,21 @@ def get_archetype_for_device(device_name: str) -> str:
     if "blade" in nl:
         return KEYBOARD_BLADE
     return KEYBOARD_FULL
+
+
+def is_multi_plate_mouse(device_name: Optional[str], pid: Optional[int] = None) -> bool:
+    """Checks if a Razer mouse model supports interchangeable side plates (Naga Trinity, Naga Pro, Naga V2 Pro)."""
+    if pid is not None and pid in MULTI_PLATE_MOUSE_PIDS:
+        return True
+    if not device_name or not isinstance(device_name, str):
+        return False
+    nl = _norm_name(device_name)
+    if any(token in nl for token in ("nagatrinity", "nagapro", "nagav2pro")):
+        return True
+    dev = get_device_by_name(device_name)
+    if dev and dev.get("pid_int") in MULTI_PLATE_MOUSE_PIDS:
+        return True
+    return False
 
 
 def list_devices_by_category(category: str) -> List[Dict[str, Any]]:
