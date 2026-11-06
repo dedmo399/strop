@@ -2,7 +2,7 @@
 """
 Strop — Unified Razer Linux Peripheral Suite Hub
 Native Linux GTK4 dashboard for managing Razer keypads, keyboards, mice, lighting, and in-game HUDs.
-Official 1.1 device support is limited to the published support matrix.
+Official 1.2 device support is limited to the published support matrix.
 """
 
 import sys
@@ -124,7 +124,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         lbl_title.set_xalign(0)
         title_box.append(lbl_title)
 
-        lbl_sub = Gtk.Label(label="Official 1.1 hardware support is limited to the devices listed in the support matrix.")
+        lbl_sub = Gtk.Label(label="Official 1.2 hardware support is limited to the devices listed in the support matrix.")
         lbl_sub.add_css_class("dim-text")
         lbl_sub.set_xalign(0)
         title_box.append(lbl_sub)

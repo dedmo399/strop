@@ -21,7 +21,7 @@ The hub also offers **Apply Settings** and **Stop** for the selected device/prof
 
 ## Tray and HUD
 
-Strop 1.1 starts a tray icon with the Hub. Open a connected device's submenu to launch its studio, apply a saved profile, stop remapping, or show/hide its keypad HUD. **Macro Studio**, **Refresh Devices**, **Open Hub**, and **Quit Strop** are also available. Device, profile, and injection status refreshes every five seconds. Profile operations report their outcomes in the menu and through desktop notifications.
+Strop 1.2 starts a tray icon with the Hub. Open a connected device's submenu to launch its studio, apply a saved profile, stop remapping, or show/hide its keypad HUD. **Macro Studio**, **Lighting Studio**, **Refresh Devices**, **Open Hub**, and **Quit Strop** are also available. Device, profile, and injection status refreshes every five seconds. Profile operations report their outcomes in the menu and through desktop notifications.
 
 Closing the Hub leaves Strop in the tray when a tray host is available. Launching Strop again opens the same Hub. **Quit Strop** exits the Hub and tray and closes HUDs started through them, while leaving studios and applied profiles running. Login autostart is not enabled.
 

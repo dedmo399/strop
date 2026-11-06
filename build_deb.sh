@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="1.1.1"
+VERSION="1.2.0"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -147,7 +147,7 @@ Homepage: https://github.com/dedmo399/strop
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
  Native Linux GTK4 application suite for configuring, remapping, and customizing
  Razer keypad, keyboard, and mouse layouts with input-remapper profile integration.
- Official 1.1 device support is limited to the matrix documented in README.md.
+ Official 1.2 device support is limited to the matrix documented in README.md.
 CTRL_EOF
 
 # 5. Create postinst and postrm scripts to refresh desktop and icon caches

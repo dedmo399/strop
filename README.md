@@ -37,13 +37,15 @@ For an existing checkout, get the latest committed source with `git pull --ff-on
 
 ## 🧰 Platform and support
 
-The **only official 1.1 support target** is Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow V3, and Naga Trinity listed in the [support matrix](docs/SUPPORT.md).
+The **only official 1.2 support target** is Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow V3, and Naga Trinity listed in the [support matrix](docs/SUPPORT.md).
 
-Strop's catalog contains 230+ device entries and generic layout archetypes. Catalog presence is reference data; it does not mean a device has been tested or is officially supported. Other distributions, sessions, backend versions, and devices are outside the 1.1 support commitment.
+Strop's catalog contains 230+ device entries and generic layout archetypes. Catalog presence is reference data; it does not mean a device has been tested or is officially supported. Other distributions, sessions, backend versions, and devices are outside the 1.2 support commitment.
 
-Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardware remapping requires **input-remapper**; OpenRazer is optional for supported lighting integration. The Debian package declares these runtime dependencies. Follow the [support and setup notes](docs/SUPPORT.md) for device permissions and session limitations.
+Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardware remapping requires **input-remapper**; OpenRazer is optional for supported lighting and mouse DPI/polling integration. The Debian package declares these runtime dependencies. Follow the [support and setup notes](docs/SUPPORT.md) for device permissions and session limitations.
 
 - **Macro Studio & Composer**: Built-in gaming combos such as Bullet Jump and Ability Combos, plus productivity shortcuts with custom millisecond delays.
+- **Unified RGB Lighting & Chroma Effects Studio**: 60 FPS internal render loop, 16 lighting presets, interactive Cairo HSV color wheel + SV square, multi-stop gradient editor, and 2D vector zone mapping.
+- **Mouse DPI & Polling Rate Controller**: OpenRazer hardware sensor capability discovery, X/Y DPI and stage table editors, polling rate selection, and per-device persistence.
 - Polychromatic dark slate & emerald theme design language.
 
 
@@ -54,7 +56,7 @@ Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardwar
 ### 1. **Strop Hub & Tray Applet** (`./strop.py` or `./strop.sh`)
 The central dashboard scans connected Razer input devices and launches the studios. Its 230+ entry catalog provides layout references; those devices are not thereby verified or supported.
 
-Strop 1.1 starts a tray applet alongside the Hub. Use its device menus to open studios, apply saved profiles, stop remapping, and show or hide keypad HUDs. Device and profile status refreshes every five seconds. Reopening Strop presents the existing Hub.
+Strop 1.2 starts a tray applet alongside the Hub. Use its device menus to open studios, apply saved profiles, stop remapping, and show or hide keypad HUDs. Device and profile status refreshes every five seconds. Reopening Strop presents the existing Hub.
 
 Closing the Hub keeps Strop running when desktop tray support is available. **Quit Strop** closes the Hub, tray, and HUDs started through the Hub or tray; studios and applied remapping profiles keep running. If tray support is unavailable, closing the Hub exits Strop. Login autostart is not enabled.
 
@@ -77,6 +79,7 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
   - **Naga Hex & Radial Side Plate** (Naga Trinity Hex, Naga Hex V2).
   - **FPS & Ergonomic Side Plate** with Multi-Function DPI Clutch & Tilt-Wheel (Basilisk V3 / Pro, DeathAdder V2 / V3, Viper, Cobra, Mamba, Orochi, Abyssus).
   - **Ambidextrous Dual Side Buttons** (Viper, Ouroboros, Taipan, Lancehead).
+  - **OpenRazer DPI & Polling Controls**: Independent or linked X/Y DPI sliders, multi-stage DPI table, and polling rate selector with read-back verification and per-device settings persistence (`~/.config/strop/mouse_settings.json`).
   - **Gamepad Action Palette**: Assign supported single controller-button outputs. Analog triggers are not supported from digital inputs by the current backend.
 
 ### 5. **Strop Macro Studio** (`./strop_macro.py`)
@@ -84,16 +87,21 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
 - **Custom Macro Library**: Organize, search, and save custom macros directly in `~/.config/strop/macros.json`.
 - **Integrated Hardware Assignment**: Any macro built in Macro Studio is instantly available for 1-click assignment across all keypads, keyboards, and mice.
 
-### 6. **Strop Universal Parameterized Studio** (`./strop_studio.py`)
-- Launch studio for any device by name:
+### 6. **Strop Lighting Studio** (`./strop_lighting.py` or `./lighting.sh`)
+- **60 FPS Chroma Effects Engine**: 16 lighting presets with live interactive 2D vector zone mapping across Keyboards, Keypads, Mice, and Controllers.
+- **Cairo HSV Color Wheel & Gradient Editor**: 360° Hue ring, Saturation/Value square, Hex/RGB inputs, factory and user swatches, and 2-to-6 stop gradient bar.
+- **Global Master Synchronization**: Coordinate lighting effects, speed, brightness, and zones across devices or per-device profiles (`~/.config/strop/lighting_profiles.json`).
+
+### 7. **Strop Universal Parameterized Studio** (`./strop_studio.py`)
+- Launch studio or lighting editor for any device by name:
   ```bash
   ./strop_studio.py --device="Razer Naga Pro"
   ./strop_studio.py --device="Razer Huntsman Mini"
   ./strop_studio.py --device="Razer Tartarus Pro"
-  ./strop_studio.py --list
+  ./strop_studio.py --device="Razer Tartarus Pro" --lighting
   ```
 
-### 7. **Strop In-Game HUD Overlay** (`./strop_hud.py` or `./hud.sh`)
+### 8. **Strop In-Game HUD Overlay** (`./strop_hud.py` or `./hud.sh`)
 - **Frameless Glassmorphism Floating Window**: Semi-translucent overlay that requests always-on-top positioning through X11/XWayland. Fullscreen visibility and positioning depend on the compositor and game; see [known limitations](docs/SUPPORT.md#known-limitations).
 - **Physical Layout Mirror**: 5-row keypad layout, aligned scroll wheel, thumb button, and D-pad.
 - **Default Key Labels**: Shows each factory binding below its physical key number when there is no custom label or binding. Unmapped keys in partial profiles show their defaults too.
@@ -111,6 +119,9 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
 
 # Dedicated Macro Studio
 ./strop_macro.py
+
+# Unified RGB Lighting & Chroma Effects Studio
+./strop_lighting.py
 
 # Generic Keypad Studio (Tartarus / Orbweaver / Nostromo)
 ./strop_keypad.py
@@ -132,10 +143,10 @@ Closing the Hub keeps Strop running when desktop tray support is available. **Qu
 
 ## 📦 Installation & Packaging
 
-The official 1.1 target is Ubuntu 26.04.1 LTS on the Steam PC. Other distributions are not in the support matrix.
+The official 1.2 target is Ubuntu 26.04.1 LTS on the Steam PC. Other distributions are not in the support matrix.
 
 ### Install Debian Package (.deb)
-Download `strop_1.1.1_all.deb`, `strop_1.1.1.tar.gz`, and `SHA256SUMS` from the [Strop 1.1.1 release](https://github.com/dedmo399/strop/releases/tag/v1.1.1) into the same directory. Verify both downloads before installing:
+Download `strop_1.2.0_all.deb`, `strop_1.2.0.tar.gz`, and `SHA256SUMS` from the [Strop 1.2.0 release](https://github.com/dedmo399/strop/releases/tag/v1.2.0) into the same directory. Verify both downloads before installing:
 
 ```bash
 sha256sum --check SHA256SUMS
@@ -145,7 +156,7 @@ Both files should report `OK`. Checksums detect corrupted or changed downloads; 
 
 Install the verified Debian package with `apt`:
 ```bash
-sudo apt install ./strop_1.1.1_all.deb
+sudo apt install ./strop_1.2.0_all.deb
 ```
 
 To build fresh `.deb` and `.tar.gz` release artifacts at any time:
@@ -155,7 +166,7 @@ To build fresh `.deb` and `.tar.gz` release artifacts at any time:
 
 Source checkout launchers use the `./strop*.py` commands above. To add an installed package to the application menu, install the `.deb`; it provides a system desktop entry and icons.
 
-See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) describes the 1.1 release. Catalog models not listed in the support matrix are not part of official 1.1 support.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) describes the 1.2 release. Catalog models not listed in the support matrix are not part of official 1.2 support.
 
 The active [Strop 2.0 roadmap](ROADMAP_2.0.md) prioritizes Tartarus Pro key-depth access, correct controller-output mappings, and unified hardware settings.
 
@@ -169,7 +180,7 @@ For setup and troubleshooting, read the [user guide](docs/USER_GUIDE.md) and [su
 
 ## 📜 Version & License
 
-- **Version**: `1.1.1`
+- **Version**: `1.2.0`
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 
 Maintained by Strop Contributors. Source and issue tracking: [dedmo399/strop](https://github.com/dedmo399/strop).

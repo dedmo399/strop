@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec python3 "$DIR/strop_lighting.py" "$@"
+set -e
+cd -- "$(dirname -- "$0")"
+exec python3 ./strop_lighting.py "$@"

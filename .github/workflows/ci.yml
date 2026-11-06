@@ -15,7 +15,7 @@ jobs:
           sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest
       - name: Validate sources and desktop entry
         run: |
-          python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py
+          python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_lighting.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py
           desktop-file-validate strop.desktop
       - name: Run core tests
         env:
@@ -32,19 +32,21 @@ jobs:
           import subprocess
           import tarfile
           tracked = set(subprocess.check_output(["git", "ls-files", "-z"]).decode().rstrip("\0").split("\0"))
-          with tarfile.open("strop_1.1.1.tar.gz") as archive:
+          with tarfile.open("strop_1.2.0.tar.gz") as archive:
               assert set(archive.getnames()) == tracked | {".strop-source-files"}
               manifest = archive.extractfile(".strop-source-files").read()
               assert set(manifest.decode().rstrip("\0").split("\0")) == tracked
           PYTHON
           rm .strop-local-check
-          dpkg-deb --info strop_1.1.1_all.deb
-          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
-          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/bin/strop-studio'
-          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/bin/strop-keypad'
-          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
-          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
-          dpkg-deb --contents strop_1.1.1_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+          dpkg-deb --info strop_1.2.0_all.deb
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/bin/strop-studio'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/bin/strop-lighting'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/bin/strop-keypad'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/lib/strop/strop_core/dpi.py'
+          dpkg-deb --contents strop_1.2.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
 
   backend-and-gui:
     runs-on: ubuntu-26.04

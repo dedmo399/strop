@@ -2,7 +2,7 @@
 
 ## Version scope
 
-The current release is Strop 1.1.1. Report suspected vulnerabilities against the
+The current release is Strop 1.2.0. Report suspected vulnerabilities against the
 latest release or `main`, and include the affected version. Older releases do not
 have a separate security maintenance commitment. There is no guaranteed response
 or fix timeline.

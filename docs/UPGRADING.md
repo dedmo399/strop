@@ -1,10 +1,10 @@
 # Backup, upgrade, and recovery
 
-This guide covers backup, upgrades to Strop 1.1, and recovery. Package upgrades preserve user configuration; keep a backup before upgrading.
+This guide covers backup, upgrades to Strop 1.2, and recovery. Package upgrades preserve user configuration; keep a backup before upgrading.
 
 ## Back up profiles and settings
 
-Strop keeps its macro library and last-confirmed profile labels in `~/.config/strop/`. Input-remapper stores the actual user presets in `~/.config/input-remapper-2/presets/` on current installations; older installations may use `~/.config/input-remapper/presets/`.
+Strop keeps its macro library, lighting profiles, mouse DPI settings, and last-confirmed profile labels in `~/.config/strop/`. Input-remapper stores the actual user presets in `~/.config/input-remapper-2/presets/` on current installations; older installations may use `~/.config/input-remapper/presets/`.
 
 Close Strop editors, then copy any existing data directories into a timestamped backup:
 

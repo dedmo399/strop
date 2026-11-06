@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- Added Unified RGB Lighting & Chroma Effects Studio (`strop_lighting.py`, `/usr/bin/strop-lighting`, `lighting.sh`, `strop_core/lighting.py`, `strop_core/lighting_widgets.py`) with a 60 FPS render engine, 16 lighting presets, interactive Cairo HSV color wheel + SV square, multi-stop gradient editor, global master synchronization, and 2D vector zone mapping across Keyboards, Keypads, Mice, and Controllers.
+- Added OpenRazer Mouse DPI, stage table, and polling rate controller (`strop_core/dpi.py`) with hardware capability discovery, read-back verification, per-device persistence in `~/.config/strop/mouse_settings.json`, and integrated controls in Mouse Studio (`strop_mouse.py`).
+- Optimized input-remapper daemon and injection status checks via direct D-Bus queries (`pydbus`) and added a 30-second cache for device key enumeration to eliminate subprocess overhead and daemon log spam.
+- Synchronized `~/.config/input-remapper-2/config.json` autoload mappings automatically when applying or clearing active profiles.
+- Improved tray menu stability by tracking menu open/closed state to defer layout updates while open, emitting `ItemsPropertiesUpdated` when layout structure is unchanged, restricting `AboutToShow` refresh to the root menu, and initializing daemon status synchronously.
+- Expanded hardware discovery, catalog metadata, and studio launchers across the Hub, Tray, and `strop_studio.py` (`--lighting`).
+
 ## 1.1.1
 
 - Added the `/usr/bin/strop-studio` CLI wrapper to the Debian package.

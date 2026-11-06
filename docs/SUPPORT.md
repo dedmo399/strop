@@ -51,7 +51,7 @@ Profile remapping uses input-remapper independently of OpenRazer.
 - The tray uses Gio/D-Bus, without loading GTK3 into the GTK4 application. If the
   desktop tray host is unavailable, Strop keeps the Hub accessible and closing it
   exits the application.
-- Strop 1.1 does not expose digital-to-analog stick or trigger bindings. Expanded
+- Strop 1.2 does not expose digital-to-analog stick or trigger bindings. Expanded
   controller mappings and Tartarus key-depth access are planned for 2.0.
 - Lighting and other hardware controls depend on what OpenRazer exposes for each
   device.
