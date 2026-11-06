@@ -4,7 +4,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please review [docs/SUPPORT.md](https://github.com/dedmo399/strop/blob/main/docs/SUPPORT.md) and [ROADMAP_2.0.md](https://github.com/dedmo399/strop/blob/main/ROADMAP_2.0.md) before submitting to check active development priorities and supported device scopes.
+        Please review [docs/SUPPORT.md](https://github.com/dedmo399/strop/blob/main/docs/SUPPORT.md) and [ROADMAP.md](https://github.com/dedmo399/strop/blob/main/ROADMAP.md) before submitting to check active development priorities and supported device scopes.
   - type: textarea
     id: problem
     attributes:

@@ -48,6 +48,7 @@ cp LICENSE "${PKG_DIR}/usr/share/doc/strop/copyright"
 cp LICENSES.md "${PKG_DIR}/usr/share/doc/strop/"
 cp README.md "${PKG_DIR}/usr/share/doc/strop/"
 cp CHANGELOG.md "${PKG_DIR}/usr/share/doc/strop/"
+cp ROADMAP.md "${PKG_DIR}/usr/share/doc/strop/"
 if [ -d docs ]; then
     cp -r docs "${PKG_DIR}/usr/share/doc/strop/"
 fi

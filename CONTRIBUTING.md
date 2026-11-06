@@ -2,7 +2,7 @@
 
 Bug reports, documentation corrections, and focused pull requests are welcome.
 Read the [support matrix](docs/SUPPORT.md) first. Catalog layouts do not establish
-tested hardware support, and the [2.0 roadmap](ROADMAP_2.0.md) describes planned work.
+tested hardware support, and the [roadmap](ROADMAP.md) describes planned work.
 
 ## Report a problem
 

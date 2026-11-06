@@ -2,8 +2,8 @@
 
 Strop is a Linux application for configuring Razer peripherals through GTK,
 [input-remapper](https://github.com/sezanzeb/input-remapper), and optional
-[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration. The supported environment is
-Ubuntu 26.04 with GNOME on Wayland. Other configurations may work but are outside
+[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration. The supported platform is
+Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4. Other configurations may work but are outside
 the current support scope.
 
 ## Requirements
@@ -59,4 +59,4 @@ Profile remapping uses input-remapper independently of OpenRazer.
 
 See [USER_GUIDE.md](USER_GUIDE.md) for profile management and troubleshooting,
 [UPGRADING.md](UPGRADING.md) for backup and recovery, and
-[the 2.0 roadmap](../ROADMAP_2.0.md) for planned capabilities.
+[the project roadmap](../ROADMAP.md) for planned capabilities.

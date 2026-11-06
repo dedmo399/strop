@@ -16,7 +16,7 @@
 
 Strop is a Linux control suite for Razer devices: remap keys, tune mouse DPI and polling, build macros, edit RGB lighting, and manage HUD overlays for gameplay.
 
-- Supported target: Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, input-remapper 2.2.0.
+- Supported target: Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4 (input-remapper 2.2.0).
 - Hardware scope: primarily Razer keyboards, keypads, mice, and related Linux input devices covered by the current support matrix.
 - Recommended first step: install the latest release, then read the [user guide](docs/USER_GUIDE.md) and [support matrix](docs/SUPPORT.md).
 
@@ -76,7 +76,7 @@ For an existing checkout, get the latest committed source with `git pull --ff-on
 
 ## 🧰 Platform and support
 
-The **only official 1.2 support target** is Ubuntu 26.04.1 LTS, GNOME 50.1 on Wayland, Python 3.14.4, GTK 4.22.4, and input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow, Huntsman, Naga, Basilisk, and comparable supported inputs listed in the support matrix.
+The **only official 1.2 support target** is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4, with input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow, Huntsman, Naga, Basilisk, and comparable supported inputs listed in the support matrix.
 
 Strop's catalog contains 230+ device entries and generic layout archetypes. Catalog presence is reference data; it does not mean a device has been tested or is officially supported. Other distributions, desktop environments, or device families may work but are not in scope for support commitments.
 
@@ -138,7 +138,7 @@ Open dedicated studios for hardware-specific layouts and device controls:
 
 ## 📦 Installation & Packaging
 
-The official 1.2 target is Ubuntu 26.04.1 LTS on the Steam PC. Other distributions are not in the support matrix.
+The official 1.2 target is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4. Other distributions are not in the support matrix.
 
 ### Install Debian Package (.deb)
 
@@ -166,7 +166,7 @@ Source checkout launchers use the `./strop*.py` commands above. To add an instal
 
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and troubleshooting notes.
 
-The active [Strop 2.0 roadmap](ROADMAP_2.0.md) prioritizes Tartarus Pro key-depth access, correct controller-output mappings, and unified hardware settings.
+The active [Strop roadmap](ROADMAP.md) details completed milestones and the 2.0 plan for Tartarus Pro key-depth access, controller outputs, and hardware settings built on input-remapper and OpenRazer.
 
 ---
 

@@ -6,6 +6,6 @@ contact_links:
   - name: 🧰 Hardware & Platform Support Matrix
     url: https://github.com/dedmo399/strop/blob/main/docs/SUPPORT.md
     about: Verified hardware scope (Tartarus Pro, BlackWidow V3, Naga Trinity) and system requirements.
-  - name: 🗺️ Strop 2.0 Roadmap
-    url: https://github.com/dedmo399/strop/blob/main/ROADMAP_2.0.md
-    about: Active roadmap for Tartarus Pro key-depth access, controller outputs, and unified hardware settings.
+  - name: 🗺️ Strop Roadmap
+    url: https://github.com/dedmo399/strop/blob/main/ROADMAP.md
+    about: Roadmap for Tartarus Pro key-depth access, controller outputs, and input-remapper/OpenRazer integration.
