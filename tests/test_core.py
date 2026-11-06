@@ -1338,7 +1338,9 @@ class TestStropSidePlateDetection(unittest.TestCase):
                 ecodes=SimpleNamespace(EV_KEY=1),
             )
 
-            with patch.dict("sys.modules", {"evdev": evdev}), patch("pathlib.Path.home", return_value=tmp_home):
+            with patch.dict("sys.modules", {"evdev": evdev}), \
+                 patch.dict("os.environ", {"XDG_CONFIG_HOME": str(tmp_home / ".config")}), \
+                 patch("pathlib.Path.home", return_value=tmp_home):
                 dev1 = detect_device("naga", "Razer Naga Trinity")
                 self.assertTrue(dev1["multi_plate"])
                 self.assertEqual(dev1["side_plate"], SIDE_PLATE_FPS_2)
