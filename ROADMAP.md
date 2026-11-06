@@ -21,15 +21,42 @@ Strop is designed from the ground up as a native GTK4 graphical studio and HUD l
 |:---|:---|:---|:---|
 | **Strop 1.0** | v1.0.0 | **Completed** | Core remapping, input-remapper backend, preset validation, atomic writes, device HUD, Debian packaging. |
 | **Strop 1.1** | v1.1.x | **Completed** | Single-instance Hub, GTK4/D-Bus tray applet, multi-device HUD management, D-pad combo preservation. |
-| **Strop 1.2** | v1.2.0 | **Completed** | Chroma RGB Lighting Studio (16 effects, Cairo HSV/gradient engine), OpenRazer Mouse DPI/polling rate, D-Bus optimizations. |
-| **Strop 2.0** | v2.0.0 | **Active Work** | Tartarus Pro key-depth analog reading, dual-stage actuation, proportional gamepad outputs, axis response curves. |
+| **Strop 1.2** | v1.2.x | **Completed** | Chroma RGB Lighting Studio (16 effects, Cairo HSV/gradient engine), OpenRazer Mouse DPI, D-Bus optimizations, input-remapper 2.2.1+ virtual device filter, and `$XDG_CONFIG_HOME` support. |
+| **Strop 1.3 / 1.4** | v1.3.0 → v1.4.0 | **Active Development** | **Phase 3: Infrastructure & Packaging Modernization.** Migrate D-Bus communication to `dasbus` to track input-remapper's architecture, eliminate deprecated `pydbus`, and stabilize into the v1.4.0 production release. |
+| **Strop 2.0** | v2.0.0 | **Accelerated** | **Phase 2: Roadmap Acceleration.** Tartarus Pro key-depth analog reading, dual-stage actuation, proportional gamepad outputs, axis response curves, and toggle macros. |
 | **Future Enhancements** | 2.x+ | **Planned** | Expanded OpenRazer device telemetry, community macro presets, multi-device profile autoswitching. |
 
 ---
 
-## 🎯 Active Priority: Strop 2.0
+## 🛠️ New Development Cycle: Strop 1.3 → 1.4 (Phase 3: Infrastructure & Packaging Modernization)
+
+Following upstream `input-remapper`'s migration to `dasbus` ([PR #1201](https://github.com/sezanzeb/input-remapper/pull/1201), [PR #1212](https://github.com/sezanzeb/input-remapper/pull/1212)), Strop begins an active modernization development cycle in version **1.3**. Because Linux distributions (Fedora, Debian, Ubuntu) are dropping unmaintained `pydbus`, Strop will replace its D-Bus client layer to maintain long-term packaging viability. Once verified and stable, this cycle will culminate in the **Strop 1.4.0** stable release.
+
+### Modernization Objectives:
+- [ ] **Migrate D-Bus Client from `pydbus` to `dasbus`**:
+  - Refactor daemon query mechanisms in `strop_core/presets.py` to use `dasbus.connection.SystemMessageBus` and proxy lookups (`DBusServiceIdentifier(namespace=("inputremapper", "Control"))`).
+  - Update D-Bus timeout conventions to milliseconds matching input-remapper PR #1212.
+  - Standardize error handling around `dasbus.error.DBusError`.
+- [ ] **Dependency & Packaging Modernization**:
+  - Add `python3-dasbus` to Debian package dependencies (`build_deb.sh`) and CI test environments (`.github/workflows/ci.yml`).
+  - Formally deprecate and remove `pydbus` imports across `strop_core` and `tests/`.
+- [ ] **D-Bus Test Suite Realignment**:
+  - Update `tests/test_tray_dbus.py` and `tests/test_core.py` D-Bus mocks to align with `dasbus` proxy structures and event loop integration.
+- [ ] **Stabilization & Release Gate (v1.4.0)**:
+  - Validate daemon status polling, profile application, stop requests, and HUD synchronization under real desktop sessions on Ubuntu 26.04.
+  - When all regression checks and live hardware validations pass cleanly, tag and release as **Strop 1.4.0**.
+
+---
+
+## 🎯 Active Priority: Strop 2.0 (Phase 2: Roadmap Acceleration)
 
 Strop 2.0 expands hardware input capabilities beyond digital remapping, unlocking the Tartarus Pro's analog optical switches and establishing correct virtual gamepad axis output within the `input-remapper` ecosystem.
+
+Recent upstream bug fixes in input-remapper 2.2.0 and 2.2.1 have **accelerated Phase 2 implementation** by removing several backend hurdles:
+- **Upstream Trigger Release Fix ([PR #1274](https://github.com/sezanzeb/input-remapper/pull/1274))**: Triggers are now correctly treated as released (0) rather than negative joystick deflection, unblocking digital-to-trigger mapping and proportional trigger output (`ABS_Z`, `ABS_RZ`).
+- **D-Pad & Joystick Unmapped Direction Preservation ([PR #1274](https://github.com/sezanzeb/input-remapper/pull/1274))**: Unmapped directions are now forwarded rather than swallowed when a combo is mapped, simplifying Tartarus stick and thumbpad handling.
+- **Improved Analog Deadzones ([PR #1274](https://github.com/sezanzeb/input-remapper/pull/1274))**: Raised default `analog_threshold` to 30, eliminating noisy scancode collisions during stick recording.
+- **Toggle Macro Support ([PR #1183](https://github.com/sezanzeb/input-remapper/pull/1183))**: Native backend support for looping/toggle macros ready for integration in Macro Studio.
 
 The reference hardware and platform scope:
 - **Devices**: Razer Tartarus Pro (`1532:0244`), Razer BlackWidow V3 (`1532:024e`), and Razer Naga Trinity (`1532:0067`).
@@ -88,6 +115,10 @@ The reference hardware and platform scope:
 ---
 
 ## 📜 Completed Foundation (Strop 1.0 - 1.2)
+
+### Strop 1.2.1
+- **Upstream Forwarded Device Filtering**: Updated hardware scanning to inspect device `phys` attributes and exclude input-remapper 2.2.1+ virtual devices (`phys="input-remapper/*"`), preventing duplicate device detection and origin-hash collisions.
+- **Dynamic `$XDG_CONFIG_HOME` Support**: Standardized base path resolution across Strop configs, active profiles, macro storage, mouse DPI settings, lighting profiles, and input-remapper-2 presets directories.
 
 ### Strop 1.2.0
 - **Chroma RGB Lighting Studio**: Standalone and embedded lighting studio with Cairo-rendered HSV color wheel, multi-stop gradient editor, 16 procedural effects, zone grouping, and master multi-device synchronization via OpenRazer.
