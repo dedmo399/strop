@@ -12,7 +12,7 @@
   </p>
 </div>
 
-![Strop Hub, Keypad Studio, Macro Studio, and keypad HUD with a Warframe profile](docs/screenshots/strop-suite.png)
+![Strop Hub, Lighting Studio, Macro Studio, and keypad HUD with a Warframe profile](docs/screenshots/strop-suite.png)
 
 ---
 
