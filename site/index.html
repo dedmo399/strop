@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Strop — Razer Linux Peripheral Suite</title>
+  <meta name="description" content="Native GTK4 control suite for Razer gaming hardware on Linux: key remapping, dynamic side-plate detection, mouse DPI, 16 Chroma RGB effects, macros, and in-game HUD overlay.">
+  <meta name="author" content="dedmo399">
+
+  <!-- OpenGraph Metadata -->
+  <meta property="og:title" content="Strop — Razer Linux Peripheral Suite">
+  <meta property="og:description" content="Native GTK4 remap studios, 16 Chroma RGB lighting effects, mouse DPI & polling, dynamic Naga Trinity plate detection, and in-game HUD overlays on Linux.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://dedmo399.github.io/strop/">
+  <meta property="og:image" content="assets/screenshots/strop-suite.png">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/strop_32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/strop_16x16.png">
+  <link rel="apple-touch-icon" sizes="128x128" href="assets/icons/strop_128x128.png">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Accessible Skip Link -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Header Navigation -->
+  <header class="site-header">
+    <div class="container nav-container">
+      <a href="#" class="brand-link" aria-label="Strop Home">
+        <img src="assets/strop_icon.png" alt="" class="brand-logo" width="36" height="36">
+        <span class="brand-text">
+          Strop
+          <span class="version-badge">v1.2.1</span>
+        </span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main Navigation">
+        <li><a href="#showcase">Showcase</a></li>
+        <li><a href="#features">Studios</a></li>
+        <li><a href="#compatibility">Compatibility</a></li>
+        <li><a href="#quickstart">Quickstart</a></li>
+        <li><a href="https://github.com/dedmo399/strop/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">User Guide ↗</a></li>
+      </nav>
+
+      <div class="nav-cta">
+        <a href="https://github.com/dedmo399/strop" class="github-link" target="_blank" rel="noopener" aria-label="View source on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <!-- Hero Section -->
+    <section class="hero-section" aria-labelledby="hero-title">
+      <div class="container">
+        <div class="hero-pill">
+          <span class="hero-pill-dot" aria-hidden="true"></span>
+          <span>Verified on Ubuntu 26.04 LTS • GTK4 & Wayland</span>
+        </div>
+
+        <h1 id="hero-title" class="hero-title">
+          Putting the sharpest edge on your <br>
+          <span class="gradient-text">Razer gaming hardware</span> on Linux.
+        </h1>
+
+        <p class="hero-lead">
+          Native GTK4 remap studios, 16-effect Chroma RGB lighting engine, mouse DPI & polling tuning, dynamic Naga Trinity side-plate detection, and semi-transparent in-game HUDs. Powered by <strong>input-remapper</strong> and <strong>OpenRazer</strong>.
+        </p>
+
+        <div class="hero-actions">
+          <a href="https://github.com/dedmo399/strop/releases/download/v1.2.1/strop_1.2.1_all.deb" class="btn btn-primary" download>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download .deb (v1.2.1)</span>
+          </a>
+
+          <a href="https://github.com/dedmo399/strop" class="btn btn-secondary" target="_blank" rel="noopener">
+            <span>View Source on GitHub</span>
+          </a>
+        </div>
+
+        <!-- Terminal Install Box with 1-click copy -->
+        <div class="hero-install-box">
+          <div class="hero-install-code">
+            <span class="hero-install-prompt">$</span>
+            <code id="hero-cmd">sudo apt install ./strop_1.2.1_all.deb</code>
+          </div>
+          <button type="button" class="btn-copy" data-copy-target="hero-cmd" aria-label="Copy install command to clipboard">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+
+        <!-- System Badges -->
+        <div class="hero-badges">
+          <span class="hero-badge-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Ubuntu 26.04 LTS
+          </span>
+          <span class="hero-badge-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            GNOME on Wayland
+          </span>
+          <span class="hero-badge-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Python 3.14 & GTK4
+          </span>
+          <span class="hero-badge-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            GPL-3.0 License
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Product Showcase Gallery -->
+    <section id="showcase" class="showcase-section" aria-labelledby="showcase-title">
+      <div class="container">
+        <div class="showcase-banner">
+          <div class="showcase-image-wrapper">
+            <img src="assets/screenshots/strop-suite.png" alt="Strop Razer Linux Suite multi-window interface showing the central Hub, Lighting Studio with HSV color picker, Keypad Studio matrix, Macro Studio timeline, and In-Game HUD overlay" class="showcase-image" width="1874" height="978" loading="eager">
+          </div>
+          <p class="showcase-caption">
+            The complete Strop Suite running natively on Ubuntu 26.04: Central Hub, Chroma Lighting Studio, Macro Studio timeline, and in-game HUD overlay.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Studios / Features Deep Dive Grid -->
+    <section id="features" class="features-section" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Dedicated Studios</span>
+          <h2 id="features-title" class="section-title">Built for Performance & Precision</h2>
+          <p class="section-desc">Each peripheral category gets a dedicated, native GTK4 studio crafted for rapid game tuning and zero background bloat.</p>
+        </div>
+
+        <div class="features-grid">
+          <!-- Hub Card -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            </div>
+            <h3 class="feature-title">
+              Strop Hub
+              <span class="feature-badge">Central Core</span>
+            </h3>
+            <p class="feature-desc">Orchestrates device discovery, USB permissions, and input-remapper daemon states with 5-second health checks and instant profile switching.</p>
+            <ul class="feature-list">
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> One-click hardware rescan & diagnostics</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Real-time injection state indicators</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> System tray / StatusNotifier integration</li>
+            </ul>
+          </article>
+
+          <!-- Lighting Studio Card -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </div>
+            <h3 class="feature-title">
+              Chroma Lighting Studio
+              <span class="feature-badge">16 RGB Effects</span>
+            </h3>
+            <p class="feature-desc">Full 60 FPS interactive Chroma RGB preview canvas powered by OpenRazer. Customize color stops, custom gradients, and reactive input triggers.</p>
+            <ul class="feature-list">
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> HSV color wheel with persistent swatches</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Wave, Breathing, Spectrum, Rain, Ripple</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Single-device or unified multi-device sync</li>
+            </ul>
+          </article>
+
+          <!-- Mouse Studio Card -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="7"></rect><line x1="12" y1="6" x2="12" y2="10"></line></svg>
+            </div>
+            <h3 class="feature-title">
+              Mouse Studio
+              <span class="feature-badge">Dynamic Plates</span>
+            </h3>
+            <p class="feature-desc">Engineered for multi-plate mice like the Razer Naga Trinity. Automatically detects attached 2-button FPS, 7-button Hex, or 12-button MMO side plates.</p>
+            <ul class="feature-list">
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Automatic side plate detection on rescan</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> DPI stage calibration (100 to 16,000+ DPI)</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 125Hz, 500Hz, and 1000Hz polling rate controls</li>
+            </ul>
+          </article>
+
+          <!-- Keypad & Keyboard Studio Card -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="10" y1="12" x2="10" y2="12"></line><line x1="14" y1="12" x2="14" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+            </div>
+            <h3 class="feature-title">
+              Keypad & Keyboard Studio
+              <span class="feature-badge">Ergonomic Matrix</span>
+            </h3>
+            <p class="feature-desc">Visual 20-key matrix configurator for Tartarus Pro, Tartarus V2, and fullsize keyboards like the BlackWidow V3 with digital media rollers.</p>
+            <ul class="feature-list">
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 8-way thumb D-pad & analog stick emulation</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Gamepad button mapping (South, East, Bumpers)</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Live input capture and key swap mechanics</li>
+            </ul>
+          </article>
+
+          <!-- Macro Studio Card -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </div>
+            <h3 class="feature-title">
+              Macro Studio
+              <span class="feature-badge">Sequence Timeline</span>
+            </h3>
+            <p class="feature-desc">Visual macro sequence timeline builder with live recording, millisecond delays, turbo repeat loops, and input-remapper parser syntax validation.</p>
+            <ul class="feature-list">
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Built-in gaming templates (Slide Attack, Dash)</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Modifiers: wait(), key_down(), loop(xN)</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Saved under ~/.config/strop/macros.json</li>
+            </ul>
+          </article>
+
+          <!-- In-Game HUD Overlay Card -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </div>
+            <h3 class="feature-title">
+              In-Game HUD Overlay
+              <span class="feature-badge">Live Binds</span>
+            </h3>
+            <p class="feature-desc">Frameless, semi-transparent floating heads-up display overlay showing active key mappings and gamepad badges directly over full-screen games.</p>
+            <ul class="feature-list">
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Remembers position, opacity, & collapsed state</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Color-coded badges for custom vs default binds</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Standalone launcher via strop_hud.py</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hardware Compatibility Matrix Section -->
+    <section id="compatibility" class="matrix-section" aria-labelledby="matrix-title">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Device Support</span>
+          <h2 id="matrix-title" class="section-title">Hardware Compatibility Matrix</h2>
+          <p class="section-desc">Search and filter verified Razer devices tested on Ubuntu 26.04 with input-remapper and OpenRazer.</p>
+        </div>
+
+        <div class="matrix-controls">
+          <div class="matrix-filters" role="group" aria-label="Filter devices by category">
+            <button type="button" class="filter-btn active" data-filter="all" aria-pressed="true">All Devices</button>
+            <button type="button" class="filter-btn" data-filter="keypad" aria-pressed="false">Keypads</button>
+            <button type="button" class="filter-btn" data-filter="mouse" aria-pressed="false">Mice</button>
+            <button type="button" class="filter-btn" data-filter="keyboard" aria-pressed="false">Keyboards</button>
+          </div>
+
+          <div class="matrix-search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="matrix-search" class="matrix-search-input" placeholder="Search by name, USB ID, or feature..." aria-label="Search hardware compatibility table">
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="matrix-table">
+            <caption>Razer hardware device support matrix and capabilities in Strop</caption>
+            <thead>
+              <tr>
+                <th scope="col">Device Name</th>
+                <th scope="col">Category</th>
+                <th scope="col">USB ID</th>
+                <th scope="col">Status</th>
+                <th scope="col">Supported Features</th>
+                <th scope="col">Drivers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Tartarus Pro -->
+              <tr data-category="keypad">
+                <td>
+                  <span class="device-name">Razer Tartarus Pro</span>
+                  <span class="device-subtext">20-Key Analog Optical Keypad</span>
+                </td>
+                <td>Keypad</td>
+                <td><code class="code-pill">1532:0244</code></td>
+                <td><span class="status-badge status-verified">Verified</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">20-Key Matrix</span>
+                    <span class="cap-tag">8-Way D-Pad</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                    <span class="cap-tag">HUD Overlay</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Naga Trinity -->
+              <tr data-category="mouse">
+                <td>
+                  <span class="device-name">Razer Naga Trinity</span>
+                  <span class="device-subtext">Modular 2/7/12-Button Swappable Plates</span>
+                </td>
+                <td>Mouse</td>
+                <td><code class="code-pill">1532:0067</code></td>
+                <td><span class="status-badge status-verified">Verified</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Dynamic Plate Detection</span>
+                    <span class="cap-tag">DPI Stages</span>
+                    <span class="cap-tag">1000Hz Polling</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- BlackWidow V3 -->
+              <tr data-category="keyboard">
+                <td>
+                  <span class="device-name">Razer BlackWidow V3</span>
+                  <span class="device-subtext">Fullsize 108-Key Mechanical Keyboard</span>
+                </td>
+                <td>Keyboard</td>
+                <td><code class="code-pill">1532:024e</code></td>
+                <td><span class="status-badge status-verified">Verified</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Full Keyboard Remap</span>
+                    <span class="cap-tag">Digital Media Roller</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Tartarus V2 -->
+              <tr data-category="keypad">
+                <td>
+                  <span class="device-name">Razer Tartarus V2</span>
+                  <span class="device-subtext">Mecha-Membrane Gaming Keypad</span>
+                </td>
+                <td>Keypad</td>
+                <td><code class="code-pill">1532:022b</code></td>
+                <td><span class="status-badge status-supported">Supported</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">20-Key Matrix</span>
+                    <span class="cap-tag">Scroll Wheel</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Orbweaver Chroma -->
+              <tr data-category="keypad">
+                <td>
+                  <span class="device-name">Razer Orbweaver Chroma</span>
+                  <span class="device-subtext">Mechanical Ergonomic Keypad</span>
+                </td>
+                <td>Keypad</td>
+                <td><code class="code-pill">1532:0113</code></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">20-Key Matrix</span>
+                    <span class="cap-tag">Thumb Module</span>
+                    <span class="cap-tag">RGB Sync</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Basilisk V2 / V3 -->
+              <tr data-category="mouse">
+                <td>
+                  <span class="device-name">Razer Basilisk V2 / V3</span>
+                  <span class="device-subtext">Ergonomic FPS Gaming Mouse</span>
+                </td>
+                <td>Mouse</td>
+                <td><code class="code-pill">1532:0085</code></td>
+                <td><span class="status-badge status-supported">Supported</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Hypershift Paddle</span>
+                    <span class="cap-tag">Tilt Wheel</span>
+                    <span class="cap-tag">DPI Stages</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- DeathAdder Series -->
+              <tr data-category="mouse">
+                <td>
+                  <span class="device-name">Razer DeathAdder Series</span>
+                  <span class="device-subtext">V2, V3, and Elite Ergonomic Mice</span>
+                </td>
+                <td>Mouse</td>
+                <td><code class="code-pill">1532:007b</code></td>
+                <td><span class="status-badge status-supported">Supported</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Side Buttons</span>
+                    <span class="cap-tag">DPI Tuning</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Viper Series -->
+              <tr data-category="mouse">
+                <td>
+                  <span class="device-name">Razer Viper Series</span>
+                  <span class="device-subtext">Ambidextrous Ultralight Gaming Mice</span>
+                </td>
+                <td>Mouse</td>
+                <td><code class="code-pill">1532:0078</code></td>
+                <td><span class="status-badge status-supported">Supported</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Dual Side Buttons</span>
+                    <span class="cap-tag">DPI Tuning</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Huntsman Series -->
+              <tr data-category="keyboard">
+                <td>
+                  <span class="device-name">Razer Huntsman Series</span>
+                  <span class="device-subtext">Elite, V2, Mini, and Tournament Edition</span>
+                </td>
+                <td>Keyboard</td>
+                <td><code class="code-pill">1532:0226</code></td>
+                <td><span class="status-badge status-supported">Supported</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Opto-Mechanical Matrix</span>
+                    <span class="cap-tag">Media Controls</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Ornata Series -->
+              <tr data-category="keyboard">
+                <td>
+                  <span class="device-name">Razer Ornata Series</span>
+                  <span class="device-subtext">Mecha-Membrane Hybrid Keyboards</span>
+                </td>
+                <td>Keyboard</td>
+                <td><code class="code-pill">1532:021e</code></td>
+                <td><span class="status-badge status-supported">Supported</span></td>
+                <td>
+                  <div class="capability-tags">
+                    <span class="cap-tag">Standard Matrix</span>
+                    <span class="cap-tag">Chroma RGB</span>
+                  </div>
+                </td>
+                <td>input-remapper + OpenRazer</td>
+              </tr>
+
+              <!-- Empty state row -->
+              <tr id="matrix-empty-row" class="empty-row" style="display: none;">
+                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-dim);">
+                  No devices match your search query or filter. Check the <a href="https://github.com/dedmo399/strop/blob/main/docs/SUPPORT.md" target="_blank" rel="noopener" style="color: var(--color-razer);">full support guide</a> for manual device additions.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quickstart & Documentation Hub -->
+    <section id="quickstart" class="docs-section" aria-labelledby="docs-title">
+      <div class="container docs-hub">
+        <div class="section-header">
+          <span class="section-tag">Getting Started</span>
+          <h2 id="docs-title" class="section-title">Quickstart & Documentation</h2>
+          <p class="section-desc">Everything you need to configure your Razer gaming hardware on Linux in under five minutes.</p>
+        </div>
+
+        <!-- Accessible Tabs -->
+        <div class="tab-nav" role="tablist" aria-label="Documentation Categories">
+          <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-install" id="tab-install">Installation & Setup</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-workflow" id="tab-workflow" tabindex="-1">First-Run Workflow</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-cli" id="tab-cli" tabindex="-1">CLI Reference</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-troubleshooting" id="tab-troubleshooting" tabindex="-1">Troubleshooting FAQ</button>
+        </div>
+
+        <!-- Panel 1: Installation -->
+        <div id="panel-install" class="tab-panel active" role="tabpanel" aria-labelledby="tab-install">
+          <div class="guide-card">
+            <div class="guide-step">
+              <div class="step-header">
+                <span class="step-num">1</span>
+                <h3 class="step-title">Install the Debian Package</h3>
+              </div>
+              <p class="step-desc">Download the latest release and install it via APT. System dependencies (Python 3.14, GTK4, PyGObject, python-evdev) will be resolved automatically.</p>
+              <div class="code-block-wrapper">
+                <button type="button" class="btn-copy code-block-copy" data-copy-target="cmd-deb" aria-label="Copy installation command">
+                  <span>Copy</span>
+                </button>
+                <pre><code id="cmd-deb"># Download and install the latest verified Debian package
+sudo apt update
+sudo apt install ./strop_1.2.1_all.deb</code></pre>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="step-header">
+                <span class="step-num">2</span>
+                <h3 class="step-title">Verify Backend Services</h3>
+              </div>
+              <p class="step-desc">Ensure the input-remapper service is active and communicating with its D-Bus daemon:</p>
+              <div class="code-block-wrapper">
+                <button type="button" class="btn-copy code-block-copy" data-copy-target="cmd-check" aria-label="Copy verification commands">
+                  <span>Copy</span>
+                </button>
+                <pre><code id="cmd-check"># Verify input-remapper daemon status
+systemctl status input-remapper
+input-remapper-control --command hello
+
+# Optional: Verify OpenRazer daemon if using Chroma lighting
+openrazer-daemon -v</code></pre>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="step-header">
+                <span class="step-num">3</span>
+                <h3 class="step-title">Launch Strop as Desktop User</h3>
+              </div>
+              <p class="step-desc"><strong>Important:</strong> Launch Strop as your logged-in desktop user. Never launch the GUI with <code>sudo</code>, as remapping profiles are stored under your personal <code>~/.config/strop/</code> directory.</p>
+              <div class="code-block-wrapper">
+                <button type="button" class="btn-copy code-block-copy" data-copy-target="cmd-launch" aria-label="Copy launch command">
+                  <span>Copy</span>
+                </button>
+                <pre><code id="cmd-launch"># Launch Strop directly or from your desktop application launcher
+strop</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Workflow -->
+        <div id="panel-workflow" class="tab-panel" role="tabpanel" aria-labelledby="tab-workflow" hidden>
+          <div class="guide-card">
+            <div class="guide-step">
+              <div class="step-header">
+                <span class="step-num">1</span>
+                <h3 class="step-title">Confirm Device Discovery in the Hub</h3>
+              </div>
+              <p class="step-desc">When Strop opens, your connected Razer hardware (Tartarus, Naga Trinity, BlackWidow) will appear with green status badges. Click <strong>Rescan</strong> if you recently plugged in a new peripheral.</p>
+            </div>
+
+            <div class="guide-step">
+              <div class="step-header">
+                <span class="step-num">2</span>
+                <h3 class="step-title">Open Studio & Remap Inputs</h3>
+              </div>
+              <p class="step-desc">Click <strong>Launch Keypad Studio</strong> or <strong>Launch Mouse Studio</strong>. Click any key on the visual matrix to set custom keystrokes, gamepad triggers, or custom macros from your library.</p>
+            </div>
+
+            <div class="guide-step">
+              <div class="step-header">
+                <span class="step-num">3</span>
+                <h3 class="step-title">Save & Apply to Hardware</h3>
+              </div>
+              <p class="step-desc">Enter a profile name (e.g. <code>warframe</code> or <code>cyberpunk</code>). Click <strong>Apply Settings</strong>. Strop immediately instructs input-remapper to begin injecting keystrokes into your games without perceptible latency.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: CLI -->
+        <div id="panel-cli" class="tab-panel" role="tabpanel" aria-labelledby="tab-cli" hidden>
+          <div class="guide-card">
+            <p class="step-desc" style="margin-bottom: 1.5rem;">Strop includes standalone modular CLI launchers so you can integrate overlays or profiles into game launch scripts (e.g. Steam launch options):</p>
+            
+            <div class="code-block-wrapper">
+              <button type="button" class="btn-copy code-block-copy" data-copy-target="cmd-cli-list" aria-label="Copy CLI launchers">
+                <span>Copy</span>
+              </button>
+              <pre><code id="cmd-cli-list">strop                 # Opens the central Hub and background system tray icon
+strop_hud.py          # Launches standalone In-Game HUD overlay for active device
+strop_lighting.py     # Launches standalone Chroma RGB Lighting Studio
+strop_macro.py        # Launches standalone Macro Studio sequence editor
+strop_keypad.py       # Launches standalone Keypad Studio matrix builder
+strop_mouse.py        # Launches standalone Mouse Studio with plate detection</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Troubleshooting FAQ -->
+        <div id="panel-troubleshooting" class="tab-panel" role="tabpanel" aria-labelledby="tab-troubleshooting" hidden>
+          <div class="faq-grid">
+            <details class="faq-item">
+              <summary class="faq-trigger">No device appears in Strop Hub?</summary>
+              <div class="faq-content">
+                <p>Ensure your desktop user has read access to <code>/dev/input/event*</code> and that <code>python3-evdev</code> is installed. You can verify your user group membership with <code>groups $USER</code> (ensure you are in the <code>input</code> or <code>plugdev</code> group). Then click <strong>Rescan</strong> in the Hub.</p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary class="faq-trigger">Apply or Stop profile fails with a timeout?</summary>
+              <div class="faq-content">
+                <p>Verify that the input-remapper daemon is running: <code>systemctl status input-remapper</code>. If it is stopped, restart it with <code>sudo systemctl restart input-remapper</code> and confirm connectivity using <code>input-remapper-control --command hello</code>.</p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary class="faq-trigger">HUD does not stay above games on GNOME Wayland?</summary>
+              <div class="faq-content">
+                <p>On Wayland, fullscreen applications with direct scanout can bypass compositor window stacking. Run games in <em>Borderless Windowed</em> mode, or configure GNOME Shell window rules to enforce always-on-top positioning for Strop HUD.</p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary class="faq-trigger">Tray icon is missing from the top panel?</summary>
+              <div class="faq-content">
+                <p>Ubuntu 26.04 GNOME uses the <strong>AppIndicator and KStatusNotifierItem Support</strong> extension to host system tray icons. Verify that this extension is enabled in the GNOME Extensions application. Even without a tray host, Strop's main Hub window remains fully operational.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="#" class="brand-link">
+            <img src="assets/strop_icon.png" alt="" class="brand-logo" width="32" height="32">
+            <span class="brand-text">Strop</span>
+          </a>
+          <p>
+            High-performance Linux peripheral control suite for Razer gaming hardware. Putting the sharpest edge on your battlestation.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="#showcase">Showcase</a></li>
+            <li><a href="#features">Studios</a></li>
+            <li><a href="#compatibility">Compatibility</a></li>
+            <li><a href="#quickstart">Quickstart</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="https://github.com/dedmo399/strop/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">User Guide</a></li>
+            <li><a href="https://github.com/dedmo399/strop/blob/main/docs/SUPPORT.md" target="_blank" rel="noopener">Support Matrix</a></li>
+            <li><a href="https://github.com/dedmo399/strop/blob/main/docs/UPGRADING.md" target="_blank" rel="noopener">Upgrading</a></li>
+            <li><a href="https://github.com/dedmo399/strop/blob/main/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Open Source</h4>
+          <ul>
+            <li><a href="https://github.com/dedmo399/strop" target="_blank" rel="noopener">GitHub Repository</a></li>
+            <li><a href="https://github.com/dedmo399/strop/releases" target="_blank" rel="noopener">Releases & Changelog</a></li>
+            <li><a href="https://github.com/dedmo399/strop/issues" target="_blank" rel="noopener">Issue Tracker</a></li>
+            <li><a href="https://github.com/dedmo399/strop/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 License</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>© 2026 dedmo399. Released under the GNU General Public License v3.0.</p>
+        <p>Built with ❤️ for Linux gamers. Powered by <a href="https://github.com/sezanzeb/input-remapper" target="_blank" rel="noopener">input-remapper</a> and <a href="https://openrazer.github.io/" target="_blank" rel="noopener">OpenRazer</a>.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@
   <h3>Putting the sharpest edge on your Razer gaming hardware on Linux.</h3>
   <p>Native GTK4 Remap Studios • Chroma RGB Lighting • Mouse DPI & Polling • In-Game HUDs • Powered by <a href="https://github.com/sezanzeb/input-remapper">input-remapper</a> &amp; <a href="https://openrazer.github.io/">OpenRazer</a></p>
   <p>
+    <a href="https://dedmo399.github.io/strop/"><img src="https://img.shields.io/badge/website-strop--pages-22c55e.svg" alt="Website" /></a>
     <a href="https://github.com/dedmo399/strop/actions/workflows/ci.yml"><img src="https://github.com/dedmo399/strop/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
     <a href="https://github.com/dedmo399/strop/releases/latest"><img src="https://img.shields.io/github/v/release/dedmo399/strop?label=release&color=22c55e" alt="Latest Release" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg" alt="License: GPL-3.0-or-later" /></a>
@@ -14,7 +15,7 @@
 
 ## Quick start
 
-Strop is a Linux control suite for Razer devices: remap keys, tune mouse DPI and polling, build macros, edit RGB lighting, and manage HUD overlays for gameplay.
+Strop is a Linux control suite for Razer devices: remap keys, tune mouse DPI and polling, build macros, edit RGB lighting, and manage HUD overlays for gameplay. Explore the [Strop Website](https://dedmo399.github.io/strop/) for interactive hardware compatibility filters and studio galleries.
 
 - Supported target: Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4 (input-remapper 2.2.0).
 - Hardware scope: primarily Razer keyboards, keypads, mice, and related Linux input devices covered by the current support matrix.
