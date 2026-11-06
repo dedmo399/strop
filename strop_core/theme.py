@@ -514,10 +514,25 @@ def show_about_dialog(parent_window: Optional[Gtk.Window] = None) -> Optional[Gt
 
     about.set_program_name("Strop")
     about.set_version(__version__)
-    about.set_comments("Putting the sharpest edge on your Razer gaming hardware on Linux.\nUnified GTK4 remap studios, in-game HUDs, and macro composer. Catalog entries are layout references; see the support matrix for officially supported devices.")
+    about.set_comments(
+        "Putting the sharpest edge on your Razer gaming hardware on Linux.\n"
+        "Unified GTK4 remap studios, Chroma RGB lighting studio, mouse DPI controller, "
+        "in-game HUDs, and macro composer powered by input-remapper and OpenRazer.\n"
+        "Catalog entries are layout references; see the support matrix for officially supported devices."
+    )
     about.set_website("https://github.com/dedmo399/strop")
     about.set_website_label("Find Strop on GitHub")
     about.set_authors(["Strop Contributors"])
+    try:
+        about.add_credit_section(
+            "Upstream Projects",
+            [
+                "input-remapper — https://github.com/sezanzeb/input-remapper",
+                "OpenRazer — https://openrazer.github.io/",
+            ],
+        )
+    except Exception:
+        pass
     about.set_copyright("Copyright © 2026 Strop Contributors\nLicensed under GNU GPL-3.0-or-later.")
     about.set_license_type(Gtk.License.CUSTOM)
     about.set_license(

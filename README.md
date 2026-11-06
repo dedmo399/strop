@@ -3,7 +3,13 @@
 <div align="center">
   <img src="assets/strop_icon.png" width="160" alt="Strop Logo" />
   <h3>Putting the sharpest edge on your Razer gaming hardware on Linux.</h3>
-  <p>Native GTK4 Remap Studios • In-Game Heads-Up Displays • Unified Device Hub • input-remapper Integration • 230+ Catalog Layouts</p>
+  <p>Native GTK4 Remap Studios • Chroma RGB Lighting • Mouse DPI & Polling • In-Game HUDs • Powered by <a href="https://github.com/sezanzeb/input-remapper">input-remapper</a> &amp; <a href="https://openrazer.github.io/">OpenRazer</a></p>
+  <p>
+    <a href="https://github.com/dedmo399/strop/actions/workflows/ci.yml"><img src="https://github.com/dedmo399/strop/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
+    <a href="https://github.com/dedmo399/strop/releases/latest"><img src="https://img.shields.io/github/v/release/dedmo399/strop?label=release&color=22c55e" alt="Latest Release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg" alt="License: GPL-3.0-or-later" /></a>
+    <a href="docs/SUPPORT.md"><img src="https://img.shields.io/badge/platform-Ubuntu%2026.04%20%7C%20GTK4-orange" alt="Platform: Ubuntu 26.04 | GTK4" /></a>
+  </p>
 </div>
 
 ![Strop Hub, Keypad Studio, Macro Studio, and keypad HUD with a Warframe profile](docs/screenshots/strop-suite.png)
@@ -41,7 +47,7 @@ The **only official 1.2 support target** is Ubuntu 26.04.1 LTS, GNOME 50.1 on Wa
 
 Strop's catalog contains 230+ device entries and generic layout archetypes. Catalog presence is reference data; it does not mean a device has been tested or is officially supported. Other distributions, sessions, backend versions, and devices are outside the 1.2 support commitment.
 
-Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardware remapping requires **input-remapper**; OpenRazer is optional for supported lighting and mouse DPI/polling integration. The Debian package declares these runtime dependencies. Follow the [support and setup notes](docs/SUPPORT.md) for device permissions and session limitations.
+Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardware remapping requires [**input-remapper**](https://github.com/sezanzeb/input-remapper); [**OpenRazer**](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) is optional for supported lighting and mouse DPI/polling integration. The Debian package declares these runtime dependencies. Follow the [support and setup notes](docs/SUPPORT.md) for device permissions and session limitations.
 
 - **Macro Studio & Composer**: Built-in gaming combos such as Bullet Jump and Ability Combos, plus productivity shortcuts with custom millisecond delays.
 - **Unified RGB Lighting & Chroma Effects Studio**: 60 FPS internal render loop, 16 lighting presets, interactive Cairo HSV color wheel + SV square, multi-stop gradient editor, and 2D vector zone mapping.
@@ -169,6 +175,18 @@ Source checkout launchers use the `./strop*.py` commands above. To add an instal
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for first-run and profile steps. [docs/SUPPORT.md](docs/SUPPORT.md) lists the platform matrix, device scope, package requirements, permission guidance, and Wayland/XWayland limitations. [docs/UPGRADING.md](docs/UPGRADING.md) explains backup, upgrade, and recovery steps. [CHANGELOG.md](CHANGELOG.md) describes the 1.2 release. Catalog models not listed in the support matrix are not part of official 1.2 support.
 
 The active [Strop 2.0 roadmap](ROADMAP_2.0.md) prioritizes Tartarus Pro key-depth access, correct controller-output mappings, and unified hardware settings.
+
+---
+
+## 🙏 Acknowledgments & Upstream Projects
+
+Strop builds upon the foundational work of the Linux input and hardware community:
+
+- **[input-remapper](https://github.com/sezanzeb/input-remapper)** by [Sezanzeb](https://github.com/sezanzeb) and contributors — Provides the underlying Linux `evdev`/`uinput` remapping service, D-Bus control interface, preset format, and macro execution engine that power Strop's key, button, and macro profiles.
+- **[OpenRazer](https://openrazer.github.io/)** ([openrazer/openrazer](https://github.com/openrazer/openrazer)) by the OpenRazer contributors — Provides the open-source Linux kernel drivers and D-Bus hardware daemon that power Strop's RGB Chroma lighting effects, brightness controls, mouse DPI stages, and polling rate configuration.
+- **[GTK 4](https://www.gtk.org/)**, **[PyGObject](https://pygobject.gnome.org/)**, **[Cairo](https://www.cairographics.org/)**, and **[python-evdev](https://github.com/gvalkov/python-evdev)** — Provide the native Linux desktop interface, vector graphics rendering, and input device introspection.
+
+*Strop is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Razer Inc.*
 
 ---
 

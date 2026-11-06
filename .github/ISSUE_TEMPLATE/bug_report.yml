@@ -9,7 +9,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include Strop version, installation method, distribution, desktop/session (Wayland or X11), device model, and input-remapper version. Say whether this matches the support matrix.
+      description: Include Strop version, installation method, distribution, desktop/session (Wayland or X11), device model, input-remapper version, and OpenRazer version (if reporting lighting or DPI issues). Say whether this matches the support matrix.
     validations:
       required: true
   - type: textarea

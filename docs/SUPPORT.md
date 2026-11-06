@@ -1,7 +1,8 @@
 # Strop support
 
 Strop is a Linux application for configuring Razer peripherals through GTK,
-input-remapper, and optional OpenRazer integration. The supported environment is
+[input-remapper](https://github.com/sezanzeb/input-remapper), and optional
+[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration. The supported environment is
 Ubuntu 26.04 with GNOME on Wayland. Other configurations may work but are outside
 the current support scope.
 
@@ -11,8 +12,8 @@ the current support scope.
 | --- | --- |
 | Python 3, PyGObject, and GTK 4 | Application interface |
 | python-evdev | Input device discovery and capture |
-| input-remapper | Profile remapping; current integration targets version 2.2.0 |
-| OpenRazer (optional) | Supported lighting and hardware controls |
+| [input-remapper](https://github.com/sezanzeb/input-remapper) | Profile remapping and macro injection; current integration targets version 2.2.0 |
+| [OpenRazer](https://openrazer.github.io/) (optional) | Supported Chroma RGB lighting, mouse DPI stages, and polling-rate controls |
 | Desktop StatusNotifier/AppIndicator host | Tray applet; Ubuntu AppIndicators supplies this on the supported GNOME desktop |
 
 The Debian package declares the application dependencies and recommends
