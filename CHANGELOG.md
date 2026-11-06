@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- Fixed hardware discovery to inspect device `phys` attributes and exclude input-remapper 2.2.1+ virtual forwarded devices (`phys="input-remapper/*"`), preventing duplicate device detection and origin-hash collisions when profiles are actively injected.
+- Added full support for `$XDG_CONFIG_HOME` across Strop configuration paths, active profiles, custom macros, mouse sensor settings, lighting profiles, and input-remapper preset directories.
+- Expanded automated test coverage for legacy and 2.2.1+ virtual device filtering and dynamic XDG base configuration path resolution.
+
 ## 1.2.0
 
 - Added Unified RGB Lighting & Chroma Effects Studio (`strop_lighting.py`, `/usr/bin/strop-lighting`, `lighting.sh`, `strop_core/lighting.py`, `strop_core/lighting_widgets.py`) with a 60 FPS render engine, 16 lighting presets, interactive Cairo HSV color wheel + SV square, multi-stop gradient editor, global master synchronization, and 2D vector zone mapping across Keyboards, Keypads, Mice, and Controllers.

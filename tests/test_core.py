@@ -269,16 +269,40 @@ class TestStropDeviceUtils(unittest.TestCase):
 
         nodes = {}
         for index, model in enumerate(("Naga Trinity", "BlackWidow V3", "Tartarus Pro")):
-            for forwarded in (True, False):
-                path = f"/dev/input/event{index * 2 + int(forwarded)}"
-                raw = f"Razer Razer {model}"
-                name = f"input-remapper {raw} forwarded" if forwarded else raw
-                node = Mock(name=name)
-                node.name = name
-                node.path = path
-                node.info = SimpleNamespace(vendor=0x1532)
-                node.capabilities.return_value = {1: [30, 31]}
-                nodes[path] = node
+            # Test physical device, legacy input-remapper forwarded device, and 2.2.1+ forwarded device
+            raw = f"Razer Razer {model}"
+            
+            # 1. Physical device
+            phys_path = f"/dev/input/event{index * 3}"
+            phys_node = Mock(name=raw)
+            phys_node.name = raw
+            phys_node.phys = f"usb-0000:03:00.0-1/input{index}"
+            phys_node.path = phys_path
+            phys_node.info = SimpleNamespace(vendor=0x1532)
+            phys_node.capabilities.return_value = {1: [30, 31]}
+            nodes[phys_path] = phys_node
+
+            # 2. Legacy input-remapper forwarded device (name starts with input-remapper)
+            leg_path = f"/dev/input/event{index * 3 + 1}"
+            leg_name = f"input-remapper {raw} forwarded"
+            leg_node = Mock(name=leg_name)
+            leg_node.name = leg_name
+            leg_node.phys = ""
+            leg_node.path = leg_path
+            leg_node.info = SimpleNamespace(vendor=0x1532)
+            leg_node.capabilities.return_value = {1: [30, 31]}
+            nodes[leg_path] = leg_node
+
+            # 3. input-remapper 2.2.1+ forwarded device (same raw name, but phys starts with input-remapper)
+            mod_path = f"/dev/input/event{index * 3 + 2}"
+            mod_node = Mock(name=raw)
+            mod_node.name = raw
+            mod_node.phys = f"input-remapper/usb-0000:03:00.0-1/input{index}"
+            mod_node.path = mod_path
+            mod_node.info = SimpleNamespace(vendor=0x1532)
+            mod_node.capabilities.return_value = {1: [30, 31]}
+            nodes[mod_path] = mod_node
+
         evdev = SimpleNamespace(list_devices=lambda: list(nodes),
                                 InputDevice=nodes.__getitem__, ecodes=SimpleNamespace(EV_KEY=1))
         with patch.dict("sys.modules", {"evdev": evdev}):
@@ -309,12 +333,30 @@ class TestStropDeviceUtils(unittest.TestCase):
 
     def test_is_razer_device(self):
         self.assertFalse(is_razer_device("input-remapper Razer Razer Naga Trinity forwarded", vendor_id=0x1532))
+        self.assertFalse(is_razer_device("Razer Razer Naga Trinity", vendor_id=0x1532, phys="input-remapper/usb-0000:03:00.0-1/input2"))
         self.assertFalse(is_razer_device("input-remapper keyboard"))
-        self.assertTrue(is_razer_device("Some Keyboard", vendor_id=0x1532))
+        self.assertTrue(is_razer_device("Some Keyboard", vendor_id=0x1532, phys="usb-0000:03:00.0-1/input0"))
         self.assertTrue(is_razer_device("Razer Tartarus Pro", vendor_id=None))
         self.assertTrue(is_razer_device("Razer BlackWidow V3", vendor_id=None))
         self.assertFalse(is_razer_device(None, vendor_id=None))
         self.assertFalse(is_razer_device("", vendor_id=None))
+
+    def test_xdg_config_home_resolution(self):
+        from strop_core.presets import get_config_base, get_strop_config_dir, get_presets_base_dir
+        from strop_core.macros import get_macros_file_path
+        from strop_core.dpi import get_mouse_settings_file
+        from strop_core.lighting import get_lighting_settings_path
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp_xdg:
+            with patch.dict("os.environ", {"XDG_CONFIG_HOME": tmp_xdg}):
+                base = get_config_base()
+                self.assertEqual(base, Path(tmp_xdg))
+                self.assertEqual(get_strop_config_dir(), Path(tmp_xdg) / "strop")
+                self.assertEqual(get_presets_base_dir(), Path(tmp_xdg) / "input-remapper-2" / "presets")
+                self.assertEqual(get_macros_file_path(), Path(tmp_xdg) / "strop" / "macros.json")
+                self.assertEqual(get_mouse_settings_file(), Path(tmp_xdg) / "strop" / "mouse_settings.json")
+                self.assertEqual(get_lighting_settings_path(), Path(tmp_xdg) / "strop" / "lighting_settings.json")
 
 
 class TestStropGamepadParsing(unittest.TestCase):

@@ -207,11 +207,15 @@ def _read_sysfs_side_plate(pid: Optional[int] = None) -> Optional[str]:
 
 def _find_existing_device_presets_dir(device_name: str) -> Optional[Path]:
     """Finds an existing input-remapper preset directory for device_name without creating folders."""
-    home = Path.home()
-    candidates = [
-        home / ".config" / "input-remapper-2" / "presets",
-        home / ".config" / "input-remapper" / "presets",
-    ]
+    from strop_core.presets import get_config_base
+    base_dirs = [get_config_base()]
+    home_base = Path.home() / ".config"
+    if home_base not in base_dirs:
+        base_dirs.append(home_base)
+    candidates = []
+    for base in base_dirs:
+        candidates.append(base / "input-remapper-2" / "presets")
+        candidates.append(base / "input-remapper" / "presets")
     clean_name = clean_device_display_name(device_name)
     model_norm = device_model_name(clean_name).lower().replace("_", " ").strip()
     for base in candidates:
@@ -233,27 +237,32 @@ def _find_existing_device_presets_dir(device_name: str) -> Optional[Path]:
 
 def _read_autoload_preset_name(device_name: str, raw_name: Optional[str] = None) -> Optional[str]:
     """Reads the autoloaded preset name for device_name from input-remapper config.json if present."""
-    home = Path.home()
+    from strop_core.presets import get_config_base
+    base_dirs = [get_config_base()]
+    home_base = Path.home() / ".config"
+    if home_base not in base_dirs:
+        base_dirs.append(home_base)
     clean_name = clean_device_display_name(device_name)
     model_norm = device_model_name(clean_name).lower().replace("_", " ").strip()
-    for cfg_rel in (".config/input-remapper-2/config.json", ".config/input-remapper/config.json"):
-        cfg_path = home / cfg_rel
-        if not cfg_path.is_file():
-            continue
-        try:
-            data = json.loads(cfg_path.read_text(encoding="utf-8"))
-            autoload = data.get("autoload", {}) if isinstance(data, dict) else {}
-            if not isinstance(autoload, dict):
+    for base in base_dirs:
+        for cfg_rel in ("input-remapper-2/config.json", "input-remapper/config.json"):
+            cfg_path = base / cfg_rel
+            if not cfg_path.is_file():
                 continue
-            for key in (raw_name, device_name, clean_name, f"Razer {clean_name}"):
-                if key and isinstance(autoload.get(key), str) and autoload[key].strip():
-                    return autoload[key].strip()
-            for k, v in autoload.items():
-                if isinstance(k, str) and isinstance(v, str) and v.strip():
-                    if device_model_name(k).lower().replace("_", " ").strip() == model_norm:
-                        return v.strip()
-        except Exception:
-            pass
+            try:
+                data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                autoload = data.get("autoload", {}) if isinstance(data, dict) else {}
+                if not isinstance(autoload, dict):
+                    continue
+                for key in (raw_name, device_name, clean_name, f"Razer {clean_name}"):
+                    if key and isinstance(autoload.get(key), str) and autoload[key].strip():
+                        return autoload[key].strip()
+                for k, v in autoload.items():
+                    if isinstance(k, str) and isinstance(v, str) and v.strip():
+                        if device_model_name(k).lower().replace("_", " ").strip() == model_norm:
+                            return v.strip()
+            except Exception:
+                pass
     return None
 
 
@@ -303,10 +312,15 @@ def _read_active_preset_side_plate(device_name: str, raw_name: Optional[str] = N
 
 
 def _read_saved_side_plate_setting(device_name: str) -> Optional[str]:
-    """Reads any persisted side_plate preference from ~/.config/strop/mouse_settings.json."""
-    fpath = Path.home() / ".config" / "strop" / "mouse_settings.json"
+    """Reads any persisted side_plate preference from mouse_settings.json."""
+    from strop_core.presets import get_strop_config_dir
+    fpath = get_strop_config_dir() / "mouse_settings.json"
     if not fpath.is_file():
-        return None
+        home_fpath = Path.home() / ".config" / "strop" / "mouse_settings.json"
+        if home_fpath.is_file():
+            fpath = home_fpath
+        else:
+            return None
     try:
         data = json.loads(fpath.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
@@ -432,10 +446,12 @@ def device_model_name(raw_name: str) -> str:
                   flags=re.IGNORECASE).strip() or "Device"
 
 
-def is_razer_device(device_name: Optional[str], vendor_id: Optional[int] = None) -> bool:
+def is_razer_device(device_name: Optional[str], vendor_id: Optional[int] = None, phys: Optional[str] = None) -> bool:
     """Checks if a device is a Razer peripheral by vendor ID (0x1532) or name matching."""
-    # uinput outputs can copy the physical device's name and vendor ID.
+    # uinput outputs can copy the physical device's name and vendor ID (input-remapper 2.2.1+).
     # They must never become remapping sources or supply origin hashes.
+    if isinstance(phys, str) and ("input-remapper" in phys.lower() or phys.strip().lower().startswith("input-remapper")):
+        return False
     if isinstance(device_name, str) and device_name.strip().lower().startswith("input-remapper"):
         return False
     if vendor_id == 0x1532:
@@ -488,7 +504,8 @@ def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[
             vendor = getattr(d.info, "vendor", None) if hasattr(d, "info") else None
             product = getattr(d.info, "product", None) if hasattr(d, "info") else None
             dev_name = d.name or ""
-            if is_razer_device(dev_name, vendor):
+            dev_phys = getattr(d, "phys", None) or ""
+            if is_razer_device(dev_name, vendor, phys=dev_phys):
                 cap_str = str(d.capabilities(absinfo=False))
                 dhash = calculate_origin_hash(cap_str, dev_name)
                 archetype = get_archetype_for_device(dev_name)

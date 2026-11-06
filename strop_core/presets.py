@@ -60,9 +60,17 @@ def _atomic_write_json(path: Path, data: Any) -> None:
         raise
 
 
+def get_config_base() -> Path:
+    """Returns the base configuration directory ($XDG_CONFIG_HOME or ~/.config)."""
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg and xdg.strip():
+        return Path(xdg.strip()).expanduser()
+    return Path.home() / ".config"
+
+
 def get_strop_config_dir() -> Path:
-    """Returns the base strop config directory (~/.config/strop)."""
-    p = Path.home() / ".config" / "strop"
+    """Returns the base strop config directory (~/.config/strop or $XDG_CONFIG_HOME/strop)."""
+    p = get_config_base() / "strop"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -177,9 +185,10 @@ def clear_active_profile(device_name: str) -> bool:
 
 
 def get_presets_base_dir() -> Path:
-    """Returns the base input-remapper-2 presets directory (~/.config/input-remapper-2/presets)."""
-    p1 = Path.home() / ".config" / "input-remapper-2" / "presets"
-    p2 = Path.home() / ".config" / "input-remapper" / "presets"
+    """Returns the base input-remapper-2 presets directory ($XDG_CONFIG_HOME or ~/.config)."""
+    base = get_config_base()
+    p1 = base / "input-remapper-2" / "presets"
+    p2 = base / "input-remapper" / "presets"
     if p1.exists():
         return p1
     if p2.exists():

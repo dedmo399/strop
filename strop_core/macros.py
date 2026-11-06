@@ -160,8 +160,9 @@ MACRO_TEMPLATES: List[Dict[str, Any]] = [
 
 
 def get_macros_file_path() -> Path:
-    """Returns path to user custom macros storage (~/.config/strop/macros.json)."""
-    p = Path.home() / ".config" / "strop" / "macros.json"
+    """Returns path to user custom macros storage (~/.config/strop/macros.json or $XDG_CONFIG_HOME/strop/macros.json)."""
+    from strop_core.presets import get_strop_config_dir
+    p = get_strop_config_dir() / "macros.json"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 

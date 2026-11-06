@@ -1792,8 +1792,8 @@ class LightingStudioController:
 # Persistence for Lighting Studio Settings & User Swatches
 # ---------------------------------------------------------------------------
 def get_lighting_settings_path() -> Path:
-    config_root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return config_root / "strop" / "lighting_settings.json"
+    from strop_core.presets import get_strop_config_dir
+    return get_strop_config_dir() / "lighting_settings.json"
 
 
 def save_lighting_settings(controller: LightingStudioController, path: Optional[Path] = None) -> bool:
