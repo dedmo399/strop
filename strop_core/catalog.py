@@ -199,8 +199,8 @@ RAZER_DEVICE_CATALOG: List[Dict[str, Any]] = [
         "pid": "0xa24",
         "pid_int": 2596,
         "category": "keyboard",
-        "archetype": "KEYBOARD_FULL",
-        "description": "Full-Size 104/108-Key Mechanical Keyboard with Media Cluster"
+        "archetype": "KEYBOARD_TKL",
+        "description": "Tenkeyless (TKL) 87-Key Tournament Keyboard"
     },
     {
         "name": "RazerBlackWidowV4",
@@ -2183,14 +2183,14 @@ def get_device_by_pid(pid: int) -> Optional[Dict[str, Any]]:
 
 def get_archetype_for_device(device_name: str) -> str:
     """Resolves the appropriate hardware layout archetype for any device name."""
+    # 1. Exact or normalized catalog lookup takes precedence
+    dev = get_device_by_name(device_name)
+    if dev:
+        return dev["archetype"]
+
     nl = (device_name or "").lower()
 
-    # If the user explicitly requested a specific variant (e.g. TKL, Hex, Mini),
-    # prioritize the explicit qualifier before falling back to base model match.
-    if "tkl" in nl or "tournament" in nl or "tenkeyless" in nl:
-        return KEYBOARD_TKL
-    if "mini" in nl or " 60" in nl or "60%" in nl:
-        return KEYBOARD_60
+    # 2. Heuristics for unknown devices or user-specified variants
     if "naga hex" in nl or "trinity hex" in nl or "hex v2" in nl or "hex" in nl:
         return MOUSE_NAGA_HEX
     if "tartarus" in nl:
@@ -2200,20 +2200,21 @@ def get_archetype_for_device(device_name: str) -> str:
     if "nostromo" in nl:
         return KEYPAD_NOSTROMO
 
-    dev = get_device_by_name(device_name)
-    if dev:
-        return dev["archetype"]
-    
-    # Heuristic fallback if unknown device
+    # Check mice before keyboards so mouse models with "mini" (e.g. Viper Mini, DeathAdder V2 Mini)
+    # resolve to mouse archetypes rather than compact 60% keyboards.
     if "naga" in nl:
         return MOUSE_NAGA_MMO
     if "basilisk" in nl:
         return MOUSE_BASILISK_FPS
     if "viper" in nl or "ouroboros" in nl or "taipan" in nl or "lancehead" in nl:
         return MOUSE_AMBI
-    if "mouse" in nl or "deathadder" in nl or "mamba" in nl or "cobra" in nl or "abyssus" in nl or "orochi" in nl:
+    if "mouse" in nl or "deathadder" in nl or "mamba" in nl or "cobra" in nl or "abyssus" in nl or "orochi" in nl or "pro click" in nl:
         return MOUSE_FPS
-    if "60" in nl:
+
+    # Keyboard variants
+    if "tkl" in nl or "tournament" in nl or "tenkeyless" in nl:
+        return KEYBOARD_TKL
+    if "mini" in nl or " 60" in nl or "60%" in nl or "60" in nl:
         return KEYBOARD_60
     if "blade" in nl:
         return KEYBOARD_BLADE
