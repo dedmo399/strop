@@ -22,9 +22,9 @@ Strop is designed from the ground up as a native GTK4 graphical studio and HUD l
 | **Strop 1.0** | v1.0.0 | **Completed** | Core remapping, input-remapper backend, preset validation, atomic writes, device HUD, Debian packaging. |
 | **Strop 1.1** | v1.1.x | **Completed** | Single-instance Hub, GTK4/D-Bus tray applet, multi-device HUD management, D-pad combo preservation. |
 | **Strop 1.2** | v1.2.x | **Completed** | Chroma RGB Lighting Studio (16 effects, Cairo HSV/gradient engine), OpenRazer Mouse DPI, D-Bus optimizations, input-remapper 2.2.1+ virtual device filter, and `$XDG_CONFIG_HOME` support. |
-| **Strop 1.3 / 1.4** | v1.3.0 → v1.4.0 | **Active Development** | **Phase 3: Infrastructure & Packaging Modernization.** Migrate D-Bus communication to `dasbus` to track input-remapper's architecture, eliminate deprecated `pydbus`, and stabilize into the v1.4.0 production release. |
-| **Strop 2.0** | v2.0.0 | **Accelerated** | **Phase 2: Roadmap Acceleration.** Tartarus Pro key-depth analog reading, dual-stage actuation, proportional gamepad outputs, axis response curves, and toggle macros. |
-| **Future Enhancements** | 2.x+ | **Planned** | Expanded OpenRazer device telemetry, community macro presets, multi-device profile autoswitching. |
+| **Strop 1.3 / 1.4** | v1.3.0 → v1.4.0 | **Active Development** | **Phase 3: Infrastructure & Packaging Modernization.** Migrate D-Bus communication to `dasbus` to track input-remapper's architecture, eliminate deprecated `pydbus`, integrate headless hardware emulation (`razer-emulator`) in CI, and stabilize into the v1.4.0 release. |
+| **Strop 2.0** | v2.0.0 | **Accelerated** | **Phase 2: Roadmap Acceleration.** Tartarus Pro key-depth analog reading (`open-tartarus-driver`, `tartarus-linux`), Huntsman analog input (`razer-analog`), dual-stage actuation, proportional gamepad outputs, and SOCD / Snap Tap neutralization (`doubletap`). |
+| **Strop 2.1+** | v2.1.0+ | **Planned** | **Phase 4: Telemetry & Advanced Hardware Controls.** Wireless battery telemetry & UPower integration (`basilisk-battery`, GNOME async tray), HyperScroll tension & profile backups (`RazerTux`), 8K HyperPolling (`evhz`), and multi-layer RGB compositing (`uchroma`). |
 
 ---
 
@@ -40,8 +40,9 @@ Following upstream `input-remapper`'s migration to `dasbus` ([PR #1201](https://
 - [ ] **Dependency & Packaging Modernization**:
   - Add `python3-dasbus` to Debian package dependencies (`build_deb.sh`) and CI test environments (`.github/workflows/ci.yml`).
   - Formally deprecate and remove `pydbus` imports across `strop_core` and `tests/`.
-- [ ] **D-Bus Test Suite Realignment**:
+- [ ] **D-Bus Test Suite Realignment & Headless Hardware Emulation**:
   - Update `tests/test_tray_dbus.py` and `tests/test_core.py` D-Bus mocks to align with `dasbus` proxy structures and event loop integration.
+  - Implement CI test fixtures modeled after [meeuw/razer-emulator](https://github.com/meeuw/razer-emulator) (utilizing Linux `dummy_hcd` / `libcomposite`) to run automated OpenRazer and input-remapper end-to-end integration tests without physical Razer peripherals.
 - [ ] **Stabilization & Release Gate (v1.4.0)**:
   - Validate daemon status polling, profile application, stop requests, and HUD synchronization under real desktop sessions on Ubuntu 26.04.
   - When all regression checks and live hardware validations pass cleanly, tag and release as **Strop 1.4.0**.
@@ -63,15 +64,16 @@ The reference hardware and platform scope:
 - **Platform**: Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4.
 - Full details in [docs/SUPPORT.md](docs/SUPPORT.md).
 
-### Priority 1: Tartarus Pro Key-Depth & Analog Input
+### Priority 1: Tartarus Pro & Optical Key-Depth Analog Input
 
 - [ ] **Protocol & Driver Research**:
-  - Review [tartarus-linux](https://github.com/ZidoDasZibro/tartarus-linux) (GPL-3.0-or-later Rust implementation) and [open-tartarus-driver](https://github.com/ultramonaka/open-tartarus-driver) for HID mode-3 unlock and report `0x06` individual key depth readings. Retain required licensing notices for reused code.
+  - Review [tartarus-linux](https://github.com/ZidoDasZibro/tartarus-linux) (GPL-3.0-or-later Rust implementation), [open-tartarus-driver](https://github.com/ultramonaka/open-tartarus-driver), and [OpenTartarus](https://github.com/moparmaniac412/OpenTartarus) for HID mode-3 unlock and report `0x06` individual key depth readings (`0x00`–`0xFF`). Retain required licensing notices for reused code.
+  - Review [meeuw/razer-analog](https://github.com/meeuw/razer-analog) for decoding optical analog key travel and virtual axis translations for Razer Huntsman Analog keyboards (Mini Analog, V2 Analog).
 - [ ] **Non-Blocking Depth Helper**:
   - Integrate or adapt a focused helper worker that streams key-depth measurements without blocking the GTK4 main loop.
   - Coordinate device interface access with `input-remapper` and OpenRazer to prevent command conflicts or duplicate event streams.
 - [ ] **Live Depth Visualization & Calibration**:
-  - Add real-time visual depth meters for each analog key in Keypad Studio.
+  - Add real-time visual depth meters for each analog key in Keypad Studio and Keyboard Studio.
   - Provide per-key actuation point calibration (minimum, resting deadzone, bottom-out).
 - [ ] **Dual-Stage Actuation & Hysteresis**:
   - Implement separate press/release thresholds per key to prevent switch chatter.
@@ -81,7 +83,7 @@ The reference hardware and platform scope:
   - Ensure standard digital input remains fully operational through `input-remapper` upon helper exit or stop.
   - Preserve standard digital profiles and store depth/actuation settings separately in `~/.config/strop/`.
 
-> **Milestone:** Strop displays reliable real-time depth values from the Tartarus Pro, provides configurable dual-stage triggers, and safely returns the device to standard operation when stopped.
+> **Milestone:** Strop displays reliable real-time depth values from the Tartarus Pro and Huntsman Analog devices, provides configurable dual-stage triggers, and safely returns devices to standard operation when stopped.
 
 ---
 
@@ -93,14 +95,15 @@ The reference hardware and platform scope:
 - [ ] **Proportional Stick & Throttle Output**:
   - Feed Tartarus Pro key-depth readings into proportional analog stick directions (`ABS_X`, `ABS_Y`) and analog triggers (`ABS_Z`, `ABS_RZ`).
   - Implement configurable response curves (linear, exponential, s-curve) and deadzones.
-- [ ] **Opposing Input & Neutralization Rules**:
-  - Enforce consistent behavior for simultaneous opposing directions (e.g. simultaneous left + right, forward + backward) with neutral resolution.
+- [ ] **Opposing Input & SOCD / Snap Tap Resolution**:
+  - Implement a configurable Simultaneous Opposing Cardinal Direction (SOCD) cleaner inspired by [zakack/doubletap](https://github.com/zakack/doubletap) directly in the input pipeline.
+  - Support modes: Neutral Cancellation (Left + Right = None), Last-Input-Prioritized (Razer "Snap Tap" behavior for rapid A/D counter-strafing), and First-Input-Prioritized.
   - Ensure immediate neutralization of all axes and release of virtual buttons on profile change, pause, stop, or application exit.
 - [ ] **Studio Integration & Profile Persistence**:
   - Enable controller target controls in Keypad Studio as corresponding backend functionality is verified.
   - Guarantee round-trip serialization and preservation of controller mappings in native `input-remapper` preset files.
 
-> **Milestone:** Digital keys reliably actuate gamepad buttons, and Tartarus analog keys provide proportional analog movement or throttle in games through input-remapper.
+> **Milestone:** Digital keys reliably actuate gamepad buttons, Tartarus analog keys provide proportional analog movement or throttle in games through input-remapper, and SOCD/Snap Tap clean opposing cardinal directions.
 
 ---
 
@@ -111,6 +114,56 @@ The reference hardware and platform scope:
 - [ ] **Tartarus Depth Coordination**:
   - Coordinate Tartarus Pro depth streaming with OpenRazer lighting updates to prevent USB endpoint contention.
   - Save per-device depth calibration profiles in `~/.config/strop/` alongside mouse settings.
+
+---
+
+## 🔮 Future Development Cycle: Strop 2.1+ (Phase 4: Telemetry & Advanced Hardware Controls)
+
+Following the stabilization of analog depth and virtual controller mappings in Strop 2.0, the **Strop 2.1+** release cycle expands hardware telemetry, battery power management, advanced mouse controls, and multi-layer RGB compositing by integrating proven techniques from the broader Linux peripheral community:
+
+### 1. Wireless Battery Monitoring & Native Desktop Telemetry
+- [ ] **Asynchronous Battery & Charging Polling**:
+  - Implement non-blocking background polling for wireless mice and dongles inspired by [bl3xand/Razer-Battery-Indicator](https://github.com/bl3xand/Razer-Battery-Indicator-Gnome-Extension) and [HoroTW/RazerBatteryTray](https://github.com/HoroTW/RazerBatteryTray), ensuring sleeping wireless peripherals never block the GTK4 main loop.
+- [ ] **Linux UPower D-Bus Integration**:
+  - Adapt 2.4GHz receiver power telemetry techniques from [arkady-emelyanov/basilisk-battery](https://github.com/arkady-emelyanov/basilisk-battery) to bridge battery levels directly into standard Linux desktop power managers (GNOME/UPower) without requiring external daemons.
+- [ ] **Tray & HUD Battery Badges**:
+  - Display live battery percentages, charging animations, and configurable low-battery desktop notifications in the Strop GTK4 StatusNotifier tray applet, Hub, and in-game HUD overlays.
+
+### 2. Advanced Mouse Controls & HyperPolling
+- [ ] **HyperScroll Tension & Resistance Tuning**:
+  - Integrate scroll wheel mode switching (free-spin vs. tactile) and electronic resistance control for supported mice (Naga V2 Pro, Basilisk V3 Pro) utilizing control bytes researched by [anoraknophobia/RazerTux](https://github.com/anoraknophobia/RazerTux).
+- [ ] **Onboard Profile Backup & Recovery**:
+  - Add import, export, and backup tools for mouse hardware memory profiles using reverse-engineered formats documented in `RazerTux`.
+- [ ] **High Polling Rate (2K / 4K / 8KHz) & Latency Verification**:
+  - Expand `strop_core/dpi.py` supported polling rate table beyond 1000Hz for Razer HyperPolling Wireless Dongles and wired 8K mice (Viper 8KHz, DeathAdder V3 Pro).
+  - Implement an integrated real-time polling rate verification widget in Mouse Studio using low-overhead `evdev` timestamp delta tracking inspired by [evhz](https://gitlab.com/iankelling/evhz).
+
+### 3. Multi-Layer Chroma RGB Compositing
+- [ ] **Multi-Layer Lighting Engine**:
+  - Evolve Strop's Cairo lighting engine to support layered effect composition inspired by [hyperb1iss/uchroma](https://github.com/hyperbliss/uchroma) (e.g. stacking dynamic reactive keypress ripples or starlight on top of base breathing/gradient layers).
+- [ ] **Community Effect Presets**:
+  - Expand built-in procedural lighting effects with community routines from [codanaut/openrazer-effects](https://github.com/codanaut/openrazer-effects) and direct USB-HID controls from [open-razerkit](https://github.com/HamzaYslmn/open-razerkit).
+
+---
+
+## 📚 Community Reference Projects & Upstream Prior Art
+
+Strop acknowledges and draws technical guidance from the following open-source projects across the Linux peripheral and reverse-engineering ecosystem:
+
+| Project | Primary Capability | Intended Strop Touchpoint | Upstream License |
+|:---|:---|:---|:---|
+| **[meeuw/razer-emulator](https://github.com/meeuw/razer-emulator)** | Software USB emulation via `dummy_hcd` & `libcomposite` | Headless CI test fixtures for `.github/workflows/ci.yml` (v1.4) | GPL-3.0-or-later |
+| **[ultramonaka/open-tartarus-driver](https://github.com/ultramonaka/open-tartarus-driver)** | Tartarus Pro HID Mode 3 unlock & 0x06 depth report streaming | Keypad Studio real-time depth helper & dual-stage actuation (v2.0) | MIT |
+| **[moparmaniac412/OpenTartarus](https://github.com/moparmaniac412/OpenTartarus)** | Tartarus Pro Linux tray, analog stick mapping, and RGB controls | Analog key depth visualization and profile coordination (v2.0) | GPL-3.0-or-later |
+| **[meeuw/razer-analog](https://github.com/meeuw/razer-analog)** | Huntsman Mini/V2 optical analog switch capture & `uinput` mapping | Keyboard Studio continuous optical depth & joystick axes (v2.0) | GPL-3.0-or-later |
+| **[zakack/doubletap](https://github.com/zakack/doubletap)** | Low-latency Linux `evdev` SOCD cleaner / Snap Tap engine | Opposing input neutralization & Snap Tap mode in Macro Studio (v2.0) | GPL-3.0-or-later |
+| **[arkady-emelyanov/basilisk-battery](https://github.com/arkady-emelyanov/basilisk-battery)** | 2.4GHz receiver battery reporting to Linux `UPower` D-Bus | Native UPower desktop power integration & Hub telemetry (v2.1+) | MIT |
+| **[bl3xand/Razer-Battery-Indicator](https://github.com/bl3xand/Razer-Battery-Indicator-Gnome-Extension)** | Non-blocking async wireless battery polling for GNOME | Tray applet & HUD live wireless battery indicator badges (v2.1+) | GPL-3.0-or-later |
+| **[anoraknophobia/RazerTux](https://github.com/anoraknophobia/RazerTux)** | Naga V2 Pro HyperScroll tension, stages, and onboard backup | Mouse Studio electronic scroll wheel tuning & memory backups (v2.1+) | GPL-3.0-or-later |
+| **[evhz](https://gitlab.com/iankelling/evhz)** | Real-time USB polling rate measurement tool | Mouse Studio live polling rate verification widget (v2.1+) | GPL-3.0-or-later |
+| **[hyperb1iss/uchroma](https://github.com/hyperbliss/uchroma)** | Asyncio Chroma driver with multi-layer RGB framebuffer engine | Lighting Studio multi-layer effect compositing architecture (v2.1+) | GPL-3.0-or-later |
+| **[codanaut/openrazer-effects](https://github.com/codanaut/openrazer-effects)** | Community Python Chroma effect scripts and patterns | Procedural animation catalog expansion (v2.1+) | MIT |
+
 
 ---
 
