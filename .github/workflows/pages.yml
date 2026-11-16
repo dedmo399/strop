@@ -5,6 +5,8 @@ on:
     branches: [ main ]
     paths:
       - 'site/**'
+      - 'assets/**'
+      - 'docs/screenshots/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -26,6 +28,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Stage site assets
+        run: |
+          mkdir -p site/assets/icons site/assets/screenshots
+          cp assets/strop_icon.png site/assets/strop_icon.png
+          cp assets/icons/*.png site/assets/icons/
+          cp docs/screenshots/strop-suite.png site/assets/screenshots/strop-suite.png
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

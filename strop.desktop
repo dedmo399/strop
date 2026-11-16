@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=Strop
-Comment=Razer Linux Peripheral Studio & In-Game HUD
+GenericName=Razer Hardware Studio & HUD
+Comment=Unified Linux Peripheral Remap Studio & In-Game Overlay for Razer Devices
 Exec=strop
 Icon=strop
 Terminal=false

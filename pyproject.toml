@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "strop"
+dynamic = ["version"]
+description = "Unified Linux Peripheral Studio, RGB Lighting Suite & HUD for Razer Hardware"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.12"
+authors = [
+    { name = "Strop Contributors" }
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "strop_core.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["strop_core*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

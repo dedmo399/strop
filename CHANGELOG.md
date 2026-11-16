@@ -1,10 +1,17 @@
 # Changelog
 
-## 1.3.0 (development)
+## 1.3.0
 
-- Migrated the input-remapper D-Bus client from `pydbus` to `dasbus` (`DBusServiceIdentifier` proxy, millisecond timeouts, `DBusError` handling) with a cached, thread-safe bus connection that resets after D-Bus errors.
-- Strop now degrades to the `input-remapper-control` CLI path instead of raising if `dasbus` is unavailable.
-- Added `python3-dasbus` to Debian package dependencies and CI; CI artifact names now derive from the version in `build_deb.sh`.
+- Migrated the input-remapper D-Bus client from `pydbus` to `dasbus` (`DBusServiceIdentifier` proxy, millisecond timeouts, `DBusError` handling) with a cached, thread-safe system bus connection that resets after D-Bus errors.
+- Hardened D-Bus fallback handling so Strop degrades cleanly to the `input-remapper-control` CLI if `dasbus` is unavailable.
+- Added `python3-dasbus` to Debian package dependencies and CI workflows.
+
+## 1.2.2
+
+- Refined hardware catalog metadata (`strop_core/catalog.py`) and updated the architectural roadmap (`ROADMAP.md`) for the 1.3/1.4 and 2.0 cycles.
+- Added the GitHub Pages studio showcase (`site/`) and dynamic asset staging in `.github/workflows/pages.yml`, eliminating duplicate repository binaries and keeping the source release tarball compact (~2.2 MB).
+- Consolidated project metadata and test configuration in `pyproject.toml`, added `.gitattributes` and `.mailmap`, removed redundant root `.sh` wrapper scripts, and single-sourced `VERSION` and `strop.desktop` in `build_deb.sh`.
+- Hardened `.github/workflows/ci.yml` with explicit read permissions, concurrency cancellation, dynamic version extraction, and `input-remapper >= 2.2.0` compatibility checks.
 
 ## 1.2.1
 
