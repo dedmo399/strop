@@ -480,12 +480,22 @@ def _resolve_input_remapper_device(device_name: str, group_keys: List[str]) -> O
     return matches[0] if len(matches) == 1 else None
 
 
+def _get_input_remapper_proxy():
+    """Return a dasbus proxy for input-remapper's Control service."""
+    from dasbus.connection import SystemMessageBus
+    from dasbus.identifier import DBusServiceIdentifier
+
+    service = DBusServiceIdentifier(
+        namespace=("inputremapper", "Control"),
+        message_bus=SystemMessageBus(),
+    )
+    return service.get_proxy()
+
+
 def _get_input_remapper_state(group_key: str) -> str:
     """Read injector state from input-remapper's D-Bus API."""
-    from pydbus import SystemBus
-
-    daemon = SystemBus().get("inputremapper.Control")
-    raw_state = daemon.get_state(group_key, timeout=2)
+    daemon = _get_input_remapper_proxy()
+    raw_state = daemon.get_state(group_key, timeout=2000)
     state = getattr(raw_state, "value", raw_state)
     return str(state).upper().rsplit(".", 1)[-1]
 
@@ -521,10 +531,11 @@ def get_injection_state(device_name: str) -> str:
     unique_candidates = [c for c in candidates if not (c in seen or seen.add(c))]
 
     try:
-        from pydbus import SystemBus
-        daemon = SystemBus().get("inputremapper.Control")
+        from dasbus.error import DBusError
+
+        daemon = _get_input_remapper_proxy()
         for cand in unique_candidates:
-            raw_state = daemon.get_state(cand, timeout=1)
+            raw_state = daemon.get_state(cand, timeout=1000)
             state = getattr(raw_state, "value", raw_state)
             state_str = str(state).upper().rsplit(".", 1)[-1]
             if state_str == "RUNNING":
@@ -535,6 +546,8 @@ def get_injection_state(device_name: str) -> str:
                 return "failed"
             if state_str == "STOPPED":
                 return "stopped"
+    except DBusError:
+        pass
     except Exception:
         pass
 
@@ -724,9 +737,14 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
 
 def _is_dbus_daemon_active() -> bool:
     try:
-        from pydbus import SystemBus
-        bus = SystemBus()
-        return "inputremapper.Control" in bus.get("org.freedesktop.DBus").ListNames()
+        from dasbus.connection import SystemMessageBus
+        from dasbus.error import DBusError
+
+        bus = SystemMessageBus()
+        dbus_proxy = bus.get_proxy("org.freedesktop.DBus", "/org/freedesktop/DBus")
+        return "inputremapper.Control" in dbus_proxy.ListNames(timeout=1000)
+    except DBusError:
+        return False
     except Exception:
         return False
 

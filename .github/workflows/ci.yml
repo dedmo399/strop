@@ -12,7 +12,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest
+          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-pytest
       - name: Validate sources and desktop entry
         run: |
           python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_lighting.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py
@@ -58,7 +58,7 @@ jobs:
           sudo apt-get update
           # The preset loader imports gettext data supplied by input-remapper-gtk.
           # Install the complete backend, rather than only its Python module.
-          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest input-remapper xvfb xauth
+          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-pytest input-remapper xvfb xauth
       - name: Verify supported input-remapper version
         run: |
           backend_version=$(dpkg-query -W -f='${Version}' python3-inputremapper)
