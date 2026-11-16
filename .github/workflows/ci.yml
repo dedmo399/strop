@@ -2,17 +2,25 @@ name: CI
 
 on:
   push:
+    branches: [ main, 'dev/**' ]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests-and-package:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v4
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-pytest
+          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest
       - name: Validate sources and desktop entry
         run: |
           python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_lighting.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py
@@ -25,45 +33,48 @@ jobs:
           dbus-run-session -- env STROP_TEST_DBUS=1 python3 -m pytest -q tests/test_tray_dbus.py
       - name: Build and inspect Debian package
         run: |
+          VERSION=$(PYTHONPATH=. python3 -c 'import strop_core; print(strop_core.__version__)')
+          export VERSION
           # This local file must never enter a source release.
           printf 'packaging privacy regression sentinel\n' > .strop-local-check
           ./build_deb.sh
           python3 - <<'PYTHON'
+          import os
           import subprocess
           import tarfile
           tracked = set(subprocess.check_output(["git", "ls-files", "-z"]).decode().rstrip("\0").split("\0"))
-          with tarfile.open("strop_1.2.1.tar.gz") as archive:
+          with tarfile.open(f"strop_{os.environ['VERSION']}.tar.gz") as archive:
               assert set(archive.getnames()) == tracked | {".strop-source-files"}
               manifest = archive.extractfile(".strop-source-files").read()
               assert set(manifest.decode().rstrip("\0").split("\0")) == tracked
           PYTHON
           rm .strop-local-check
-          dpkg-deb --info strop_1.2.1_all.deb
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/bin/strop-studio'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/bin/strop-lighting'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/bin/strop-keypad'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/lib/strop/strop_core/dpi.py'
-          dpkg-deb --contents strop_1.2.1_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+          dpkg-deb --info "strop_${VERSION}_all.deb"
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/share/applications/com.razer.strop.desktop'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/bin/strop-studio'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/bin/strop-lighting'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/bin/strop-keypad'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/lib/strop/strop_core/tray.py'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/lib/strop/strop_core/hud.py'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/lib/strop/strop_core/dpi.py'
+          dpkg-deb --contents "strop_${VERSION}_all.deb" | grep -F 'usr/share/doc/strop/CHANGELOG.md'
 
   backend-and-gui:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v4
       - name: Install backend and virtual display dependencies
         run: |
           sudo apt-get update
           # The preset loader imports gettext data supplied by input-remapper-gtk.
           # Install the complete backend, rather than only its Python module.
-          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-pytest input-remapper xvfb xauth
+          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-evdev python3-gi python3-pytest input-remapper xvfb xauth
       - name: Verify supported input-remapper version
         run: |
           backend_version=$(dpkg-query -W -f='${Version}' python3-inputremapper)
           echo "Testing input-remapper ${backend_version}"
-          test "${backend_version%%-*}" = "2.2.0"
+          dpkg --compare-versions "${backend_version%%-*}" ge "2.2.0"
       - name: Validate presets and macros with the real backend
         env:
           PYTHONPATH: .

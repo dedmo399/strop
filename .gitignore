@@ -34,12 +34,22 @@ ENV/
 env.bak/
 venv.bak/
 
+# Test, lint, and coverage caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+
 # IDE & Editor files
 .vscode/
 .idea/
 *.swp
 *~
 
-# Debian packages
+# Generated release artifacts and staged Pages assets
 *.deb
 *.tar.gz
+SHA256SUMS
+.strop-local-check
+site/assets/

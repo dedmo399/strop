@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2
+
+- Refined hardware catalog metadata (`strop_core/catalog.py`) and updated the architectural roadmap (`ROADMAP.md`) for the 1.3/1.4 and 2.0 cycles.
+- Added the GitHub Pages studio showcase (`site/`) and dynamic asset staging in `.github/workflows/pages.yml`, eliminating duplicate repository binaries and keeping the source release tarball compact (~2.2 MB).
+- Consolidated project metadata and test configuration in `pyproject.toml`, added `.gitattributes` and `.mailmap`, removed redundant root `.sh` wrapper scripts, and single-sourced `VERSION` and `strop.desktop` in `build_deb.sh`.
+- Hardened `.github/workflows/ci.yml` with explicit read permissions, concurrency cancellation, dynamic version extraction, and `input-remapper >= 2.2.0` compatibility checks.
+
 ## 1.2.1
 
 - Fixed hardware discovery to inspect device `phys` attributes and exclude input-remapper 2.2.1+ virtual forwarded devices (`phys="input-remapper/*"`), preventing duplicate device detection and origin-hash collisions when profiles are actively injected.

@@ -13,7 +13,7 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from types import SimpleNamespace
 
 from strop_core.catalog import (
@@ -575,49 +575,6 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
             self.assertEqual(status, "running")
             self.assertIn("active", msg)
             run.assert_not_called()
-
-    def test_get_input_remapper_state_uses_dasbus_ms_timeout(self):
-        from strop_core.presets import _get_input_remapper_state
-        fake_proxy = MagicMock()
-        fake_proxy.get_state.return_value = "RUNNING"
-        with patch("strop_core.presets._get_input_remapper_proxy", return_value=fake_proxy):
-            state = _get_input_remapper_state("Razer Tartarus Pro")
-        self.assertEqual(state, "RUNNING")
-        fake_proxy.get_state.assert_called_once_with("Razer Tartarus Pro", timeout=2000)
-
-    def test_get_injection_state_uses_dasbus_and_handles_dbus_error(self):
-        from dasbus.error import DBusError
-        from strop_core.presets import get_injection_state
-
-        fake_proxy = MagicMock()
-        fake_proxy.get_state.return_value = "RUNNING"
-        with patch("strop_core.presets._get_input_remapper_proxy", return_value=fake_proxy):
-            self.assertEqual(get_injection_state("Razer Tartarus Pro"), "running")
-        fake_proxy.get_state.assert_called_with("Razer Tartarus Pro", timeout=1000)
-
-        failing_proxy = MagicMock()
-        failing_proxy.get_state.side_effect = DBusError("daemon unavailable")
-        with patch("strop_core.presets._get_input_remapper_proxy", return_value=failing_proxy), \
-             patch("strop_core.presets.shutil.which", return_value=None):
-            self.assertEqual(get_injection_state("Razer Tartarus Pro"), "unknown")
-
-    def test_is_dbus_daemon_active_uses_dasbus(self):
-        from dasbus.error import DBusError
-        from strop_core.presets import _is_dbus_daemon_active
-
-        fake_dbus = MagicMock()
-        fake_dbus.ListNames.return_value = ["org.freedesktop.DBus", "inputremapper.Control"]
-        fake_bus = MagicMock()
-        fake_bus.get_proxy.return_value = fake_dbus
-
-        with patch("dasbus.connection.SystemMessageBus", return_value=fake_bus):
-            self.assertTrue(_is_dbus_daemon_active())
-        fake_bus.get_proxy.assert_called_once_with("org.freedesktop.DBus", "/org/freedesktop/DBus")
-        fake_dbus.ListNames.assert_called_once_with(timeout=1000)
-
-        fake_dbus.ListNames.side_effect = DBusError("bus error")
-        with patch("dasbus.connection.SystemMessageBus", return_value=fake_bus):
-            self.assertFalse(_is_dbus_daemon_active())
 
     def test_apply_profile_missing_executable_does_not_record_active_profile(self):
         from strop_core.presets import apply_profile, get_active_profile

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="1.2.1"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+VERSION="$(PYTHONPATH="$SCRIPT_DIR" python3 -c 'import strop_core; print(strop_core.__version__)')"
 
 PKG_NAME="strop"
 ARCH="all"
@@ -104,19 +104,7 @@ chmod +x "${PKG_DIR}/usr/bin/strop-studio"
 
 
 # 4. Install Desktop File & App Icon
-cat << 'DESK_EOF' > "${PKG_DIR}/usr/share/applications/com.razer.strop.desktop"
-[Desktop Entry]
-Name=Strop
-GenericName=Razer Hardware Studio & HUD
-Comment=Unified Linux Peripheral Remap Studio & In-Game Overlay for Razer Devices
-Exec=strop
-Icon=strop
-Terminal=false
-Type=Application
-Categories=Utility;
-StartupNotify=true
-StartupWMClass=com.razer.strop
-DESK_EOF
+cp strop.desktop "${PKG_DIR}/usr/share/applications/com.razer.strop.desktop"
 
 
 
@@ -142,7 +130,7 @@ Priority: optional
 Architecture: ${ARCH}
 Installed-Size: ${INSTALLED_SIZE}
 Maintainer: Strop Contributors
-Depends: python3, python3-gi, python3-evdev, python3-dasbus, gir1.2-gtk-4.0
+Depends: python3, python3-gi, python3-evdev, gir1.2-gtk-4.0
 Recommends: input-remapper, openrazer-meta | openrazer-daemon
 Homepage: https://github.com/dedmo399/strop
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
