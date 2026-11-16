@@ -20,6 +20,16 @@ from strop_core.gamepad import parse_gamepad_button_output
 
 logger = get_logger("strop.presets")
 
+try:  # dasbus is a hard package dependency, but degrade cleanly if absent.
+    from dasbus.error import DBusError
+except ImportError:  # pragma: no cover - exercised via tests with a patched import
+    class DBusError(Exception):
+        """Placeholder used when dasbus is not installed."""
+
+_dbus_lock = threading.Lock()
+_dbus_bus = None
+_dbus_proxy = None
+
 
 @dataclass(frozen=True)
 class ProfileOperationResult:
@@ -480,22 +490,47 @@ def _resolve_input_remapper_device(device_name: str, group_keys: List[str]) -> O
     return matches[0] if len(matches) == 1 else None
 
 
-def _get_input_remapper_proxy():
-    """Return a dasbus proxy for input-remapper's Control service."""
-    from dasbus.connection import SystemMessageBus
-    from dasbus.identifier import DBusServiceIdentifier
+def _get_system_bus():
+    """Return a cached dasbus system bus connection (thread-safe)."""
+    global _dbus_bus
+    with _dbus_lock:
+        if _dbus_bus is None:
+            from dasbus.connection import SystemMessageBus
+            _dbus_bus = SystemMessageBus()
+        return _dbus_bus
 
-    service = DBusServiceIdentifier(
-        namespace=("inputremapper", "Control"),
-        message_bus=SystemMessageBus(),
-    )
-    return service.get_proxy()
+
+def _reset_dbus_cache() -> None:
+    """Drop cached bus/proxy so the next call reconnects (e.g. after DBusError)."""
+    global _dbus_bus, _dbus_proxy
+    with _dbus_lock:
+        _dbus_bus = None
+        _dbus_proxy = None
+
+
+def _get_input_remapper_proxy():
+    """Return a cached dasbus proxy for input-remapper's Control service."""
+    global _dbus_proxy
+    bus = _get_system_bus()
+    with _dbus_lock:
+        if _dbus_proxy is None:
+            from dasbus.identifier import DBusServiceIdentifier
+            service = DBusServiceIdentifier(
+                namespace=("inputremapper", "Control"),
+                message_bus=bus,
+            )
+            _dbus_proxy = service.get_proxy()
+        return _dbus_proxy
 
 
 def _get_input_remapper_state(group_key: str) -> str:
     """Read injector state from input-remapper's D-Bus API."""
-    daemon = _get_input_remapper_proxy()
-    raw_state = daemon.get_state(group_key, timeout=2000)
+    try:
+        daemon = _get_input_remapper_proxy()
+        raw_state = daemon.get_state(group_key, timeout=2000)
+    except DBusError:
+        _reset_dbus_cache()
+        raise
     state = getattr(raw_state, "value", raw_state)
     return str(state).upper().rsplit(".", 1)[-1]
 
@@ -531,11 +566,14 @@ def get_injection_state(device_name: str) -> str:
     unique_candidates = [c for c in candidates if not (c in seen or seen.add(c))]
 
     try:
-        from dasbus.error import DBusError
-
         daemon = _get_input_remapper_proxy()
         for cand in unique_candidates:
-            raw_state = daemon.get_state(cand, timeout=1000)
+            try:
+                raw_state = daemon.get_state(cand, timeout=1000)
+            except DBusError as exc:
+                logger.debug(f"input-remapper D-Bus state query failed for {cand!r}: {exc}")
+                _reset_dbus_cache()
+                break
             state = getattr(raw_state, "value", raw_state)
             state_str = str(state).upper().rsplit(".", 1)[-1]
             if state_str == "RUNNING":
@@ -546,10 +584,8 @@ def get_injection_state(device_name: str) -> str:
                 return "failed"
             if state_str == "STOPPED":
                 return "stopped"
-    except DBusError:
-        pass
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(f"input-remapper D-Bus unavailable ({type(exc).__name__}): {exc}")
 
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
@@ -737,13 +773,11 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
 
 def _is_dbus_daemon_active() -> bool:
     try:
-        from dasbus.connection import SystemMessageBus
-        from dasbus.error import DBusError
-
-        bus = SystemMessageBus()
+        bus = _get_system_bus()
         dbus_proxy = bus.get_proxy("org.freedesktop.DBus", "/org/freedesktop/DBus")
         return "inputremapper.Control" in dbus_proxy.ListNames(timeout=1000)
     except DBusError:
+        _reset_dbus_cache()
         return False
     except Exception:
         return False

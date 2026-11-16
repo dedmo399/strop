@@ -610,14 +610,51 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
         fake_bus = MagicMock()
         fake_bus.get_proxy.return_value = fake_dbus
 
-        with patch("dasbus.connection.SystemMessageBus", return_value=fake_bus):
+        with patch("strop_core.presets._get_system_bus", return_value=fake_bus):
             self.assertTrue(_is_dbus_daemon_active())
         fake_bus.get_proxy.assert_called_once_with("org.freedesktop.DBus", "/org/freedesktop/DBus")
         fake_dbus.ListNames.assert_called_once_with(timeout=1000)
 
         fake_dbus.ListNames.side_effect = DBusError("bus error")
-        with patch("dasbus.connection.SystemMessageBus", return_value=fake_bus):
+        with patch("strop_core.presets._get_system_bus", return_value=fake_bus):
             self.assertFalse(_is_dbus_daemon_active())
+
+    def test_missing_dasbus_degrades_without_raising(self):
+        import builtins
+        from strop_core import presets
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name.startswith("dasbus"):
+                raise ImportError("dasbus missing")
+            return real_import(name, *args, **kwargs)
+
+        presets._reset_dbus_cache()
+        with patch("builtins.__import__", side_effect=fake_import), \
+             patch("strop_core.presets.shutil.which", return_value=None):
+            self.assertFalse(presets._is_dbus_daemon_active())
+            self.assertEqual(presets.get_injection_state("Razer Tartarus Pro"), "unknown")
+        presets._reset_dbus_cache()
+
+    def test_dbus_proxy_is_cached_and_reset_on_dbus_error(self):
+        from dasbus.error import DBusError
+        from strop_core import presets
+
+        presets._reset_dbus_cache()
+        fake_bus = MagicMock()
+        with patch("dasbus.connection.SystemMessageBus", return_value=fake_bus) as bus_cls:
+            first = presets._get_input_remapper_proxy()
+            second = presets._get_input_remapper_proxy()
+            self.assertIs(first, second)
+            self.assertEqual(bus_cls.call_count, 1)
+
+            first.get_state.side_effect = DBusError("gone")
+            with self.assertRaises(DBusError):
+                presets._get_input_remapper_state("dev")
+            presets._get_input_remapper_proxy()
+            self.assertEqual(bus_cls.call_count, 2)
+        presets._reset_dbus_cache()
 
     def test_apply_profile_missing_executable_does_not_record_active_profile(self):
         from strop_core.presets import apply_profile, get_active_profile

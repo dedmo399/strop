@@ -25,28 +25,31 @@ jobs:
           dbus-run-session -- env STROP_TEST_DBUS=1 python3 -m pytest -q tests/test_tray_dbus.py
       - name: Build and inspect Debian package
         run: |
+          VERSION=$(sed -n 's/^VERSION="\(.*\)"/\1/p' build_deb.sh)
+          export VERSION
           # This local file must never enter a source release.
           printf 'packaging privacy regression sentinel\n' > .strop-local-check
           ./build_deb.sh
           python3 - <<'PYTHON'
+          import os
           import subprocess
           import tarfile
           tracked = set(subprocess.check_output(["git", "ls-files", "-z"]).decode().rstrip("\0").split("\0"))
-          with tarfile.open("strop_1.3.0.tar.gz") as archive:
+          with tarfile.open(f"strop_{os.environ['VERSION']}.tar.gz") as archive:
               assert set(archive.getnames()) == tracked | {".strop-source-files"}
               manifest = archive.extractfile(".strop-source-files").read()
               assert set(manifest.decode().rstrip("\0").split("\0")) == tracked
           PYTHON
           rm .strop-local-check
-          dpkg-deb --info strop_1.3.0_all.deb
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/bin/strop-studio'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/bin/strop-lighting'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/bin/strop-keypad'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/lib/strop/strop_core/dpi.py'
-          dpkg-deb --contents strop_1.3.0_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
+          dpkg-deb --info strop_${VERSION}_all.deb
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/share/applications/com.razer.strop.desktop'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/bin/strop-studio'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/bin/strop-lighting'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/bin/strop-keypad'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/lib/strop/strop_core/tray.py'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/lib/strop/strop_core/hud.py'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/lib/strop/strop_core/dpi.py'
+          dpkg-deb --contents strop_${VERSION}_all.deb | grep -F 'usr/share/doc/strop/CHANGELOG.md'
 
   backend-and-gui:
     runs-on: ubuntu-26.04

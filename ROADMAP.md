@@ -33,11 +33,11 @@ Strop is designed from the ground up as a native GTK4 graphical studio and HUD l
 Following upstream `input-remapper`'s migration to `dasbus` ([PR #1201](https://github.com/sezanzeb/input-remapper/pull/1201), [PR #1212](https://github.com/sezanzeb/input-remapper/pull/1212)), Strop begins an active modernization development cycle in version **1.3**. Because Linux distributions (Fedora, Debian, Ubuntu) are dropping unmaintained `pydbus`, Strop will replace its D-Bus client layer to maintain long-term packaging viability. Once verified and stable, this cycle will culminate in the **Strop 1.4.0** stable release.
 
 ### Modernization Objectives:
-- [ ] **Migrate D-Bus Client from `pydbus` to `dasbus`**:
+- [x] **Migrate D-Bus Client from `pydbus` to `dasbus`**:
   - Refactor daemon query mechanisms in `strop_core/presets.py` to use `dasbus.connection.SystemMessageBus` and proxy lookups (`DBusServiceIdentifier(namespace=("inputremapper", "Control"))`).
   - Update D-Bus timeout conventions to milliseconds matching input-remapper PR #1212.
   - Standardize error handling around `dasbus.error.DBusError`.
-- [ ] **Dependency & Packaging Modernization**:
+- [x] **Dependency & Packaging Modernization**:
   - Add `python3-dasbus` to Debian package dependencies (`build_deb.sh`) and CI test environments (`.github/workflows/ci.yml`).
   - Formally deprecate and remove `pydbus` imports across `strop_core` and `tests/`.
 - [ ] **D-Bus Test Suite Realignment & Headless Hardware Emulation**:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 (development)
+
+- Migrated the input-remapper D-Bus client from `pydbus` to `dasbus` (`DBusServiceIdentifier` proxy, millisecond timeouts, `DBusError` handling) with a cached, thread-safe bus connection that resets after D-Bus errors.
+- Strop now degrades to the `input-remapper-control` CLI path instead of raising if `dasbus` is unavailable.
+- Added `python3-dasbus` to Debian package dependencies and CI; CI artifact names now derive from the version in `build_deb.sh`.
+
 ## 1.2.1
 
 - Fixed hardware discovery to inspect device `phys` attributes and exclude input-remapper 2.2.1+ virtual forwarded devices (`phys="input-remapper/*"`), preventing duplicate device detection and origin-hash collisions when profiles are actively injected.
