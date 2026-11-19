@@ -2027,7 +2027,11 @@ class TestProjectReviewRegressionFixes(unittest.TestCase):
             _updating_editor=False,
         )
         fake_vis.entry_output = GuardEntry(fake_vis)
-        BaseStudioWindow._update_all_visuals(fake_vis)
+        # Widget construction segfaults without a display (headless CI), so stub the factories.
+        with patch.object(sb.Gtk, "Box", MagicMock()), \
+             patch.object(sb.Gtk, "Label", MagicMock()), \
+             patch.object(sb.Gtk, "Button", MagicMock()):
+            BaseStudioWindow._update_all_visuals(fake_vis)
         self.assertEqual(output_handler_saw_updating, [True])
         self.assertFalse(fake_vis._updating_editor)
 
@@ -2123,7 +2127,9 @@ class TestProjectReviewRegressionFixes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             macros_file = Path(temp_dir) / "macros.json"
             macros_file.write_text("", encoding="utf-8")  # 0-byte empty file
-            with patch.object(macros_mod, "get_macros_file_path", return_value=macros_file):
+            # Backend macro validation depends on the host keyboard layout (unavailable headless).
+            with patch.object(macros_mod, "get_macros_file_path", return_value=macros_file), \
+                 patch.object(macros_mod, "validate_macro_expression", return_value=None):
                 payload = {"title": "New Macro", "macro": "k(a)"}
                 self.assertTrue(macros_mod.save_or_update_macro(payload))
                 self.assertTrue(payload.get("id", "").startswith("macro_"))

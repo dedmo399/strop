@@ -105,7 +105,7 @@ jobs:
           useradd -m -s /bin/bash builder
           cp -a . /home/builder/strop
           chown -R builder:builder /home/builder/strop
-          su - builder -c "cd /home/builder/strop && ./build_arch.sh"
+          su - builder -c "git config --global --add safe.directory /home/builder/strop && cd /home/builder/strop && ./build_arch.sh"
           PKG="/home/builder/strop/strop-${VERSION}-1-any.pkg.tar.zst"
           namcap packaging/arch/PKGBUILD
           pacman -U --noconfirm "${PKG}"
