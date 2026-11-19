@@ -11,14 +11,15 @@ import re
 from typing import List, Dict, Optional, Any
 from strop_core.catalog import (
     get_device_by_name,
+    get_exact_or_contained_device_by_name,
     get_archetype_for_device,
     is_multi_plate_mouse,
     MOUSE_NAGA_MMO,
     MOUSE_NAGA_HEX,
-    MOUSE_BASILISK_FPS,
     MOUSE_FPS,
     MOUSE_AMBI,
 )
+from strop_core.models import DeviceInfo
 
 
 from strop_core.logger import get_logger
@@ -454,23 +455,26 @@ def is_razer_device(device_name: Optional[str], vendor_id: Optional[int] = None,
         return False
     if isinstance(device_name, str) and device_name.strip().lower().startswith("input-remapper"):
         return False
-    if vendor_id == 0x1532:
-        return True
+    if vendor_id is not None:
+        return vendor_id == 0x1532
     if not device_name or not isinstance(device_name, str):
         return False
     name_low = device_name.lower()
-    if "razer" in name_low or "tartarus" in name_low or "blackwidow" in name_low or "naga" in name_low or "orbweaver" in name_low or "nostromo" in name_low or "basilisk" in name_low or "deathadder" in name_low or "huntsman" in name_low or "viper" in name_low:
+    if any(tok in name_low for tok in (
+        "razer", "tartarus", "blackwidow", "naga", "orbweaver",
+        "nostromo", "basilisk", "deathadder", "huntsman", "viper",
+    )):
         return True
-    return bool(get_device_by_name(device_name))
+    return bool(get_exact_or_contained_device_by_name(device_name))
 
 
-def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[DeviceInfo]:
     """
     Scans all /dev/input/event* devices and returns unique connected Razer devices
     along with capability origin_hashes for all sub-interfaces.
     Properly handles device permissions and releases file descriptors.
     """
-    found_map = {}
+    found_map: Dict[str, DeviceInfo] = {}
     diagnostics = diagnostics if diagnostics is not None else []
     try:
         import evdev
@@ -506,14 +510,16 @@ def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[
             dev_name = d.name or ""
             dev_phys = getattr(d, "phys", None) or ""
             if is_razer_device(dev_name, vendor, phys=dev_phys):
-                cap_str = str(d.capabilities(absinfo=False))
+                caps_map = d.capabilities(absinfo=False)
+                cap_str = str(caps_map)
                 dhash = calculate_origin_hash(cap_str, dev_name)
                 archetype = get_archetype_for_device(dev_name)
                 clean_name = clean_device_display_name(dev_name)
                 if product is None:
                     cat_entry = get_device_by_name(clean_name)
                     product = cat_entry["pid_int"] if cat_entry else None
-                key_caps = d.capabilities().get(evdev.ecodes.EV_KEY, [])
+                key_caps = caps_map.get(evdev.ecodes.EV_KEY, [])
+                rel_caps = caps_map.get(getattr(evdev.ecodes, "EV_REL", 2), [])
                 num_keys = len(key_caps)
 
                 if clean_name not in found_map:
@@ -529,6 +535,7 @@ def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[
                         "num_keys": num_keys,
                         "all_hashes": {},
                         "key_to_hash": {},
+                        "rel_to_hash": {},
                         "detected": True,
                     }
 
@@ -538,6 +545,11 @@ def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[
                 for kc in key_caps:
                     if kc not in found_map[clean_name]["key_to_hash"] or (272 <= kc <= 285):
                         found_map[clean_name]["key_to_hash"][kc] = dhash
+
+                for rc in rel_caps:
+                    rel_code = rc[0] if isinstance(rc, tuple) else rc
+                    if isinstance(rel_code, int) and rel_code not in found_map[clean_name]["rel_to_hash"]:
+                        found_map[clean_name]["rel_to_hash"][rel_code] = dhash
 
                 # Set primary default hash to the main matrix / largest interface
                 if num_keys > found_map[clean_name].get("num_keys", 0):
@@ -586,7 +598,7 @@ def scan_all_connected_devices(diagnostics: Optional[List[str]] = None) -> List[
     return devices
 
 
-def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tartarus Pro") -> Dict[str, Any]:
+def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tartarus Pro") -> DeviceInfo:
     """
     Detects a specific connected Razer device based on name keyword filter or category archetype,
     collecting all sub-interface hashes and per-scancode hash associations.
@@ -614,7 +626,7 @@ def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tart
 
     # 3. Fallback to default metadata
     cat_entry = get_device_by_name(clean_def)
-    fallback = {
+    fallback: DeviceInfo = {
         "name": clean_def,
         "clean_name": device_model_name(clean_def),
         "raw_name": clean_def,
@@ -624,6 +636,7 @@ def detect_device(name_filter: str = "tartarus", default_name: str = "Razer Tart
         "product": cat_entry["pid_int"] if cat_entry else None,
         "all_hashes": {},
         "key_to_hash": {},
+        "rel_to_hash": {},
         "detected": False,
         "scan_diagnostics": diagnostics,
     }

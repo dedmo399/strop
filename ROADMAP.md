@@ -22,7 +22,7 @@ Strop is designed from the ground up as a native GTK4 graphical studio and HUD l
 | **Strop 1.0** | v1.0.0 | **Completed** | Core remapping, input-remapper backend, preset validation, atomic writes, device HUD, Debian packaging. |
 | **Strop 1.1** | v1.1.x | **Completed** | Single-instance Hub, GTK4/D-Bus tray applet, multi-device HUD management, D-pad combo preservation. |
 | **Strop 1.2** | v1.2.x | **Completed** | Chroma RGB Lighting Studio (16 effects, Cairo HSV/gradient engine), OpenRazer Mouse DPI, D-Bus optimizations, input-remapper 2.2.1+ virtual device filter, and `$XDG_CONFIG_HOME` support. |
-| **Strop 1.3 / 1.4** | v1.3.0 → v1.4.0 | **Active Development** | **Phase 3: Infrastructure, HUD & Cross-Distro Packaging.** Migrate D-Bus communication to `dasbus`, clean up and improve the in-game HUD overlay, package Strop for major Linux/GNOME distros (Fedora/RPM, Arch/PKGBUILD, Debian/Ubuntu), add containerized cross-distro test matrices for varying `input-remapper`/`openrazer` versions, integrate headless hardware emulation (`razer-emulator`) in CI, and stabilize into the v1.4.0 release. |
+| **Strop 1.3 / 1.4** | v1.3.0 → v1.4.0 | **Active Development** | **Phase 3: Infrastructure, HUD & Cross-Distro Packaging.** Migrate D-Bus communication to `dasbus`, clean up and improve the in-game HUD overlay, add **CachyOS** and **KDE Plasma** desktop support alongside GNOME, package Strop for major Linux distros (Arch/CachyOS `PKGBUILD`, Debian/Ubuntu `.deb`, Fedora/RPM), add containerized cross-distro test matrices for varying `input-remapper`/`openrazer` versions, integrate headless hardware emulation (`razer-emulator`) in CI, and stabilize into the v1.4.0 release. |
 | **Strop 2.0** | v2.0.0 | **Accelerated** | **Phase 2: Roadmap Acceleration.** Tartarus Pro key-depth analog reading (`open-tartarus-driver`, `tartarus-linux`), Huntsman analog input (`razer-analog`), dual-stage actuation, proportional gamepad outputs, and SOCD / Snap Tap neutralization (`doubletap`). |
 | **Strop 2.1+** | v2.1.0+ | **Planned** | **Phase 4: Telemetry & Advanced Hardware Controls.** Wireless battery telemetry & UPower integration (`basilisk-battery`, GNOME async tray), HyperScroll tension & profile backups (`RazerTux`), 8K HyperPolling (`evhz`), and multi-layer RGB compositing (`uchroma`). |
 
@@ -42,20 +42,21 @@ Following upstream `input-remapper`'s migration to `dasbus` ([PR #1201](https://
   - Formally deprecate and remove `pydbus` imports across `strop_core` and `tests/`.
 - [ ] **In-Game HUD Cleanup & Visual/UX Improvements**:
   - Audit and refactor `strop_hud.py` and `strop_core/hud.py` to clean up overlay layout rendering, key-cell proportions, typography, and CSS styling across Keypad, Keyboard, and Mouse views.
-  - Improve GNOME Wayland / X11 overlay ergonomics, including window placement persistence, scale/opacity tuning, click-through behavior, and live profile reload responsiveness.
-- [ ] **Multi-Distro Linux / GNOME Packaging**:
-  - Add native packaging definitions for major GNOME/Linux distributions alongside `build_deb.sh`:
-    - **Fedora / openSUSE**: RPM `.spec` file and COPR build automation.
-    - **Arch Linux**: `PKGBUILD` and `.SRCINFO` for AUR / `makepkg`.
-    - **Debian / Ubuntu**: Unified `.deb` package with FreeDesktop AppStream metadata (`com.razer.strop.metainfo.xml`).
+  - Improve GNOME and KDE Plasma Wayland / X11 overlay ergonomics, including window placement persistence, scale/opacity tuning, click-through behavior, and live profile reload responsiveness.
+- [ ] **Multi-Distro & Desktop Environment Support (GNOME & KDE Plasma)**:
+  - Expand official v1.4.0 target platforms to include **CachyOS / Arch Linux** and **KDE Plasma** (Wayland & X11 system tray, HUD stacking/pinning, and portal behavior) alongside Ubuntu / GNOME.
+  - Add native packaging definitions alongside `build_deb.sh`:
+    - [x] **Arch Linux / CachyOS**: `packaging/arch/PKGBUILD`, `.SRCINFO`, and `build_arch.sh` (`arch=('any')` `.pkg.tar.zst` with native and containerized `makepkg`).
+    - [ ] **Fedora / openSUSE**: RPM `.spec` file and COPR build automation.
+    - [ ] **Debian / Ubuntu**: Unified `.deb` package with FreeDesktop AppStream metadata (`com.razer.strop.metainfo.xml`).
 - [ ] **Cross-Distro Compatibility & Version-Matrix Testing**:
-  - Add a containerized test harness (Podman / Docker and CI matrix jobs across Ubuntu LTS/current, Fedora, Debian, and Arch) to validate Strop against differing distro-packaged versions of `input-remapper` (2.0.x, 2.1.x, 2.2.x+), `openrazer`, Python (3.11–3.14), and GTK4.
+  - Add a containerized test harness (Podman / Docker and CI matrix jobs across Ubuntu LTS/current, CachyOS/Arch, Fedora, and Debian) to validate Strop against differing distro-packaged versions of `input-remapper` (2.0.x, 2.1.x, 2.2.x+), `openrazer`, Python (3.11–3.14), and GTK4.
   - Add runtime version/capability detection and graceful compatibility shims for upstream differences in `input-remapper` preset schemas, D-Bus methods, and virtual device naming (`phys` / `input-remapper` suffix conventions).
 - [ ] **D-Bus Test Suite Realignment & Headless Hardware Emulation**:
   - Update `tests/test_tray_dbus.py` and `tests/test_core.py` D-Bus mocks to align with `dasbus` proxy structures and event loop integration.
   - Implement CI test fixtures modeled after [meeuw/razer-emulator](https://github.com/meeuw/razer-emulator) (utilizing Linux `dummy_hcd` / `libcomposite`) to run automated OpenRazer and input-remapper end-to-end integration tests without physical Razer peripherals.
 - [ ] **Stabilization & Release Gate (v1.4.0)**:
-  - Validate daemon status polling, profile application, stop requests, and HUD synchronization under real GNOME desktop sessions across target distributions.
+  - Validate daemon status polling, profile application, stop requests, tray integration, and HUD synchronization under real GNOME and KDE Plasma desktop sessions across Ubuntu and CachyOS/Arch.
   - When all regression checks and live hardware validations pass cleanly, tag and release as **Strop 1.4.0**.
 
 ---

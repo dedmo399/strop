@@ -424,6 +424,51 @@ window.hud-window {
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
+.color-swatch.swatch-green {
+    background-color: #22c55e;
+    border-color: #22c55e;
+}
+
+.color-swatch.swatch-red {
+    background-color: #ef4444;
+    border-color: #ef4444;
+}
+
+.color-swatch.swatch-blue {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.color-swatch.swatch-yellow {
+    background-color: #eab308;
+    border-color: #eab308;
+}
+
+.color-swatch.swatch-orange {
+    background-color: #f97316;
+    border-color: #f97316;
+}
+
+.color-swatch.swatch-purple {
+    background-color: #a855f7;
+    border-color: #a855f7;
+}
+
+.color-swatch.swatch-brown {
+    background-color: #854d0e;
+    border-color: #854d0e;
+}
+
+.color-swatch.swatch-white {
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+
+.color-swatch.swatch-black {
+    background-color: #000000;
+    border-color: #475569;
+}
+
 .color-swatch.active {
     border-color: #ffffff;
     border-width: 2px;

@@ -10,7 +10,8 @@ the current support scope.
 
 | Component | Purpose |
 | --- | --- |
-| Python 3, PyGObject, and GTK 4 | Application interface |
+| Python 3, PyGObject, PyCairo, and GTK 4 | Application interface and vector lighting canvas |
+| python-dasbus | System D-Bus communication with `input-remapper` |
 | python-evdev | Input device discovery and capture |
 | [input-remapper](https://github.com/sezanzeb/input-remapper) | Profile remapping and macro injection; current integration targets version 2.2.0 |
 | [OpenRazer](https://openrazer.github.io/) (optional) | Supported Chroma RGB lighting, mouse DPI stages, and polling-rate controls |
@@ -52,7 +53,7 @@ Profile remapping uses input-remapper independently of OpenRazer.
 - The tray uses Gio/D-Bus, without loading GTK3 into the GTK4 application. If the
   desktop tray host is unavailable, Strop keeps the Hub accessible and closing it
   exits the application.
-- Strop 1.2 does not expose digital-to-analog stick or trigger bindings. Expanded
+- Strop 1.3 does not expose digital-to-analog stick or trigger bindings. Expanded
   controller mappings and Tartarus key-depth access are planned for 2.0.
 - Lighting and other hardware controls depend on what OpenRazer exposes for each
   device.

@@ -143,3 +143,65 @@ def test_backend_check_does_not_hide_load_error():
 def test_device_ids_are_stable_distinct_and_normalized():
     assert hud_application_id("Razer Tartarus Pro") == hud_application_id("Razer Razer Tartarus Pro")
     assert hud_application_id("Razer Tartarus Pro") != hud_application_id("Razer Orbweaver")
+
+
+def test_hud_ev_rel_scroll_wheel_and_ev_abs_ignored(tmp_path):
+    hud = overlay()
+    path = tmp_path / "wheel_and_abs.json"
+    entries = [
+        # EV_ABS sharing numeric code 16 with grid-1-1 ('Q') must be ignored
+        {
+            "input_combination": [{"type": 3, "code": 16, "analog_threshold": 50}],
+            "target_uinput": "gamepad",
+            "output_symbol": "x",
+        },
+        {
+            "input_combination": [{"type": 2, "code": 8, "analog_threshold": 1}],
+            "target_uinput": "keyboard",
+            "output_symbol": "a",
+        },
+        {
+            "input_combination": [{"type": 2, "code": 8, "analog_threshold": -1}],
+            "target_uinput": "keyboard",
+            "output_symbol": "b",
+        },
+    ]
+    path.write_text(json.dumps(entries), encoding="utf-8")
+    hud._load_preset_file(path)
+
+    assert hud.state["grid-1-1"]["output"] == ""
+    assert hud.state["scrollUp"]["output"] == "a"
+    assert hud.state["scrollDown"]["output"] == "b"
+
+
+def test_hud_client_toggle_shows_when_running_and_hidden():
+    from unittest.mock import Mock
+    from strop_core.hud import HUDClient
+
+    client = HUDClient.__new__(HUDClient)
+    client.device_name = "Razer Tartarus Pro"
+    client.running = True
+    client.visible = False
+    client.group = Mock()
+    client.process = None
+    client.owned = False
+
+    with patch("strop_core.hud.launch_hud") as mock_launch:
+        client.toggle()
+
+    client.group.activate_action.assert_called_once_with("show", None)
+    mock_launch.assert_not_called()
+
+
+def test_hud_status_label_displays_compact_active_profile():
+    hud = overlay()
+    with patch("strop_hud.get_active_profile", return_value="warframe"):
+        hud._on_profile_state_checked("Razer Tartarus Pro", "running")
+        assert hud.lbl_profile_status.text == "Active: warframe"
+
+        hud._on_profile_state_checked("Razer Tartarus Pro", "stopped")
+        assert hud.lbl_profile_status.text == "Stopped"
+
+    with patch("strop_hud.get_active_profile", return_value=None):
+        hud._on_profile_state_checked("Razer Tartarus Pro", "running")
+        assert hud.lbl_profile_status.text == "Active"

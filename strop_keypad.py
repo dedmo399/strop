@@ -6,7 +6,6 @@ Powered by BaseStudioWindow.
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Ensure strop_core can be imported regardless of execution working directory
@@ -75,7 +74,7 @@ class KeypadMainWindow(BaseStudioWindow):
 
         # Scroll Wheel Up & Down
         for sdata in [SCROLL_UP_DATA, SCROLL_DOWN_DATA]:
-            self.state[sdata["id"]] = {
+            entry = {
                 "id": sdata["id"],
                 "name": sdata["name"],
                 "label": sdata["l"],
@@ -86,6 +85,11 @@ class KeypadMainWindow(BaseStudioWindow):
                 "output": "",
                 "target": "mouse"
             }
+            if "input_type" in sdata:
+                entry["input_type"] = sdata["input_type"]
+            if "analog_threshold" in sdata:
+                entry["analog_threshold"] = sdata["analog_threshold"]
+            self.state[sdata["id"]] = entry
 
         # Thumb Button
         self.state[THUMB_BTN_DATA["id"]] = {
@@ -126,6 +130,9 @@ class KeypadMainWindow(BaseStudioWindow):
             "output": "",
             "target": "keyboard"
         }
+
+    def _supports_hud(self) -> bool:
+        return True
 
     def _get_studio_title_markup(self) -> str:
         return "<span size='medium' weight='bold' color='#f8fafc'>STROP <span color='#22c55e'>Keypad Studio</span></span>"

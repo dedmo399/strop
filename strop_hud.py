@@ -26,7 +26,7 @@ if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 from strop_core.x11 import pin_window_on_top
-from strop_core.device import detect_device
+from strop_core.device import detect_device, device_model_name
 from strop_core.presets import (
     get_device_presets_dir, list_device_presets,
     get_active_profile, load_preset_file,
@@ -34,6 +34,10 @@ from strop_core.presets import (
 )
 from strop_core.gamepad import format_gamepad_button_output
 from strop_core.hud import binding_label, format_output, hud_application_id
+from strop_core.logger import get_logger
+from strop_core.theme import apply_theme
+
+logger = get_logger("strop.hud")
 
 
 
@@ -122,7 +126,16 @@ dropdown button {
 
 class KeypadHUDOverlay(Gtk.ApplicationWindow):
     def __init__(self, app, device_override=None):
-        super().__init__(application=app, title="Strop — Keypad HUD Overlay")
+        if device_override:
+            if isinstance(device_override, dict):
+                detected_device = device_override
+            else:
+                detected_device = detect_device(device_override, default_name=device_override)
+        else:
+            detected_device = detect_device("tartarus", default_name="Razer Tartarus Pro")
+
+        dev_name = detected_device.get("name", "Razer Tartarus Pro")
+        super().__init__(application=app, title=f"Strop — {device_model_name(dev_name)} HUD Overlay")
         self.add_css_class("hud-window")
         
         # Completely remove system titlebar for clean, unobtrusive glass overlay
@@ -137,16 +150,12 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.current_preset_name = ""
         self.preset_error = ""
         self.profile_operation_pending = False
+        self._destroyed = False
         self.opacity_levels = [0.88, 0.70, 0.50, 1.0]
         self.opacity_idx = 0
         self.is_collapsed = False
-        if device_override:
-            if isinstance(device_override, dict):
-                self.detected_device = device_override
-            else:
-                self.detected_device = detect_device(device_override, default_name=device_override)
-        else:
-            self.detected_device = detect_device("tartarus", default_name="Razer Tartarus Pro")
+        self.detected_device = detected_device
+        self.connect("destroy", self._on_window_destroyed)
 
         # Initialize State Definitions
         self._init_state()
@@ -162,8 +171,13 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         # Schedule always-on-top & upper-left pin right after display mapping
         GLib.timeout_add(150, self._apply_on_top_and_position)
 
+    def _on_window_destroyed(self, _window):
+        self._destroyed = True
+
     def _apply_on_top_and_position(self):
-        pin_window_on_top("Strop — Keypad HUD Overlay", x=12, y=12)
+        if getattr(self, "_destroyed", False):
+            return False
+        pin_window_on_top(self.get_title() or "Strop — Keypad HUD Overlay", x=12, y=12)
         return False  # Run once
 
 
@@ -210,6 +224,8 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             "name": SCROLL_UP_DATA["name"],
             "label": SCROLL_UP_DATA["l"],
             "code": SCROLL_UP_DATA["c"],
+            "input_type": SCROLL_UP_DATA.get("input_type", 2),
+            "analog_threshold": SCROLL_UP_DATA.get("analog_threshold", 1),
             "aliases": SCROLL_UP_DATA.get("aliases", []),
             "output": ""
         }
@@ -218,6 +234,8 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             "name": SCROLL_DOWN_DATA["name"],
             "label": SCROLL_DOWN_DATA["l"],
             "code": SCROLL_DOWN_DATA["c"],
+            "input_type": SCROLL_DOWN_DATA.get("input_type", 2),
+            "analog_threshold": SCROLL_DOWN_DATA.get("analog_threshold", -1),
             "aliases": SCROLL_DOWN_DATA.get("aliases", []),
             "output": ""
         }
@@ -238,9 +256,9 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         # -------------------------------------------------------------
         # 1. Minimalist Integrated Header (No System Titlebar)
         # -------------------------------------------------------------
+        header_handle = Gtk.WindowHandle()
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         header.add_css_class("hud-header")
-        header.set_cursor_from_name("grab")
 
         lbl_drag = Gtk.Label(label="⋮⋮ HUD")
         lbl_drag.add_css_class("drag-handle")
@@ -253,7 +271,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.preset_dropdown.set_hexpand(True)
         header.append(self.preset_dropdown)
 
-        self.lbl_profile_status = Gtk.Label(label="Injection state unknown")
+        self.lbl_profile_status = Gtk.Label(label="Checking…")
         self.lbl_profile_status.add_css_class("dim-text")
         header.append(self.lbl_profile_status)
 
@@ -298,12 +316,10 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         btn_close.connect("clicked", lambda w: self.close())
         header.append(btn_close)
 
-        # Enable dragging the window via the ultra-slim toolbar
-        self.drag_gesture = Gtk.GestureDrag.new()
-        self.drag_gesture.connect("drag-begin", self._on_toolbar_drag_begin)
-        header.add_controller(self.drag_gesture)
-
-        self.main_container.append(header)
+        # Gtk.WindowHandle enables dragging from non-interactive header areas
+        # without stealing clicks from buttons or dropdowns.
+        header_handle.set_child(header)
+        self.main_container.append(header_handle)
 
         # -------------------------------------------------------------
         # 2. Compact Visual Keypad Grid (Mirroring Physical Layout)
@@ -419,17 +435,38 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.body_box.set_visible(not self.is_collapsed)
         self.btn_collapse.set_label("▼" if self.is_collapsed else "▲")
 
-    def _on_toolbar_drag_begin(self, gesture, start_x, start_y):
-        surface = self.get_surface()
-        if surface and isinstance(surface, Gdk.Toplevel):
-            device = gesture.get_device()
-            surface.begin_move(device, 1, int(start_x), int(start_y), Gdk.CURRENT_TIME)
-
     def _format_display_text(self, output_str):
         return format_output(output_str)
 
 
     def _match_preset_key(self, code, name, combination=None):
+        input_type = combination[0].get("type", 1) if combination else 1
+        analog_threshold = (
+            combination[0].get("analog_threshold")
+            if combination and len(combination) == 1
+            else None
+        )
+        if input_type == 2:
+            if code is not None:
+                for kid, s in self.state.items():
+                    if (
+                        s.get("input_type") == 2
+                        and s.get("code") == code
+                        and s.get("analog_threshold") == analog_threshold
+                    ):
+                        return kid
+            if name:
+                clean_name = str(name).strip().lower().replace("_", " ").replace("-", " ")
+                for kid, s in self.state.items():
+                    if s.get("input_type") != 2:
+                        continue
+                    if s.get("name", "").lower() == clean_name or s.get("label", "").lower() == clean_name:
+                        return kid
+                    for a in s.get("aliases", []):
+                        if a.lower() == clean_name:
+                            return kid
+            return None
+
         if combination and len(combination) > 1:
             preset_codes = sorted(item.get("code") for item in combination)
             for direction, data in DPAD_DATA.items():
@@ -437,11 +474,13 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
                     return f"dpad-{direction}"
         if code is not None:
             for kid, s in self.state.items():
-                if s.get("code") == code:
+                if s.get("input_type", 1) == 1 and s.get("code") == code:
                     return kid
         if name:
             clean_name = str(name).strip().lower().replace("_", " ").replace("-", " ")
             for kid, s in self.state.items():
+                if s.get("input_type", 1) != 1:
+                    continue
                 if s.get("name", "").lower() == clean_name or s.get("label", "").lower() == clean_name:
                     return kid
                 for a in s.get("aliases", []):
@@ -451,7 +490,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
     def _scan_and_load_presets(self):
         dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
-        self.lbl_profile_status.set_text("Checking injection…")
+        self.lbl_profile_status.set_text("Checking…")
         check_profile_state_async(
             dev_name,
             lambda state, target=dev_name: self._on_profile_state_checked(target, state),
@@ -462,7 +501,13 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             self.available_presets = []
             self.current_preset_name = ""
             self.preset_error = ""
-            self.preset_dropdown.set_model(Gtk.StringList.new(["No Presets Found"]))
+            if hasattr(self, "preset_dropdown_handler_id") and self.preset_dropdown_handler_id:
+                self.preset_dropdown.handler_block(self.preset_dropdown_handler_id)
+            try:
+                self.preset_dropdown.set_model(Gtk.StringList.new(["No Presets Found"]))
+            finally:
+                if hasattr(self, "preset_dropdown_handler_id") and self.preset_dropdown_handler_id:
+                    self.preset_dropdown.handler_unblock(self.preset_dropdown_handler_id)
             self.btn_profile_apply.set_sensitive(False)
             self._reset_bindings()
             return
@@ -490,29 +535,34 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         self.current_preset_name = preset_names[active_idx]
         self._load_preset_file(preset_names[active_idx])
         if active_prof and not self.preset_error:
-            self.lbl_profile_status.set_text(f"Last Strop profile: {active_prof} · state checking")
+            self.lbl_profile_status.set_text(f"Active: {active_prof}")
 
     def _on_preset_selected(self, dropdown, param):
         selected_idx = dropdown.get_selected()
         if selected_idx < len(self.available_presets):
             preset_name = self.available_presets[selected_idx]
-            dev_name = self.detected_device.get("name", "Razer Tartarus Pro") if hasattr(self, "detected_device") and self.detected_device else "Razer Tartarus Pro"
             self.current_preset_name = preset_name
             self._load_preset_file(preset_name)
             if not self.preset_error:
-                self.lbl_profile_status.set_text(f"Selected: {preset_name} · not applied")
+                self.lbl_profile_status.set_text(f"Selected: {preset_name}")
 
     def _on_profile_state_checked(self, device_name: str, state: str):
+        if getattr(self, "_destroyed", False):
+            return
         current_device = self.detected_device.get("name", "Razer Tartarus Pro")
         if device_name != current_device:
             return
         last_profile = get_active_profile(device_name)
-        state_text = {
-            "running": "Injection running", "starting": "Injection starting",
-            "stopped": "Injection stopped", "failed": "Injection failed",
-        }.get(state, "Injection state unknown")
-        if last_profile:
-            state_text += f" · Last Strop: {last_profile}"
+        if state == "running":
+            state_text = f"Active: {last_profile}" if last_profile else "Active"
+        elif state == "starting":
+            state_text = f"Starting: {last_profile}" if last_profile else "Starting…"
+        elif state == "stopped":
+            state_text = "Stopped"
+        elif state == "failed":
+            state_text = "Failed"
+        else:
+            state_text = f"Active: {last_profile}" if last_profile else "Unknown"
         if self.preset_error:
             state_text += " · " + self.preset_error
         self.lbl_profile_status.set_text(state_text)
@@ -548,10 +598,17 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
         )
 
     def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
+        if getattr(self, "_destroyed", False):
+            return
         self._set_profile_controls_busy(False)
-        self.lbl_profile_status.set_text(result.message)
+        if operation == "apply" and result.status == "applied":
+            self.lbl_profile_status.set_text(f"Active: {preset_name}")
+        elif operation == "stop" and result.status == "stopped":
+            self.lbl_profile_status.set_text("Stopped")
+        else:
+            self.lbl_profile_status.set_text(result.message)
         if not result.success:
-            print(f"[HUD] {operation.title()} profile: {result.message}")
+            logger.warning(f"{operation.title()} profile failed: {result.message}")
 
 
     def _reset_bindings(self):
@@ -589,6 +646,18 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
                 if not isinstance(item, dict):
                     continue
                 input_comb = item["input_combination"]
+                is_key_combo = all(
+                    input_item.get("type") == 1 and input_item.get("analog_threshold") is None
+                    for input_item in input_comb
+                )
+                is_scroll_wheel = (
+                    len(input_comb) == 1
+                    and input_comb[0].get("type") == 2
+                    and input_comb[0].get("code") == 8
+                    and input_comb[0].get("analog_threshold") in (1, -1)
+                )
+                if not (is_key_combo or is_scroll_wheel):
+                    continue
                 code = input_comb[0]["code"]
                 out_sym = item.get("output_symbol", "")
                 name = item.get("name", "")
@@ -607,7 +676,7 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
             self._reset_bindings()
             self.preset_error = f"Could not read preset: {preset_spec}"
             self.lbl_profile_status.set_text(self.preset_error)
-            print(f"Error loading overlay preset {preset_spec}: {e}")
+            logger.warning(f"Error loading overlay preset {preset_spec}: {e}")
 
 
     def _update_all_visuals(self):
@@ -632,7 +701,6 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
 
 
 
-from strop_core.theme import apply_theme
 def on_startup(app):
     apply_theme(CSS_STYLE)
 
@@ -656,6 +724,7 @@ class HUDApplication(Gtk.Application):
         self.add_action(self.visible_action)
 
     def show_hud(self):
+        was_created = self.window is None
         if self.window is None:
             self.window = KeypadHUDOverlay(self, device_override=self.device_name)
             self.window.connect("notify::visible", self._visibility_changed)
@@ -663,6 +732,8 @@ class HUDApplication(Gtk.Application):
             self.hold()
             self.window.connect("close-request", self._close)
         self.window.present()
+        if not was_created:
+            GLib.timeout_add(150, self.window._apply_on_top_and_position)
         self.visible_action.set_state(GLib.Variant("b", True))
 
     def _visibility_changed(self, window, param):

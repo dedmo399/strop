@@ -6,7 +6,6 @@ Powered by BaseStudioWindow.
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Ensure strop_core can be imported regardless of execution working directory
@@ -14,7 +13,7 @@ script_dir = Path(__file__).resolve().parent
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
-from strop_core.device import detect_device, clean_device_display_name
+from strop_core.device import detect_device
 from strop_core.theme import apply_theme
 from strop_core.studio_base import BaseStudioWindow
 
@@ -30,7 +29,7 @@ from gi.repository import Gtk, GLib, Gio
 # ----------------------------------------------------------------------
 
 from strop_core.catalog import (
-    KEYBOARD_FULL, KEYBOARD_TKL, KEYBOARD_75, KEYBOARD_65, KEYBOARD_60, KEYBOARD_BLADE,
+    KEYBOARD_FULL, KEYBOARD_60,
     get_archetype_for_device
 )
 from strop_core.layouts.keyboard import (

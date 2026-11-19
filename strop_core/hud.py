@@ -94,6 +94,8 @@ class HUDClient:
     def toggle(self):
         if self.visible and self.group:
             self.group.activate_action("hide", None)
+        elif self.running and self.group:
+            self.group.activate_action("show", None)
         else:
             # Even before action discovery, application activation presents it.
             if not self.running:

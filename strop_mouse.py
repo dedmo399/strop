@@ -10,7 +10,6 @@ Powered by BaseStudioWindow.
 """
 
 import sys
-import os
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -20,14 +19,11 @@ if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 from strop_core.device import (
-    SIDE_PLATE_AMBI,
     SIDE_PLATE_FPS_2,
     SIDE_PLATE_HEX_7,
     SIDE_PLATE_METADATA,
-    SIDE_PLATE_MMO_12,
     apply_side_plate_to_device_info,
     detect_device,
-    detect_mouse_side_plate,
     detect_side_plate_from_preset_entries,
     detect_side_plate_from_state,
     scan_all_connected_devices,
@@ -48,11 +44,7 @@ from strop_core.studio_base import BaseStudioWindow
 from strop_core.catalog import (
     get_archetype_for_device,
     is_multi_plate_mouse,
-    MOUSE_NAGA_MMO,
     MOUSE_NAGA_HEX,
-    MOUSE_BASILISK_FPS,
-    MOUSE_FPS,
-    MOUSE_AMBI,
 )
 
 import gi
@@ -127,11 +119,16 @@ class RazerMouseStudioWindow(BaseStudioWindow):
 
     def _init_hardware_state(self):
         for item in COMMON_MOUSE_BUTTONS:
-            self.state[item["id"]] = {
+            entry = {
                 "id": item["id"], "name": item["name"], "label": item["l"],
                 "code": item["c"], "aliases": item.get("aliases", []),
                 "output": "", "target": "mouse"
             }
+            if "input_type" in item:
+                entry["input_type"] = item["input_type"]
+            if "analog_threshold" in item:
+                entry["analog_threshold"] = item["analog_threshold"]
+            self.state[item["id"]] = entry
         for row in NAGA_12_GRID:
             for item in row:
                 self.state[item["id"]] = {
@@ -400,6 +397,8 @@ class RazerMouseStudioWindow(BaseStudioWindow):
             or side_plate_for_archetype(self.archetype)
         )
         focused_plate = self._focus_detected_side_plate(detected_plate, focus_widget=True)
+        if hasattr(self, "_update_device_badge"):
+            self._update_device_badge()
         meta = SIDE_PLATE_METADATA.get(focused_plate, SIDE_PLATE_METADATA[SIDE_PLATE_FPS_2])
         if show_toast and hasattr(self, "toast"):
             self.toast.show_message(
@@ -803,8 +802,15 @@ class RazerMouseStudioWindow(BaseStudioWindow):
     def _apply_sensor_to_hardware(self, show_toast: bool = True):
         dev_name = self.detected_device.get("name", self.default_device_name)
         pid = self.detected_device.get("product")
-        res = get_dpi_engine().apply_sensor_settings(dev_name, self.sensor_settings, pid=pid)
-        self.sensor_caps = get_dpi_engine().discover_capabilities(dev_name, pid=pid)
+        engine = get_dpi_engine()
+        res = engine.apply_sensor_settings(dev_name, self.sensor_settings, pid=pid)
+        if getattr(self, "sensor_caps", None) and self.sensor_caps.available:
+            if res.dpi:
+                self.sensor_caps.current_dpi = res.dpi
+            if res.poll_rate:
+                self.sensor_caps.current_poll_rate = res.poll_rate
+        else:
+            self.sensor_caps = engine.discover_capabilities(dev_name, pid=pid)
         self._sync_sensor_widgets_from_state()
         if show_toast and hasattr(self, "toast"):
             self.toast.show_message(res.message, icon="🎯" if res.success else "⚠️")

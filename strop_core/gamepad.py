@@ -4,7 +4,7 @@ Provides standard Xbox 360 / Linux Gamepad event codes, axis mapping generators,
 and input-remapper-2 gamepad target serializers.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Optional
 import re
 
 EV_KEY = 1

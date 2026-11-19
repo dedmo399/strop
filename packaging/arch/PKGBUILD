@@ -1,0 +1,98 @@
+# Maintainer: Strop Contributors
+pkgname=strop
+pkgver=1.3.1
+pkgrel=1
+pkgdesc='Unified Linux Peripheral Studio & HUD for Razer Hardware'
+arch=('any')
+url='https://github.com/dedmo399/strop'
+license=('GPL-3.0-or-later')
+depends=(
+  'glib2'
+  'gtk4'
+  'hicolor-icon-theme'
+  'python'
+  'python-cairo'
+  'python-dasbus'
+  'python-evdev'
+  'python-gobject'
+)
+optdepends=(
+  'input-remapper: Remapping daemon and profile injection backend (AUR: input-remapper-git)'
+  'libx11: Always-on-top HUD overlay window pinning on X11/XWayland'
+  'openrazer-daemon: Razer hardware RGB lighting, DPI, and polling rate control'
+  'python-openrazer: Python client bindings for OpenRazer hardware control'
+)
+source=("${pkgname}_${pkgver}.tar.gz::https://github.com/dedmo399/strop/releases/download/v${pkgver}/${pkgname}_${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  local src_root="${srcdir}"
+  if [ -d "${srcdir}/${pkgname}-${pkgver}" ]; then
+    src_root="${srcdir}/${pkgname}-${pkgver}"
+  fi
+
+  install -dm755 "${pkgdir}/usr/lib/strop"
+  install -dm755 "${pkgdir}/usr/bin"
+  install -dm755 "${pkgdir}/usr/share/applications"
+  install -dm755 "${pkgdir}/usr/share/pixmaps"
+  install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
+  install -dm755 "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  # Application sources and assets
+  cp -a \
+    "${src_root}/strop.py" \
+    "${src_root}/strop_keypad.py" \
+    "${src_root}/strop_keyboard.py" \
+    "${src_root}/strop_mouse.py" \
+    "${src_root}/strop_hud.py" \
+    "${src_root}/strop_studio.py" \
+    "${src_root}/strop_macro.py" \
+    "${src_root}/strop_lighting.py" \
+    "${src_root}/strop_core" \
+    "${src_root}/assets" \
+    "${pkgdir}/usr/lib/strop/"
+
+  find "${pkgdir}/usr/lib/strop" -type d -name '__pycache__' -exec rm -rf {} +
+  find "${pkgdir}/usr/lib/strop" -type f -name '*.pyc' -delete
+  python -m compileall -q -d /usr/lib/strop "${pkgdir}/usr/lib/strop"
+
+  # Launcher wrappers in /usr/bin
+  local wrapper target
+  for entry in \
+    "strop:strop.py" \
+    "strop-keypad:strop_keypad.py" \
+    "strop-keyboard:strop_keyboard.py" \
+    "strop-mouse:strop_mouse.py" \
+    "strop-hud:strop_hud.py" \
+    "strop-macro:strop_macro.py" \
+    "strop-lighting:strop_lighting.py" \
+    "strop-studio:strop_studio.py"; do
+    wrapper="${entry%%:*}"
+    target="${entry##*:}"
+    cat <<BIN_EOF > "${pkgdir}/usr/bin/${wrapper}"
+#!/bin/sh
+exec python3 /usr/lib/strop/${target} "\$@"
+BIN_EOF
+    chmod 755 "${pkgdir}/usr/bin/${wrapper}"
+  done
+
+  # Desktop entry and icons
+  install -Dm644 "${src_root}/strop.desktop" "${pkgdir}/usr/share/applications/com.razer.strop.desktop"
+  install -Dm644 "${src_root}/assets/strop_icon.png" "${pkgdir}/usr/share/pixmaps/strop.png"
+  local sz
+  for sz in 16 24 32 48 64 128 256 512; do
+    install -Dm644 \
+      "${src_root}/assets/icons/strop_${sz}x${sz}.png" \
+      "${pkgdir}/usr/share/icons/hicolor/${sz}x${sz}/apps/strop.png"
+  done
+
+  # License and documentation
+  install -Dm644 "${src_root}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${src_root}/LICENSES.md" "${pkgdir}/usr/share/doc/${pkgname}/LICENSES.md"
+  install -Dm644 "${src_root}/README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 "${src_root}/CHANGELOG.md" "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
+  install -Dm644 "${src_root}/ROADMAP.md" "${pkgdir}/usr/share/doc/${pkgname}/ROADMAP.md"
+  if [ -d "${src_root}/docs" ]; then
+    cp -a "${src_root}/docs" "${pkgdir}/usr/share/doc/${pkgname}/"
+  fi
+}

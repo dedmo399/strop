@@ -20,10 +20,10 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-pytest
+          sudo apt-get install --yes dbus desktop-file-utils dpkg-dev gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-gi-cairo python3-pytest
       - name: Validate sources and desktop entry
         run: |
-          python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_lighting.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py
+          python3 -m py_compile strop.py strop_hud.py strop_keyboard.py strop_keypad.py strop_lighting.py strop_macro.py strop_mouse.py strop_studio.py strop_core/*.py strop_core/layouts/*.py tests/*.py
           desktop-file-validate strop.desktop
       - name: Run core tests
         env:
@@ -69,7 +69,7 @@ jobs:
           sudo apt-get update
           # The preset loader imports gettext data supplied by input-remapper-gtk.
           # Install the complete backend, rather than only its Python module.
-          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-pytest input-remapper xvfb xauth
+          sudo apt-get install --yes dbus gir1.2-gtk-4.0 python3-dasbus python3-evdev python3-gi python3-gi-cairo python3-pytest input-remapper xvfb xauth
       - name: Verify supported input-remapper version
         run: |
           backend_version=$(dpkg-query -W -f='${Version}' python3-inputremapper)
@@ -88,3 +88,30 @@ jobs:
           GSK_RENDERER: cairo
           GTK_A11Y: none
         run: dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m pytest -q tests/test_gui.py
+
+  arch-package:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Arch build and validation tools
+        run: |
+          pacman -Syu --noconfirm --needed git namcap python
+      - name: Build and verify Arch/CachyOS package
+        run: |
+          VERSION=$(PYTHONPATH=. python3 -c 'import strop_core; print(strop_core.__version__)')
+          useradd -m -s /bin/bash builder
+          cp -a . /home/builder/strop
+          chown -R builder:builder /home/builder/strop
+          su - builder -c "cd /home/builder/strop && ./build_arch.sh"
+          PKG="/home/builder/strop/strop-${VERSION}-1-any.pkg.tar.zst"
+          namcap packaging/arch/PKGBUILD
+          pacman -U --noconfirm "${PKG}"
+          namcap "${PKG}"
+          python3 -c "import sys; sys.path.insert(0, '/usr/lib/strop'); import strop_core, strop_core.x11, strop_core.presets, strop_core.lighting, strop_core.dpi; assert strop_core.__version__ == '${VERSION}'"
+          test -x /usr/bin/strop
+          test -x /usr/bin/strop-hud
+          test -x /usr/bin/strop-lighting
+          test -f /usr/share/applications/com.razer.strop.desktop

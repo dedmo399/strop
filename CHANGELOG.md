@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+- Added Arch Linux and CachyOS packaging support (`packaging/arch/PKGBUILD`, `packaging/arch/.SRCINFO`, `build_arch.sh` with native `makepkg` and Docker/Podman container build support, plus CI Arch package verification).
+- Fixed HUD overlay top toolbar controls (transparency, profile selector, apply/stop, refresh, collapse, close) by replacing the container-wide `Gtk.GestureDrag` grab with `Gtk.WindowHandle`, and shortened the HUD status badge to compact `Active: <profile>` / `Stopped` labels.
+- Hardened X11 window pinning (`ctypes` signatures, resource cleanup, strict title matching), `EV_REL` scroll-wheel mapping and round-trip isolation, non-Razer vendor filtering, modifier/combo recording, macro built-in save IDs, preset autoload sync, OpenRazer reconnect handling, and studio window lifecycle cleanup.
+
 ## 1.3.0
 
 - Migrated the input-remapper D-Bus client from `pydbus` to `dasbus` (`DBusServiceIdentifier` proxy, millisecond timeouts, `DBusError` handling) with a cached, thread-safe system bus connection that resets after D-Bus errors.

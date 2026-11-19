@@ -73,20 +73,24 @@ SCROLL_UP_DATA = {
     "id": "scrollUp",
     "name": "Scroll Wheel Up",
     "l": "Scr↑",
-    "c": None,
+    "c": 8,
+    "input_type": 2,
+    "analog_threshold": 1,
     "aliases": ["scroll up", "scroll_up", "wheel up"],
-    "verify": True,
-    "note": "Driver-dependent scancode; verify in input-remapper-gtk."
+    "verify": False,
+    "note": "Standard Linux EV_REL REL_WHEEL (+1) scroll up event."
 }
 
 SCROLL_DOWN_DATA = {
     "id": "scrollDown",
     "name": "Scroll Wheel Down",
     "l": "Scr↓",
-    "c": None,
+    "c": 8,
+    "input_type": 2,
+    "analog_threshold": -1,
     "aliases": ["scroll down", "scroll_down", "wheel down"],
-    "verify": True,
-    "note": "Driver-dependent scancode; verify in input-remapper-gtk."
+    "verify": False,
+    "note": "Standard Linux EV_REL REL_WHEEL (-1) scroll down event."
 }
 
 # Factory display labels are independent of physical key numbers and remaps.

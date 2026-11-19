@@ -19,7 +19,7 @@ import cairo
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, GLib, Gtk
+from gi.repository import Gtk
 
 from strop_core.lighting import (
     FACTORY_SWATCHES,

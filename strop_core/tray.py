@@ -253,7 +253,8 @@ class TrayService:
 
     def _handle_event(self, item_id, event):
         if event == "opened":
-            self.menu_open = True
+            if item_id == 0:
+                self.menu_open = True
         elif event == "closed":
             if item_id == 0:
                 self.menu_open = False
