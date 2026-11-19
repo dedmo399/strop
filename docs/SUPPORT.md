@@ -2,8 +2,16 @@
 
 Strop is a Linux application for configuring Razer peripherals through GTK,
 [input-remapper](https://github.com/sezanzeb/input-remapper), and optional
-[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration. The supported platforms are Ubuntu 26.04 LTS (GNOME on Wayland/X11) and KDE Plasma 6 (Wayland/X11, including CachyOS / Arch Linux) with Python 3.11–3.14 and GTK4. Other configurations may work but are outside
-the current support scope.
+[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration.
+
+### Supported Platforms (Ready Now in v1.3.2)
+
+- **Ubuntu / Debian (`.deb`)**: Ubuntu 24.04 LTS, 25.x, 26.04 LTS (including Kubuntu, Ubuntu MATE, Ubuntu Budgie, Ubuntu Cinnamon, Xubuntu), Linux Mint 22+, Pop!_OS 24.04+, and Debian 13 (Trixie) / Testing / Sid.
+- **Arch / CachyOS (`.pkg.tar.zst`)**: CachyOS, Arch Linux, EndeavourOS, Garuda Linux, and Manjaro.
+- **Desktop Environments**: GNOME (Wayland / X11), KDE Plasma 6 (Wayland / X11 with KWin HUD pinning & Breeze-GTK dark-theme integration), and XFCE / Cinnamon / MATE / LXQt (X11).
+- **Minimum Runtime**: Python 3.10+, GTK >= 4.10, `python-dasbus`, `python-evdev`, and `input-remapper >= 2.2.0`.
+
+Fedora 40+, openSUSE Tumbleweed, and NixOS also meet all runtime requirements and can run directly from the source tarball (`strop_1.3.2.tar.gz`) while native RPM/Nix packages are pending. Older LTS releases with GTK < 4.10 (such as Ubuntu 22.04 LTS or Debian 12) are outside the support scope.
 
 ## Requirements
 

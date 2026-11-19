@@ -43,12 +43,11 @@ Following upstream `input-remapper`'s migration to `dasbus` ([PR #1201](https://
 - [ ] **In-Game HUD Cleanup & Visual/UX Improvements**:
   - Audit and refactor `strop_hud.py` and `strop_core/hud.py` to clean up overlay layout rendering, key-cell proportions, typography, and CSS styling across Keypad, Keyboard, and Mouse views.
   - Improve GNOME and KDE Plasma Wayland / X11 overlay ergonomics, including window placement persistence, scale/opacity tuning, click-through behavior, and live profile reload responsiveness.
-- [ ] **Multi-Distro & Desktop Environment Support (GNOME & KDE Plasma)**:
-  - Expand official v1.4.0 target platforms to include **CachyOS / Arch Linux** and **KDE Plasma** (Wayland & X11 system tray, HUD stacking/pinning, and portal behavior) alongside Ubuntu / GNOME.
-  - Add native packaging definitions alongside `build_deb.sh`:
-    - [x] **Arch Linux / CachyOS**: `packaging/arch/PKGBUILD`, `.SRCINFO`, and `build_arch.sh` (`arch=('any')` `.pkg.tar.zst` with native and containerized `makepkg`).
-    - [ ] **Fedora / openSUSE**: RPM `.spec` file and COPR build automation.
-    - [ ] **Debian / Ubuntu**: Unified `.deb` package with FreeDesktop AppStream metadata (`com.razer.strop.metainfo.xml`).
+- [x] **Multi-Distro & Desktop Environment Support (GNOME & KDE Plasma)**:
+  - [x] Support **CachyOS / Arch Linux** and **KDE Plasma 6** (Wayland & X11 system tray, KWin D-Bus HUD pinning, Breeze-GTK dark-theme integration) alongside Ubuntu / GNOME.
+  - [x] **Arch Linux / CachyOS**: `packaging/arch/PKGBUILD`, `.SRCINFO`, and `build_arch.sh` (`arch=('any')` `.pkg.tar.zst` with native and containerized `makepkg`).
+  - [ ] **Fedora / openSUSE**: RPM `.spec` file and COPR build automation.
+  - [ ] **Debian / Ubuntu**: Unified `.deb` package with FreeDesktop AppStream metadata (`com.razer.strop.metainfo.xml`).
 - [ ] **Cross-Distro Compatibility & Version-Matrix Testing**:
   - Add a containerized test harness (Podman / Docker and CI matrix jobs across Ubuntu LTS/current, CachyOS/Arch, Fedora, and Debian) to validate Strop against differing distro-packaged versions of `input-remapper` (2.0.x, 2.1.x, 2.2.x+), `openrazer`, Python (3.11–3.14), and GTK4.
   - Add runtime version/capability detection and graceful compatibility shims for upstream differences in `input-remapper` preset schemas, D-Bus methods, and virtual device naming (`phys` / `input-remapper` suffix conventions).

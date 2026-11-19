@@ -139,7 +139,11 @@ Open dedicated studios for hardware-specific layouts and device controls:
 
 ## 📦 Installation & Packaging
 
-The official targets are Ubuntu 26.04 LTS (GNOME on Wayland/X11) and KDE Plasma 6 (Wayland/X11, including CachyOS / Arch Linux) with Python 3.11–3.14 and GTK4. Other distributions may work but are outside the current support matrix.
+**Ready Now (`v1.3.2`)**:
+- **Debian / Ubuntu (`.deb`)**: Ubuntu 24.04 LTS / 25.x / 26.04 LTS (GNOME, KDE/Kubuntu, Cinnamon, MATE, XFCE), Linux Mint 22+, Pop!_OS 24.04+, Debian 13 (Trixie)+.
+- **Arch / CachyOS (`.pkg.tar.zst`)**: CachyOS, Arch Linux, EndeavourOS, Garuda, Manjaro.
+- **Desktop Environments**: GNOME, KDE Plasma 6 (Wayland & X11), XFCE, Cinnamon, MATE, LXQt.
+- **From Source Tarball**: Fedora 40+, openSUSE Tumbleweed, and NixOS (requires Python 3.10+, GTK >= 4.10, `input-remapper >= 2.2.0`).
 
 ### Install Debian Package (.deb)
 
