@@ -17,11 +17,11 @@ ARCH_IMAGE="${STROP_ARCH_IMAGE:-archlinux:base-devel}"
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
 
-if command -v git >/dev/null 2>&1 && \
-    [ "$(git rev-parse --show-toplevel 2>/dev/null || true)" = "$SCRIPT_DIR" ]; then
-    git ls-files -z > "$SOURCE_MANIFEST"
-elif [ -f "${SCRIPT_DIR}/.strop-source-files" ]; then
+if [ -f "${SCRIPT_DIR}/.strop-source-files" ]; then
     cp "${SCRIPT_DIR}/.strop-source-files" "$SOURCE_MANIFEST"
+elif command -v git >/dev/null 2>&1 && \
+    [ "$(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 git rev-parse --show-toplevel 2>/dev/null || true)" = "$SCRIPT_DIR" ]; then
+    GIT_DISCOVERY_ACROSS_FILESYSTEM=1 git ls-files -z > "$SOURCE_MANIFEST"
 else
     echo "Cannot identify source files: use a Git checkout or a Strop source release." >&2
     exit 1

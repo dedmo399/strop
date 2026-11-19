@@ -100,14 +100,16 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed git namcap python
       - name: Build and verify Arch/CachyOS package
+        env:
+          GIT_DISCOVERY_ACROSS_FILESYSTEM: "1"
         run: |
           VERSION=$(PYTHONPATH=. python3 -c 'import strop_core; print(strop_core.__version__)')
-          git config --global --add safe.directory "$PWD"
+          git config --global --add safe.directory '*'
           git ls-files -z > .strop-source-files
           useradd -m -s /bin/bash builder
           cp -a . /home/builder/strop
           chown -R builder:builder /home/builder/strop
-          su - builder -c "git config --global --add safe.directory /home/builder/strop && cd /home/builder/strop && ./build_arch.sh"
+          su - builder -c "GIT_DISCOVERY_ACROSS_FILESYSTEM=1 git config --global --add safe.directory '*' && cd /home/builder/strop && GIT_DISCOVERY_ACROSS_FILESYSTEM=1 ./build_arch.sh"
           PKG="/home/builder/strop/strop-${VERSION}-1-any.pkg.tar.zst"
           namcap packaging/arch/PKGBUILD
           pacman -U --noconfirm "${PKG}"
