@@ -178,3 +178,40 @@ def test_tray_controller_initializes_daemon_status_and_avoids_stuck_checking():
         assert ctrl.daemon_status == ("running", "Ready")
         items = {item.key: item for item in ctrl.menu_items()}
         assert items["daemon"].label == "Remapping daemon: running"
+
+
+def test_tray_submenu_opened_does_not_block_layout_updates():
+    from strop_core.tray import TrayService
+
+    tray = TrayService.__new__(TrayService)
+    tray.closed = False
+    tray.menu = MenuModel()
+    tray.menu_open = False
+    tray.pending_layout_update = False
+    tray.connection = Mock()
+
+    tray.update([MenuItem("device_sub", "Device", children=[MenuItem("child", "Child")])])
+    tray.connection.emit_signal.reset_mock()
+
+    # Non-zero submenu 'opened' events must not suppress subsequent LayoutUpdated signals
+    submenu_id = tray.menu.ids["device_sub"]
+    assert submenu_id != 0
+    tray._handle_event(submenu_id, "opened")
+    assert not tray.menu_open
+
+    tray.update([MenuItem("device_sub", "Device", children=[MenuItem("child2", "Child 2")])])
+    emitted_signals = [call.args[3] for call in tray.connection.emit_signal.call_args_list]
+    assert "LayoutUpdated" in emitted_signals
+
+    # Root menu open (id == 0) still defers LayoutUpdated until closed
+    tray.connection.emit_signal.reset_mock()
+    tray._handle_event(0, "opened")
+    assert tray.menu_open
+    tray.update([MenuItem("device_sub", "Device", children=[MenuItem("child3", "Child 3")])])
+    assert tray.pending_layout_update
+    assert "LayoutUpdated" not in [call.args[3] for call in tray.connection.emit_signal.call_args_list]
+
+    tray._handle_event(0, "closed")
+    assert not tray.menu_open
+    assert not tray.pending_layout_update
+    assert "LayoutUpdated" in [call.args[3] for call in tray.connection.emit_signal.call_args_list]

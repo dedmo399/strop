@@ -9,7 +9,6 @@ Supports:
 """
 
 import sys
-import os
 import argparse
 from pathlib import Path
 
@@ -21,10 +20,8 @@ if str(script_dir) not in sys.path:
 from strop_core.catalog import (
     get_device_by_name, get_archetype_for_device,
     KEYPAD_TARTARUS, KEYPAD_ORBWEAVER, KEYPAD_NOSTROMO,
-    KEYBOARD_FULL, KEYBOARD_TKL, KEYBOARD_75, KEYBOARD_65, KEYBOARD_60, KEYBOARD_BLADE,
     MOUSE_NAGA_MMO, MOUSE_NAGA_HEX, MOUSE_BASILISK_FPS, MOUSE_FPS, MOUSE_AMBI
 )
-from strop_core.device import detect_device
 
 
 def launch_for_device(device_name: str):

@@ -8,7 +8,6 @@ saving and organizing custom macros in ~/.config/strop/macros.json.
 
 import sys
 import os
-import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -20,13 +19,13 @@ if str(script_dir) not in sys.path:
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gtk, Gdk, GLib, Gio, Pango
+from gi.repository import Gtk, GLib, Gio, Pango
 
 from strop_core.theme import apply_theme
 from strop_core.toast import StropToast
 from strop_core.macros import (
     load_all_macros, save_or_update_macro, delete_custom_macro,
-    build_macro_string, parse_macro_steps, parse_dsl_sequence, get_user_macros
+    build_macro_string, parse_macro_steps, parse_dsl_sequence
 )
 
 
@@ -195,7 +194,6 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         self.macros: List[Dict[str, Any]] = []
         self.selected_macro_id: Optional[str] = None
         self.current_steps: List[str] = []
-        self.is_recording = False
 
         self._build_ui()
         self._load_macros_and_select_first()
@@ -462,13 +460,17 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
 
     def _load_macros_and_select_id(self, target_id: str):
         self.macros = load_all_macros()
-        self._refresh_library_list()
-        for idx, m in enumerate(self.macros):
-            if m.get("id") == target_id:
-                row = self.library_list_box.get_row_at_index(idx)
-                if row:
-                    self.library_list_box.select_row(row)
+        filter_text = self.search_entry.get_text() if hasattr(self, "search_entry") else ""
+        self._refresh_library_list(filter_text)
+        idx = 0
+        while True:
+            row = self.library_list_box.get_row_at_index(idx)
+            if not row:
                 break
+            if getattr(row, "_macro_data", {}).get("id") == target_id:
+                self.library_list_box.select_row(row)
+                break
+            idx += 1
 
     def _refresh_library_list(self, filter_text=""):
         while True:
@@ -665,9 +667,14 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
             self.toast.show_message("Macro timeline cannot be empty!", icon="⚠️")
             return
 
+        is_builtin = any(m.get("id") == self.selected_macro_id and m.get("built_in") for m in self.macros)
+        target_id = (
+            f"macro_{os.urandom(4).hex()}"
+            if (is_builtin or not self.selected_macro_id)
+            else self.selected_macro_id
+        )
         macro_data = {
-            "id": (None if any(m.get("id") == self.selected_macro_id and m.get("built_in") for m in self.macros)
-                   else self.selected_macro_id or f"macro_{os.urandom(4).hex()}"),
+            "id": target_id,
             "title": title,
             "label": self.entry_badge.get_text().strip() or title,
             "category": self.entry_category.get_text().strip() or "Custom",
@@ -681,8 +688,7 @@ class StropMacroStudioWindow(Gtk.ApplicationWindow):
         success = save_or_update_macro(macro_data)
         if success:
             self.selected_macro_id = macro_data["id"]
-            self.macros = load_all_macros()
-            self._refresh_library_list(self.search_entry.get_text())
+            self._load_macros_and_select_id(macro_data["id"])
             self.btn_delete.set_sensitive(True)
             self.toast.show_message(f"Saved macro '{title}' to storage!", icon="💾")
         else:

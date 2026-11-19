@@ -13,7 +13,7 @@
   <meta property="og:description" content="Native GTK4 remap studios, 16 Chroma RGB lighting effects, mouse DPI & polling, dynamic Naga Trinity plate detection, and in-game HUD overlays on Linux.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://dedmo399.github.io/strop/">
-  <meta property="og:image" content="assets/screenshots/strop-suite.png">
+  <meta property="og:image" content="https://dedmo399.github.io/strop/assets/screenshots/strop-suite.png">
 
   <!-- Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/strop_32x32.png">
@@ -34,16 +34,18 @@
         <img src="assets/strop_icon.png" alt="" class="brand-logo" width="36" height="36">
         <span class="brand-text">
           Strop
-          <span class="version-badge">v1.2.2</span>
+          <span class="version-badge">v1.3.1</span>
         </span>
       </a>
 
-      <nav class="nav-links" aria-label="Main Navigation">
-        <li><a href="#showcase">Showcase</a></li>
-        <li><a href="#features">Studios</a></li>
-        <li><a href="#compatibility">Compatibility</a></li>
-        <li><a href="#quickstart">Quickstart</a></li>
-        <li><a href="https://github.com/dedmo399/strop/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">User Guide ↗</a></li>
+      <nav aria-label="Main Navigation">
+        <ul class="nav-links">
+          <li><a href="#showcase">Showcase</a></li>
+          <li><a href="#features">Studios</a></li>
+          <li><a href="#compatibility">Compatibility</a></li>
+          <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="https://github.com/dedmo399/strop/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noopener">User Guide ↗</a></li>
+        </ul>
       </nav>
 
       <div class="nav-cta">
@@ -75,13 +77,17 @@
         </p>
 
         <div class="hero-actions">
-          <a href="https://github.com/dedmo399/strop/releases/download/v1.2.2/strop_1.2.2_all.deb" class="btn btn-primary" download>
+          <a href="https://github.com/dedmo399/strop/releases/download/v1.3.1/strop_1.3.1_all.deb" class="btn btn-primary" download>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span>Download .deb (v1.2.2)</span>
+            <span>Download .deb (v1.3.1)</span>
+          </a>
+
+          <a href="https://github.com/dedmo399/strop/releases/download/v1.3.1/strop-1.3.1-1-any.pkg.tar.zst" class="btn btn-secondary" download>
+            <span>Download Arch/CachyOS (.pkg.tar.zst)</span>
           </a>
 
           <a href="https://github.com/dedmo399/strop" class="btn btn-secondary" target="_blank" rel="noopener">
@@ -93,7 +99,7 @@
         <div class="hero-install-box">
           <div class="hero-install-code">
             <span class="hero-install-prompt">$</span>
-            <code id="hero-cmd">sudo apt install ./strop_1.2.2_all.deb</code>
+            <code id="hero-cmd">sudo apt install ./strop_1.3.1_all.deb</code>
           </div>
           <button type="button" class="btn-copy" data-copy-target="hero-cmd" aria-label="Copy install command to clipboard">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -212,9 +218,9 @@
             </h3>
             <p class="feature-desc">Visual 20-key matrix configurator for Tartarus Pro, Tartarus V2, and fullsize keyboards like the BlackWidow V3 with digital media rollers.</p>
             <ul class="feature-list">
-              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 8-way thumb D-pad & analog stick emulation</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 8-way thumb D-pad & WASD mapping</li>
               <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Gamepad button mapping (South, East, Bumpers)</li>
-              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Live input capture and key swap mechanics</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Live physical keystroke combo capture</li>
             </ul>
           </article>
 
@@ -227,10 +233,10 @@
               Macro Studio
               <span class="feature-badge">Sequence Timeline</span>
             </h3>
-            <p class="feature-desc">Visual macro sequence timeline builder with live recording, millisecond delays, turbo repeat loops, and input-remapper parser syntax validation.</p>
+            <p class="feature-desc">Visual macro sequence timeline editor with expression wizard, millisecond delays, repeat loops, and input-remapper parser syntax validation.</p>
             <ul class="feature-list">
               <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Built-in gaming templates (Slide Attack, Dash)</li>
-              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Modifiers: wait(), key_down(), loop(xN)</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Modifiers: wait(), key_down(), repeat(N, ...)</li>
               <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Saved under ~/.config/strop/macros.json</li>
             </ul>
           </article>
@@ -246,9 +252,9 @@
             </h3>
             <p class="feature-desc">Frameless, semi-transparent floating heads-up display overlay showing active key mappings and gamepad badges directly over full-screen games.</p>
             <ul class="feature-list">
-              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Remembers position, opacity, & collapsed state</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Retains opacity & collapsed state while hidden</li>
               <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Color-coded badges for custom vs default binds</li>
-              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Standalone launcher via strop_hud.py</li>
+              <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Standalone launcher via strop-hud</li>
             </ul>
           </article>
         </div>
@@ -361,7 +367,7 @@
                 </td>
                 <td>Keypad</td>
                 <td><code class="code-pill">1532:022b</code></td>
-                <td><span class="status-badge status-supported">Supported</span></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
                 <td>
                   <div class="capability-tags">
                     <span class="cap-tag">20-Key Matrix</span>
@@ -399,7 +405,7 @@
                 </td>
                 <td>Mouse</td>
                 <td><code class="code-pill">1532:0085</code></td>
-                <td><span class="status-badge status-supported">Supported</span></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
                 <td>
                   <div class="capability-tags">
                     <span class="cap-tag">Hypershift Paddle</span>
@@ -419,7 +425,7 @@
                 </td>
                 <td>Mouse</td>
                 <td><code class="code-pill">1532:007b</code></td>
-                <td><span class="status-badge status-supported">Supported</span></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
                 <td>
                   <div class="capability-tags">
                     <span class="cap-tag">Side Buttons</span>
@@ -438,7 +444,7 @@
                 </td>
                 <td>Mouse</td>
                 <td><code class="code-pill">1532:0078</code></td>
-                <td><span class="status-badge status-supported">Supported</span></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
                 <td>
                   <div class="capability-tags">
                     <span class="cap-tag">Dual Side Buttons</span>
@@ -457,7 +463,7 @@
                 </td>
                 <td>Keyboard</td>
                 <td><code class="code-pill">1532:0226</code></td>
-                <td><span class="status-badge status-supported">Supported</span></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
                 <td>
                   <div class="capability-tags">
                     <span class="cap-tag">Opto-Mechanical Matrix</span>
@@ -476,7 +482,7 @@
                 </td>
                 <td>Keyboard</td>
                 <td><code class="code-pill">1532:021e</code></td>
-                <td><span class="status-badge status-supported">Supported</span></td>
+                <td><span class="status-badge status-catalog">Catalog Layout</span></td>
                 <td>
                   <div class="capability-tags">
                     <span class="cap-tag">Standard Matrix</span>
@@ -521,16 +527,19 @@
             <div class="guide-step">
               <div class="step-header">
                 <span class="step-num">1</span>
-                <h3 class="step-title">Install the Debian Package</h3>
+                <h3 class="step-title">Install the Package (.deb or Arch/CachyOS)</h3>
               </div>
-              <p class="step-desc">Download the latest release and install it via APT. System dependencies (Python 3.14, GTK4, PyGObject, python-evdev) will be resolved automatically.</p>
+              <p class="step-desc">Download the latest release and install it via APT (Ubuntu/Debian) or Pacman (Arch/CachyOS). System dependencies (Python, GTK4, PyGObject, python-evdev, dasbus) are resolved automatically.</p>
               <div class="code-block-wrapper">
                 <button type="button" class="btn-copy code-block-copy" data-copy-target="cmd-deb" aria-label="Copy installation command">
                   <span>Copy</span>
                 </button>
-                <pre><code id="cmd-deb"># Download and install the latest verified Debian package
+                <pre><code id="cmd-deb"># Ubuntu / Debian
 sudo apt update
-sudo apt install ./strop_1.2.2_all.deb</code></pre>
+sudo apt install ./strop_1.3.1_all.deb
+
+# Arch Linux / CachyOS
+sudo pacman -U ./strop-1.3.1-1-any.pkg.tar.zst</code></pre>
               </div>
             </div>
 
@@ -586,7 +595,7 @@ strop</code></pre>
                 <span class="step-num">2</span>
                 <h3 class="step-title">Open Studio & Remap Inputs</h3>
               </div>
-              <p class="step-desc">Click <strong>Launch Keypad Studio</strong> or <strong>Launch Mouse Studio</strong>. Click any key on the visual matrix to set custom keystrokes, gamepad triggers, or custom macros from your library.</p>
+              <p class="step-desc">Click <strong>Launch Keypad Studio</strong> or <strong>Launch Mouse Studio</strong>. Click any key on the visual matrix to set custom keystrokes, gamepad buttons, or custom macros from your library.</p>
             </div>
 
             <div class="guide-step">
@@ -609,11 +618,13 @@ strop</code></pre>
                 <span>Copy</span>
               </button>
               <pre><code id="cmd-cli-list">strop                 # Opens the central Hub and background system tray icon
-strop_hud.py          # Launches standalone In-Game HUD overlay for active device
-strop_lighting.py     # Launches standalone Chroma RGB Lighting Studio
-strop_macro.py        # Launches standalone Macro Studio sequence editor
-strop_keypad.py       # Launches standalone Keypad Studio matrix builder
-strop_mouse.py        # Launches standalone Mouse Studio with plate detection</code></pre>
+strop-hud             # Launches standalone In-Game HUD overlay for active device
+strop-lighting        # Launches standalone Chroma RGB Lighting Studio
+strop-macro           # Launches standalone Macro Studio sequence editor
+strop-keypad          # Launches standalone Keypad Studio matrix builder
+strop-keyboard        # Launches standalone Keyboard Studio matrix builder
+strop-mouse           # Launches standalone Mouse Studio with plate detection
+strop-studio          # Launches the studio matching --device="&lt;Name&gt;"</code></pre>
             </div>
           </div>
         </div>

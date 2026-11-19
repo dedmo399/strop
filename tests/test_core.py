@@ -13,7 +13,7 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
 
 from strop_core.catalog import (
@@ -575,6 +575,86 @@ class TestStropPresetSecurityAndState(unittest.TestCase):
             self.assertEqual(status, "running")
             self.assertIn("active", msg)
             run.assert_not_called()
+
+    def test_get_input_remapper_state_uses_dasbus_ms_timeout(self):
+        from strop_core.presets import _get_input_remapper_state
+        fake_proxy = MagicMock()
+        fake_proxy.get_state.return_value = "RUNNING"
+        with patch("strop_core.presets._get_input_remapper_proxy", return_value=fake_proxy):
+            state = _get_input_remapper_state("Razer Tartarus Pro")
+        self.assertEqual(state, "RUNNING")
+        fake_proxy.get_state.assert_called_once_with("Razer Tartarus Pro", timeout=2000)
+
+    def test_get_injection_state_uses_dasbus_and_handles_dbus_error(self):
+        from dasbus.error import DBusError
+        from strop_core.presets import get_injection_state
+
+        fake_proxy = MagicMock()
+        fake_proxy.get_state.return_value = "RUNNING"
+        with patch("strop_core.presets._get_input_remapper_proxy", return_value=fake_proxy):
+            self.assertEqual(get_injection_state("Razer Tartarus Pro"), "running")
+        fake_proxy.get_state.assert_called_with("Razer Tartarus Pro", timeout=1000)
+
+        failing_proxy = MagicMock()
+        failing_proxy.get_state.side_effect = DBusError("daemon unavailable")
+        with patch("strop_core.presets._get_input_remapper_proxy", return_value=failing_proxy), \
+             patch("strop_core.presets.shutil.which", return_value=None):
+            self.assertEqual(get_injection_state("Razer Tartarus Pro"), "unknown")
+
+    def test_is_dbus_daemon_active_uses_dasbus(self):
+        from dasbus.error import DBusError
+        from strop_core.presets import _is_dbus_daemon_active
+
+        fake_dbus = MagicMock()
+        fake_dbus.ListNames.return_value = ["org.freedesktop.DBus", "inputremapper.Control"]
+        fake_bus = MagicMock()
+        fake_bus.get_proxy.return_value = fake_dbus
+
+        with patch("strop_core.presets._get_system_bus", return_value=fake_bus):
+            self.assertTrue(_is_dbus_daemon_active())
+        fake_bus.get_proxy.assert_called_once_with("org.freedesktop.DBus", "/org/freedesktop/DBus")
+        fake_dbus.ListNames.assert_called_once_with(timeout=1000)
+
+        fake_dbus.ListNames.side_effect = DBusError("bus error")
+        with patch("strop_core.presets._get_system_bus", return_value=fake_bus):
+            self.assertFalse(_is_dbus_daemon_active())
+
+    def test_missing_dasbus_degrades_without_raising(self):
+        import builtins
+        from strop_core import presets
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name.startswith("dasbus"):
+                raise ImportError("dasbus missing")
+            return real_import(name, *args, **kwargs)
+
+        presets._reset_dbus_cache()
+        with patch("builtins.__import__", side_effect=fake_import), \
+             patch("strop_core.presets.shutil.which", return_value=None):
+            self.assertFalse(presets._is_dbus_daemon_active())
+            self.assertEqual(presets.get_injection_state("Razer Tartarus Pro"), "unknown")
+        presets._reset_dbus_cache()
+
+    def test_dbus_proxy_is_cached_and_reset_on_dbus_error(self):
+        from dasbus.error import DBusError
+        from strop_core import presets
+
+        presets._reset_dbus_cache()
+        fake_bus = MagicMock()
+        with patch("dasbus.connection.SystemMessageBus", return_value=fake_bus) as bus_cls:
+            first = presets._get_input_remapper_proxy()
+            second = presets._get_input_remapper_proxy()
+            self.assertIs(first, second)
+            self.assertEqual(bus_cls.call_count, 1)
+
+            first.get_state.side_effect = DBusError("gone")
+            with self.assertRaises(DBusError):
+                presets._get_input_remapper_state("dev")
+            presets._get_input_remapper_proxy()
+            self.assertEqual(bus_cls.call_count, 2)
+        presets._reset_dbus_cache()
 
     def test_apply_profile_missing_executable_does_not_record_active_profile(self):
         from strop_core.presets import apply_profile, get_active_profile
@@ -1754,6 +1834,461 @@ class TestStropLightingStudio(unittest.TestCase):
                     (0, 255, 0),
                     f"Key '{key_id}' cell ({mr}, {mc}) was not lit",
                 )
+
+
+class TestProjectReviewRegressionFixes(unittest.TestCase):
+    def test_x11_pin_window_on_top_ctypes_lifecycle_and_strict_title_matching(self):
+        import ctypes
+        import strop_core.x11 as x11_mod
+
+        display_handle = 0x12345
+        atoms = {
+            b"_NET_WM_STATE": 100,
+            b"_NET_WM_STATE_ABOVE": 101,
+            b"_NET_WM_STATE_STAYS_ON_TOP": 102,
+            b"_NET_WM_STATE_STICKY": 103,
+            b"_NET_CLIENT_LIST": 104,
+            b"_NET_WM_NAME": 105,
+            b"WM_NAME": 106,
+            b"UTF8_STRING": 107,
+            b"STRING": 108,
+            b"WINDOW": 109,
+        }
+        client_wins = (ctypes.c_ulong * 2)(1001, 1002)
+        title_1001 = ctypes.create_string_buffer(b"Razer Tartarus Pro")
+        title_1002 = ctypes.create_string_buffer(b"Razer Tartarus Pro - Strop HUD")
+        freed_ptrs = []
+        moved_wins = []
+        closed_displays = []
+        raise_on_move = {"flag": False}
+
+        fake_x11 = MagicMock()
+        fake_x11.XOpenDisplay.side_effect = lambda _d: display_handle
+        fake_x11.XDefaultRootWindow.side_effect = lambda _d: 1
+        fake_x11.XInternAtom.side_effect = lambda _d, name, _only: atoms.get(name, 199)
+
+        def fake_get_prop(_d, win, prop_atom, _off, _len, _del, _req, _at, _af, nitems_p, _ba, prop_p):
+            if prop_atom == 104:
+                nitems_p._obj.value = 2
+                prop_p._obj.value = ctypes.addressof(client_wins)
+                return 0
+            if prop_atom == 105:
+                buf = title_1001 if win == 1001 else title_1002
+                nitems_p._obj.value = len(buf.value)
+                prop_p._obj.value = ctypes.addressof(buf)
+                return 0
+            prop_p._obj.value = None
+            return 1
+
+        def fake_move(_d, win, x, y):
+            if raise_on_move["flag"]:
+                raise RuntimeError("XMoveWindow failed")
+            moved_wins.append((win, x, y))
+            return 1
+
+        fake_x11.XGetWindowProperty.side_effect = fake_get_prop
+        fake_x11.XMoveWindow.side_effect = fake_move
+        fake_x11.XSendEvent.return_value = 1
+        fake_x11.XQueryTree.return_value = 0
+        fake_x11.XFree.side_effect = lambda p: freed_ptrs.append(p) or 1
+        fake_x11.XFlush.return_value = 1
+        fake_x11.XCloseDisplay.side_effect = lambda d: closed_displays.append(d) or 0
+
+        with patch("strop_core.x11.ctypes.cdll.LoadLibrary", return_value=fake_x11):
+            ok = x11_mod.pin_window_on_top("Razer Tartarus Pro - Strop HUD", 24, 36)
+
+        self.assertTrue(ok)
+        # Only exact target HUD window 1002 matched, never prefix-only Studio window 1001
+        self.assertEqual(moved_wins, [(1002, 24, 36)])
+        self.assertEqual(closed_displays, [display_handle])
+        self.assertGreaterEqual(len(freed_ptrs), 3)
+        for fn_name in (
+            "XOpenDisplay", "XDefaultRootWindow", "XInternAtom",
+            "XGetWindowProperty", "XMoveWindow", "XSendEvent",
+            "XQueryTree", "XFree", "XFlush", "XCloseDisplay",
+        ):
+            fn = getattr(fake_x11, fn_name)
+            self.assertIsNotNone(fn.argtypes, f"{fn_name} missing argtypes")
+            self.assertIsNotNone(fn.restype, f"{fn_name} missing restype")
+
+        # Cleanup still closes display on exception during move/pin
+        raise_on_move["flag"] = True
+        closed_displays.clear()
+        with patch("strop_core.x11.ctypes.cdll.LoadLibrary", return_value=fake_x11):
+            ok_err = x11_mod.pin_window_on_top("Razer Tartarus Pro - Strop HUD", 24, 36)
+        self.assertFalse(ok_err)
+        self.assertEqual(closed_displays, [display_handle])
+
+    def test_device_detection_rejects_non_razer_vendors_generic_names_and_collects_ev_rel(self):
+        import evdev
+
+        self.assertFalse(is_razer_device("Logitech G Pro X Superlight Wireless", vendor_id=0x046D))
+        self.assertFalse(is_razer_device("Generic Razer-like Pro V2", vendor_id=0x046D))
+        for generic in ("Wireless", "Pro", "V2", "Lite", "Chroma", "Mouse", "Keyboard"):
+            self.assertFalse(is_razer_device(generic, vendor_id=None), f"Should reject generic name {generic!r}")
+        self.assertTrue(is_razer_device("Razer Basilisk V3", vendor_id=0x1532))
+        self.assertTrue(is_razer_device("Razer Tartarus Pro", vendor_id=None))
+
+        caps_map = {
+            evdev.ecodes.EV_KEY: [30, 8],
+            evdev.ecodes.EV_REL: [8],
+        }
+        expected_hash = calculate_origin_hash(str(caps_map), "Razer Tartarus Pro")
+        fake_evdev = SimpleNamespace(
+            path="/dev/input/event99",
+            name="Razer Tartarus Pro",
+            info=SimpleNamespace(bus=0x0003, vendor=0x1532, product=0x0244, version=0x0111),
+            phys="usb-0000:00:14.0-1/input0",
+            uniq="",
+            capabilities=lambda absinfo=False: caps_map,
+            close=lambda: None,
+        )
+        with patch("evdev.list_devices", return_value=["/dev/input/event99"]), \
+             patch("evdev.InputDevice", return_value=fake_evdev):
+            devices = scan_all_connected_devices()
+
+        self.assertEqual(len(devices), 1)
+        self.assertEqual(devices[0]["key_to_hash"][8], expected_hash)
+        self.assertEqual(devices[0]["rel_to_hash"][8], expected_hash)
+
+    def test_studio_base_recording_apply_preset_reentrancy_and_hud_support(self):
+        from gi.repository import Gdk
+        from strop_core.studio_base import BaseStudioWindow
+        import strop_core.studio_base as sb
+        import strop_keypad
+        import strop_keyboard
+        import strop_mouse
+
+        finished = []
+        fake_rec = SimpleNamespace(
+            is_recording_input=True,
+            _recording_pending_modifier=None,
+            _finish_recorded_combo=lambda s: finished.append(s),
+        )
+        # Modifier press waits for combo key or release
+        self.assertTrue(BaseStudioWindow._on_key_pressed(fake_rec, None, Gdk.KEY_Control_L, 0, 0))
+        self.assertEqual(fake_rec._recording_pending_modifier, "Control_L")
+        self.assertEqual(finished, [])
+
+        # Non-modifier key press captures Control_L + c
+        self.assertTrue(BaseStudioWindow._on_key_pressed(fake_rec, None, Gdk.KEY_c, 0, Gdk.ModifierType.CONTROL_MASK))
+        self.assertEqual(finished, ["Control_L + c"])
+
+        # Releasing the modifier without pressing another key captures bare modifier
+        finished.clear()
+        fake_rec._recording_pending_modifier = None
+        BaseStudioWindow._on_key_pressed(fake_rec, None, Gdk.KEY_Control_L, 0, 0)
+        BaseStudioWindow._on_key_released(fake_rec, None, Gdk.KEY_Control_L, 0, 0)
+        self.assertEqual(finished, ["Control_L"])
+
+        # Applying preset must not overwrite OpenRazer lighting
+        fake_apply = SimpleNamespace(
+            profile_operation_pending=False,
+            entry_preset_name=SimpleNamespace(get_text=lambda: "gaming"),
+            default_preset_name="Default",
+            detected_device={"name": "Razer Tartarus Pro"},
+            default_device_name="Razer Tartarus Pro",
+            _save_preset_direct=lambda _name: "/tmp/gaming.json",
+            lbl_active_profile_status=SimpleNamespace(set_text=lambda _t: None, set_markup=lambda _m: None),
+            btn_apply_profile=SimpleNamespace(set_sensitive=lambda _v: None),
+            btn_stop_profile=SimpleNamespace(set_sensitive=lambda _v: None),
+            _update_all_visuals=lambda: None,
+        )
+        with patch.object(sb, "get_lighting_engine", side_effect=AssertionError("Must not call get_lighting_engine")) as mock_lt, \
+             patch.object(sb, "run_profile_operation_async"):
+            BaseStudioWindow._apply_current_preset(fake_apply, None)
+        mock_lt.assert_not_called()
+
+        # Re-entrancy guard during _update_all_visuals prevents recursive _on_output_changed updates
+        output_handler_saw_updating = []
+
+        class GuardEntry:
+            def __init__(self, owner):
+                self.owner = owner
+
+            def set_text(self, _text):
+                output_handler_saw_updating.append(self.owner._updating_editor)
+
+        fake_vis = SimpleNamespace(
+            state={"k1": {"code": 30, "name": "Key 1", "output": "a", "target": "keyboard", "custom_name": ""}},
+            button_widgets={},
+            selected_key_id="k1",
+            editor_empty_lbl=SimpleNamespace(set_visible=lambda _v: None),
+            editor_form_box=SimpleNamespace(set_visible=lambda _v: None),
+            ed_key_name=SimpleNamespace(set_markup=lambda _m: None),
+            ed_key_code=SimpleNamespace(set_text=lambda _t: None),
+            entry_custom_label=SimpleNamespace(set_text=lambda _t: None),
+            dropdown_target=SimpleNamespace(set_selected=lambda _i: None),
+            count_badge=SimpleNamespace(set_text=lambda _t: None, remove_css_class=lambda _c: None, add_css_class=lambda _c: None),
+            lbl_remap_count=SimpleNamespace(set_markup=lambda _m: None),
+            remap_list_box=SimpleNamespace(get_first_child=lambda: None, remove=lambda _c: None, append=lambda _c: None),
+            _format_display_text=lambda s: s,
+            _on_delete_remap_item=lambda *_a: None,
+            _updating_editor=False,
+        )
+        fake_vis.entry_output = GuardEntry(fake_vis)
+        BaseStudioWindow._update_all_visuals(fake_vis)
+        self.assertEqual(output_handler_saw_updating, [True])
+        self.assertFalse(fake_vis._updating_editor)
+
+        # HUD support check per studio
+        self.assertTrue(strop_keypad.KeypadMainWindow._supports_hud(None))
+        self.assertFalse(strop_keyboard.KeyboardMainWindow._supports_hud(None))
+        self.assertFalse(strop_mouse.RazerMouseStudioWindow._supports_hud(None))
+
+    def test_scroll_wheel_ev_rel_round_trip_and_no_ev_key_collision(self):
+        import sys
+        from strop_core.layouts.keypad import SCROLL_UP_DATA, SCROLL_DOWN_DATA
+        from strop_core.layouts.mouse import FPS_SIDE_BUTTONS, COMMON_MOUSE_BUTTONS
+        from strop_core.presets import validate_preset_data
+        from strop_core.studio_base import BaseStudioWindow
+
+        self.assertEqual(
+            (SCROLL_UP_DATA["c"], SCROLL_UP_DATA.get("input_type"), SCROLL_UP_DATA.get("analog_threshold")),
+            (8, 2, 1),
+        )
+        self.assertEqual(
+            (SCROLL_DOWN_DATA["c"], SCROLL_DOWN_DATA.get("input_type"), SCROLL_DOWN_DATA.get("analog_threshold")),
+            (8, 2, -1),
+        )
+        wheel_up = next(item for item in COMMON_MOUSE_BUTTONS if item["id"] == "wheel_up")
+        wheel_down = next(item for item in COMMON_MOUSE_BUTTONS if item["id"] == "wheel_down")
+        self.assertEqual((wheel_up["c"], wheel_up["input_type"], wheel_up["analog_threshold"]), (8, 2, 1))
+        self.assertEqual((wheel_down["c"], wheel_down["input_type"], wheel_down["analog_threshold"]), (8, 2, -1))
+
+        fps_by_id = {item["id"]: item for item in FPS_SIDE_BUTTONS}
+        self.assertIn("m5", fps_by_id["fps_forward"]["aliases"])
+        self.assertNotIn("m4", fps_by_id["fps_forward"]["aliases"])
+        self.assertIn("m4", fps_by_id["fps_back"]["aliases"])
+        self.assertNotIn("m5", fps_by_id["fps_back"]["aliases"])
+
+        dev_info = {"key_to_hash": {8: "kbd-hash"}, "rel_to_hash": {8: "rel-hash"}}
+        state = {
+            "k7": {"code": 8, "input_type": 1, "name": "Key 7", "output": "x", "target": "keyboard"},
+            "scrollUp": {"code": 8, "input_type": 2, "analog_threshold": 1, "name": "Scroll Up", "output": "a", "target": "keyboard"},
+            "scrollDown": {"code": 8, "input_type": 2, "analog_threshold": -1, "name": "Scroll Down", "output": "b", "target": "keyboard"},
+        }
+        exported = serialize_preset_data(state, dev_info)
+        err = validate_preset_data(exported)
+        self.assertIsNone(err, f"validate_preset_data rejected wheel preset: {err}")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            preset_path = Path(temp_dir) / "wheel.json"
+            preset_path.write_text(json.dumps(exported), encoding="utf-8")
+            validation_code = (
+                "import sys\n"
+                "from pathlib import Path\n"
+                "from inputremapper.configs.preset import Preset\n"
+                "from inputremapper.configs.keyboard_layout import keyboard_layout\n"
+                "keyboard_layout.update({'a': 30, 'b': 48, 'x': 45})\n"
+                f"p = Preset(Path({str(preset_path)!r}))\n"
+                "p.load()\n"
+                "assert p.is_valid(), 'Preset invalid'\n"
+                "assert len(p) == 3, f'Expected 3 mappings, got {len(p)}'\n"
+            )
+            res = subprocess.run([sys.executable, "-c", validation_code], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"inputremapper validation failed: {res.stdout}\n{res.stderr}")
+
+            # Re-import into empty studio state and verify EV_KEY code 8 != EV_REL code 8
+            reloaded_state = {
+                "k7": {"code": 8, "input_type": 1, "name": "Key 7", "output": "", "target": "keyboard"},
+                "scrollUp": {"code": 8, "input_type": 2, "analog_threshold": 1, "name": "Scroll Up", "output": "", "target": "keyboard"},
+                "scrollDown": {"code": 8, "input_type": 2, "analog_threshold": -1, "name": "Scroll Down", "output": "", "target": "keyboard"},
+            }
+            fake_studio = SimpleNamespace(
+                state=reloaded_state,
+                detected_device=dev_info,
+                selected_key_id=None,
+                entry_preset_name=SimpleNamespace(set_text=lambda _t: None),
+                _update_all_visuals=lambda: None,
+            )
+            fake_studio._match_preset_key = (
+                lambda code, name, origin_hash=None, combination=None:
+                BaseStudioWindow._match_preset_key(
+                    fake_studio, code, name, origin_hash, combination,
+                )
+            )
+            matched, total = BaseStudioWindow._load_preset_file_data(fake_studio, str(preset_path))
+            self.assertEqual((matched, total), (3, 3))
+            self.assertEqual(reloaded_state["k7"]["output"], "x")
+            self.assertEqual(reloaded_state["scrollUp"]["output"], "a")
+            self.assertEqual(reloaded_state["scrollDown"]["output"], "b")
+
+    def test_macros_builtin_save_new_id_zero_byte_file_and_msdos_symbol(self):
+        import strop_core.macros as macros_mod
+        import strop_macro
+
+        self.assertEqual(normalize_macro_to_input_remapper("Control_L + KEY_MSDOS"), "Control_L + KEY_MSDOS")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            macros_file = Path(temp_dir) / "macros.json"
+            macros_file.write_text("", encoding="utf-8")  # 0-byte empty file
+            with patch.object(macros_mod, "get_macros_file_path", return_value=macros_file):
+                payload = {"title": "New Macro", "macro": "k(a)"}
+                self.assertTrue(macros_mod.save_or_update_macro(payload))
+                self.assertTrue(payload.get("id", "").startswith("macro_"))
+
+        # Saving edits to a built-in macro assigns a fresh ID and avoids duplicates on subsequent save
+        stored_macros = []
+
+        def fake_save_or_update(macro_dict):
+            if not macro_dict.get("id"):
+                macro_dict["id"] = f"macro_{len(stored_macros)}"
+            for idx, existing in enumerate(stored_macros):
+                if existing["id"] == macro_dict["id"]:
+                    stored_macros[idx] = dict(macro_dict)
+                    return True
+            stored_macros.append(dict(macro_dict))
+            return True
+
+        fake_win = SimpleNamespace(
+            macros=[{"id": "builtin_copy", "title": "Copy", "built_in": True, "macro": "k(c)"}],
+            selected_macro_id="builtin_copy",
+            current_steps=["k(v)"],
+            entry_title=SimpleNamespace(get_text=lambda: "My Paste"),
+            entry_badge=SimpleNamespace(get_text=lambda: "Paste"),
+            entry_category=SimpleNamespace(get_text=lambda: "Edit"),
+            btn_delete=SimpleNamespace(set_sensitive=lambda _v: None),
+            toast=SimpleNamespace(show_message=lambda _m, icon="": None),
+            _load_macros_and_select_id=lambda _id: None,
+        )
+        with patch.object(strop_macro, "save_or_update_macro", side_effect=fake_save_or_update):
+            strop_macro.StropMacroStudioWindow._on_save_clicked(fake_win, None)
+            first_id = fake_win.selected_macro_id
+            self.assertNotEqual(first_id, "builtin_copy")
+            strop_macro.StropMacroStudioWindow._on_save_clicked(fake_win, None)
+            self.assertEqual(fake_win.selected_macro_id, first_id)
+            self.assertEqual(len(stored_macros), 1)
+
+    def test_logger_configures_package_roots_without_duplicate_handlers(self):
+        import logging
+        import strop_core.logger as logger_mod
+
+        alpha = logger_mod.get_logger("strop.test_alpha")
+        beta = logger_mod.get_logger("strop.test_beta")
+        root_strop = logging.getLogger("strop")
+
+        self.assertEqual(len(alpha.handlers), 0)
+        self.assertEqual(len(beta.handlers), 0)
+        self.assertFalse(root_strop.propagate)
+        self.assertEqual(len(root_strop.handlers), 1)
+        self.assertTrue(alpha.isEnabledFor(root_strop.level))
+        self.assertTrue(beta.isEnabledFor(root_strop.level))
+
+    def test_presets_autoload_cache_refresh_and_dbus_disconnect(self):
+        import strop_core.presets as pr
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cfg_dir = Path(temp_dir)
+            cfg_path = cfg_dir / "config.json"
+            cfg_path.write_text(json.dumps({"autoload": {}}), encoding="utf-8")
+
+            with patch.object(pr, "_profile_config_dir", return_value=cfg_dir), \
+                 patch.object(pr, "_atomic_write_json", wraps=pr._atomic_write_json) as atomic_write:
+                pr._sync_input_remapper_autoload("Razer Tartarus Pro", "FPS", ir_key="Tartarus Pro Group")
+                self.assertEqual(atomic_write.call_count, 1)
+                self.assertEqual(json.loads(cfg_path.read_text())["autoload"]["Tartarus Pro Group"], "FPS")
+
+                # Identical sync skips redundant write
+                pr._sync_input_remapper_autoload("Razer Tartarus Pro", "FPS", ir_key="Tartarus Pro Group")
+                self.assertEqual(atomic_write.call_count, 1)
+
+            # clear_active_profile clears autoload even when device is absent from active_profiles.json
+            active_file = cfg_dir / "active_profiles.json"
+            active_file.write_text("{}", encoding="utf-8")
+            with patch.object(pr, "_profile_config_dir", return_value=cfg_dir), \
+                 patch.object(pr, "get_active_profiles_file", return_value=active_file):
+                self.assertTrue(pr.clear_active_profile("Razer Tartarus Pro", autoload_key="Tartarus Pro Group"))
+                self.assertNotIn("Tartarus Pro Group", json.loads(cfg_path.read_text())["autoload"])
+
+            # apply_profile retries _list_input_remapper_devices with force_refresh=True on initial miss
+            preset_dir = cfg_dir / "presets"
+            preset_dir.mkdir()
+            (preset_dir / "FPS.json").write_text("[]", encoding="utf-8")
+            calls = []
+
+            def fake_list_devs(_ctrl_bin, force_refresh=False):
+                calls.append(force_refresh)
+                return ["Razer Tartarus Pro"] if force_refresh else []
+
+            with patch.object(pr, "shutil") as mock_shutil, \
+                 patch.object(pr, "get_device_presets_dir", return_value=preset_dir), \
+                 patch.object(pr, "_profile_config_dir", return_value=cfg_dir), \
+                 patch.object(pr, "_list_input_remapper_devices", side_effect=fake_list_devs), \
+                 patch.object(pr, "_wait_for_injector_state", return_value="RUNNING"), \
+                 patch.object(pr, "set_active_profile"), \
+                 patch.object(pr.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")):
+                mock_shutil.which.return_value = "/usr/bin/input-remapper-control"
+                res = pr.apply_profile("Razer Tartarus Pro", "FPS")
+            self.assertEqual(res.status, "applied")
+            self.assertEqual(calls, [False, True])
+
+        # _reset_dbus_cache disconnects cached bus
+        fake_bus = MagicMock()
+        pr._dbus_bus = fake_bus
+        pr._dbus_proxy = object()
+        pr._reset_dbus_cache()
+        fake_bus.disconnect.assert_called_once()
+        self.assertIsNone(pr._dbus_bus)
+        self.assertIsNone(pr._dbus_proxy)
+
+    def test_lighting_and_dpi_fixes(self):
+        from strop_core.dpi import RazerDPIEngine, MouseSensorCapabilities, MouseSensorSettings
+        from strop_core.lighting import (
+            EffectRuntimeState,
+            LEDNode,
+            LightingStudioController,
+            RazerLightingEngine,
+            evaluate_effect,
+        )
+
+        # fire effect accepts params=None
+        nodes = [LEDNode(
+            id="0_0", label="0", zone="main", row=0, col=0,
+            x_mm=0.0, y_mm=0.0, nx=0.2, ny=0.5, rx=0.0, ry=0.0, rw=0.1, rh=0.1,
+        )]
+        frame = evaluate_effect("fire", nodes, 0.25, 0.016, None, EffectRuntimeState())
+        self.assertIn("0_0", frame)
+
+        # _pick_sample_color skips leading black nodes
+        self.assertEqual(
+            RazerLightingEngine._pick_sample_color({"0_0": (0, 0, 0), "0_1": (10, 20, 30)}),
+            (10, 20, 30),
+        )
+
+        # set_effect_on_selection & alias copy params instead of sharing dict reference
+        comp = LightingStudioController()
+        l1 = comp.set_effect_on_selection("keyboard", "static", params={"color": [255, 0, 0]})
+        l2 = comp.set_Effect_on_selection("mouse", "static", params={"color": [0, 255, 0]})
+        self.assertEqual(l1.params["color"], [255, 0, 0])
+        self.assertEqual(l2.params["color"], [0, 255, 0])
+        self.assertIsNot(l1.params, l2.params)
+
+        # Lighting & DPI engines reconnect once if .devices raises
+        broken_mgr = MagicMock()
+        type(broken_mgr).devices = property(lambda _s: (_ for _ in ()).throw(RuntimeError("dbus dead")))
+        good_dev = SimpleNamespace(name="Razer Mouse", serial="S1")
+        healthy_mgr = SimpleNamespace(devices=[good_dev])
+
+        lt_engine = RazerLightingEngine()
+        lt_engine._connected = True
+        lt_engine._manager = broken_mgr
+        with patch.object(lt_engine, "_init_openrazer", side_effect=lambda: (setattr(lt_engine, "_connected", True), setattr(lt_engine, "_manager", healthy_mgr))):
+            self.assertEqual(lt_engine._get_openrazer_devices(), [good_dev])
+
+        dpi_engine = RazerDPIEngine()
+        dpi_engine._connected = True
+        dpi_engine._manager = broken_mgr
+        with patch.object(dpi_engine, "_init_openrazer", side_effect=lambda: (setattr(dpi_engine, "_connected", True), setattr(dpi_engine, "_manager", healthy_mgr))):
+            self.assertIs(dpi_engine.get_razer_mouse("Razer Mouse"), good_dev)
+
+        # apply_sensor_settings discovers capabilities only once
+        with patch("strop_core.dpi.save_mouse_settings", return_value=True), \
+             patch.object(dpi_engine, "get_razer_mouse", return_value=good_dev), \
+             patch.object(dpi_engine, "discover_capabilities", return_value=MouseSensorCapabilities(available=True)) as mock_disc:
+            res = dpi_engine.apply_sensor_settings("Razer Mouse", MouseSensorSettings())
+        self.assertTrue(res.success)
+        self.assertEqual(mock_disc.call_count, 1)
 
 
 if __name__ == "__main__":

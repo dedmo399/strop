@@ -10,7 +10,6 @@ Provides:
 """
 
 import sys
-import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -19,13 +18,13 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 from gi.repository import Gtk, Gdk, GLib, Gio
 
-from strop_core.device import clean_device_display_name, device_model_name
+from strop_core.device import device_model_name
 from strop_core.presets import (
-    get_device_presets_dir, get_active_profile, apply_profile,
-    save_device_preset, load_preset_file, validate_preset_data,
+    get_device_presets_dir, get_active_profile,
+    save_device_preset, load_preset_file,
     run_profile_operation_async, check_profile_state_async
 )
-from strop_core.theme import apply_theme, show_about_dialog
+from strop_core.theme import show_about_dialog
 from strop_core.toast import StropToast
 from strop_core.logger import get_logger
 from strop_core.gamepad import (
@@ -34,11 +33,24 @@ from strop_core.gamepad import (
     format_gamepad_output_symbol,
 )
 from strop_core.lighting import get_lighting_engine, COLOR_PALETTE
-from strop_core.macros import load_all_macros, MACRO_TEMPLATES
+from strop_core.macros import load_all_macros
 
 
 
 logger = get_logger("strop.studio")
+
+_RECORD_MOD_MAP = {
+    Gdk.KEY_Control_L: "Control_L",
+    Gdk.KEY_Control_R: "Control_R",
+    Gdk.KEY_Shift_L: "Shift_L",
+    Gdk.KEY_Shift_R: "Shift_R",
+    Gdk.KEY_Alt_L: "Alt_L",
+    Gdk.KEY_Alt_R: "Alt_R",
+    Gdk.KEY_Super_L: "Super_L",
+    Gdk.KEY_Super_R: "Super_R",
+    Gdk.KEY_Meta_L: "Alt_L",
+    Gdk.KEY_Meta_R: "Alt_R",
+}
 
 
 
@@ -81,6 +93,10 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         self.button_widgets: Dict[str, Dict[str, Any]] = {}
         self.selected_key_id: Optional[str] = None
         self.is_recording_input: bool = False
+        self._recording_pending_modifier: Optional[str] = None
+        self._updating_editor: bool = False
+        self._destroyed: bool = False
+        self.dev_badge: Optional[Gtk.Label] = None
 
         # Lighting & Color Picker State
         self.selected_color_name: str = "Green"
@@ -96,6 +112,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         # Build Main UI Layout
 
         self._build_base_ui()
+        self.connect("destroy", self._on_window_destroyed)
 
         # Setup Input Recording Controller
         self._setup_input_controller()
@@ -151,6 +168,40 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         overlay.add_overlay(self.toast)
 
 
+    def _supports_hud(self) -> bool:
+        """Subclasses supporting the floating HUD overlay should return True."""
+        return False
+
+    def _on_window_destroyed(self, _window) -> None:
+        self._destroyed = True
+        if hasattr(self, "toast") and self.toast:
+            self.toast.dismiss()
+
+    def _update_device_badge(self) -> None:
+        if getattr(self, "dev_badge", None) is None:
+            return
+        dev_name = self.detected_device.get("name", self.default_device_name)
+        dev_hash = self.detected_device.get("hash", "")
+        if not dev_name:
+            self.dev_badge.set_visible(False)
+            return
+        self.dev_badge.set_visible(True)
+        is_detected = bool(self.detected_device.get("detected", False))
+        marker = "🟢" if is_detected else "🟠"
+        label_suffix = "" if is_detected else " (not detected)"
+        self.dev_badge.set_markup(
+            f"{marker} <b>{GLib.markup_escape_text(device_model_name(dev_name) + label_suffix)}</b>"
+        )
+        if dev_hash:
+            self.dev_badge.set_tooltip_text(f"Auto-generated origin_hash:\n{dev_hash}")
+        if not is_detected:
+            detail = "\n".join(self.detected_device.get("scan_diagnostics", []))
+            if not detail:
+                detail = "Connect a supported device and check its USB connection and Linux input/HID driver."
+            self.dev_badge.set_tooltip_text(
+                f"No matching physical device was detected. You can edit the generic layout, but device-specific mappings cannot be verified.\n\n{detail}"
+            )
+
     def _build_header_bar(self) -> Gtk.Box:
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
 
@@ -163,36 +214,22 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         badges_box.set_hexpand(True)
         badges_box.set_halign(Gtk.Align.END)
 
-        dev_name = self.detected_device.get("name", self.default_device_name)
-        dev_hash = self.detected_device.get("hash", "")
-        if dev_name:
-            dev_badge = Gtk.Label()
-            is_detected = bool(self.detected_device.get("detected", False))
-            marker = "🟢" if is_detected else "🟠"
-            label_suffix = "" if is_detected else " (not detected)"
-            dev_badge.set_markup(f"{marker} <b>{GLib.markup_escape_text(device_model_name(dev_name) + label_suffix)}</b>")
-            dev_badge.add_css_class("badge-device")
-            if dev_hash:
-                dev_badge.set_tooltip_text(f"Auto-generated origin_hash:\n{dev_hash}")
-            if not is_detected:
-                detail = "\n".join(self.detected_device.get("scan_diagnostics", []))
-                if not detail:
-                    detail = "Connect a supported device and check its USB connection and Linux input/HID driver."
-                dev_badge.set_tooltip_text(
-                    f"No matching physical device was detected. You can edit the generic layout, but device-specific mappings cannot be verified.\n\n{detail}"
-                )
-            badges_box.append(dev_badge)
-
+        self.dev_badge = Gtk.Label()
+        self.dev_badge.add_css_class("badge-device")
+        self._update_device_badge()
+        if self.detected_device.get("name", self.default_device_name):
+            badges_box.append(self.dev_badge)
 
         self.count_badge = Gtk.Label(label="0 keys remapped")
         self.count_badge.add_css_class("badge-stock")
         badges_box.append(self.count_badge)
 
-        btn_hud = Gtk.Button(label="🖥 HUD Overlay")
-        btn_hud.add_css_class("ghost-btn")
-        btn_hud.set_tooltip_text("Launch floating on-screen HUD overlay")
-        btn_hud.connect("clicked", self._launch_hud_overlay)
-        badges_box.append(btn_hud)
+        if self._supports_hud():
+            btn_hud = Gtk.Button(label="🖥 HUD Overlay")
+            btn_hud.add_css_class("ghost-btn")
+            btn_hud.set_tooltip_text("Launch floating on-screen HUD overlay")
+            btn_hud.connect("clicked", self._launch_hud_overlay)
+            badges_box.append(btn_hud)
 
         btn_about = Gtk.Button(label="ℹ️ About")
         btn_about.add_css_class("ghost-btn")
@@ -431,20 +468,10 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         for cname, cinfo in COLOR_PALETTE.items():
             btn = Gtk.Button()
             btn.add_css_class("color-swatch")
+            btn.add_css_class(f"swatch-{cname.lower()}")
             if cname == self.selected_color_name:
                 btn.add_css_class("active")
             btn.set_tooltip_text(f"{cinfo['icon']} {cname} — {cinfo['tip']}")
-
-            # Custom inline CSS background for the swatch button
-            css_provider = Gtk.CssProvider()
-            border_color = "#475569" if cname == "Black" else cinfo["hex"]
-            css_provider.load_from_data(f"""
-                button {{
-                    background-color: {cinfo['hex']};
-                    border-color: {border_color};
-                }}
-            """.encode("utf-8"))
-            btn.get_style_context().add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
             btn.connect("clicked", self._on_color_swatch_clicked, cname)
             self.swatch_buttons[cname] = btn
             color_row.append(btn)
@@ -568,6 +595,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
     def _setup_input_controller(self):
         controller = Gtk.EventControllerKey.new()
         controller.connect("key-pressed", self._on_key_pressed)
+        controller.connect("key-released", self._on_key_released)
         self.add_controller(controller)
 
     def _on_record_clicked(self, widget):
@@ -578,15 +606,28 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
     def _start_recording(self):
         self.is_recording_input = True
+        self._recording_pending_modifier = None
         self.btn_record_input.set_label("⏹ Press Key Combo...")
         self.btn_record_input.add_css_class("recording")
         self.entry_output.set_placeholder_text("Listening for physical keystroke...")
 
     def _stop_recording(self, cancelled=False):
         self.is_recording_input = False
-        self.btn_record_input.set_label("🔴 Record Input")
+        self._recording_pending_modifier = None
+        self.btn_record_input.set_label("🔴 Record Physical Keystroke")
         self.btn_record_input.remove_css_class("recording")
-        self.entry_output.set_placeholder_text("e.g. KEY_A, mouse(1), disable")
+        self.entry_output.set_placeholder_text("e.g. 4, 5, space, mouse(1), key_down(Control_L)")
+
+    def _finish_recorded_combo(self, combo_str: str) -> None:
+        if self.selected_key_id and self.selected_key_id in self.state:
+            self._updating_editor = True
+            try:
+                self.entry_output.set_text(combo_str)
+            finally:
+                self._updating_editor = False
+            self.state[self.selected_key_id]["output"] = combo_str
+            self._update_all_visuals()
+        self._stop_recording()
 
     def _on_key_pressed(self, controller, keyval, keycode, state):
         if not self.is_recording_input:
@@ -596,50 +637,41 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         if not key_name:
             return False
 
-        # Modifiers alone (e.g. user taps Control_L, Shift_L, Alt_L, etc.)
-        MOD_MAP = {
-            Gdk.KEY_Control_L: "Control_L",
-            Gdk.KEY_Control_R: "Control_R",
-            Gdk.KEY_Shift_L: "Shift_L",
-            Gdk.KEY_Shift_R: "Shift_R",
-            Gdk.KEY_Alt_L: "Alt_L",
-            Gdk.KEY_Alt_R: "Alt_R",
-            Gdk.KEY_Super_L: "Super_L",
-            Gdk.KEY_Super_R: "Super_R",
-            Gdk.KEY_Meta_L: "Alt_L",
-            Gdk.KEY_Meta_R: "Alt_R",
-        }
+        # Wait for non-modifier key or release so modifier combos (e.g. Ctrl+C) can be captured.
+        if keyval in _RECORD_MOD_MAP:
+            self._recording_pending_modifier = _RECORD_MOD_MAP[keyval]
+            return True
 
         # Normalize special key names to standard input-remapper symbols
         if keyval == Gdk.KEY_space:
             key_name = "space"
-        elif keyval in MOD_MAP:
-            key_name = MOD_MAP[keyval]
 
-        # If a non-modifier key is pressed while holding modifier keys
         modifiers = []
-        if keyval not in MOD_MAP:
-            if state & Gdk.ModifierType.CONTROL_MASK:
-                modifiers.append("Control_L")
-            if state & Gdk.ModifierType.ALT_MASK:
-                modifiers.append("Alt_L")
-            if state & Gdk.ModifierType.SHIFT_MASK:
-                modifiers.append("Shift_L")
-            if state & Gdk.ModifierType.SUPER_MASK:
-                modifiers.append("Super_L")
+        if state & Gdk.ModifierType.CONTROL_MASK:
+            modifiers.append("Control_L")
+        if state & Gdk.ModifierType.ALT_MASK:
+            modifiers.append("Alt_L")
+        if state & Gdk.ModifierType.SHIFT_MASK:
+            modifiers.append("Shift_L")
+        if state & Gdk.ModifierType.SUPER_MASK:
+            modifiers.append("Super_L")
 
-        if modifiers:
-            combo_str = " + ".join(modifiers + [key_name])
-        else:
-            combo_str = key_name
+        pending_mod = getattr(self, "_recording_pending_modifier", None)
+        if pending_mod:
+            mod_prefix = pending_mod.split("_", 1)[0]
+            if not any(m.startswith(mod_prefix) for m in modifiers):
+                modifiers.append(pending_mod)
 
-        if self.selected_key_id:
-            self.entry_output.set_text(combo_str)
-            self.state[self.selected_key_id]["output"] = combo_str
-            self._update_all_visuals()
-
-        self._stop_recording()
+        combo_str = " + ".join(modifiers + [key_name]) if modifiers else key_name
+        self._finish_recorded_combo(combo_str)
         return True
+
+    def _on_key_released(self, controller, keyval, keycode, state):
+        if not self.is_recording_input:
+            return
+        pending_mod = getattr(self, "_recording_pending_modifier", None)
+        if pending_mod and keyval in _RECORD_MOD_MAP and _RECORD_MOD_MAP[keyval] == pending_mod:
+            self._finish_recorded_combo(pending_mod)
 
 
     # ------------------------------------------------------------------
@@ -656,8 +688,12 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             return
         if self.is_recording_input:
             self._stop_recording(cancelled=True)
-        self.entry_output.set_text(insert_val)
         self.state[self.selected_key_id]["output"] = insert_val
+        self._updating_editor = True
+        try:
+            self.entry_output.set_text(insert_val)
+        finally:
+            self._updating_editor = False
         self._update_all_visuals()
 
     def _on_gamepad_btn_clicked(self, widget, symbol_str):
@@ -673,13 +709,17 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         if self.is_recording_input:
             self._stop_recording(cancelled=True)
         output = format_gamepad_output_symbol(symbol_str)
-        self.entry_output.set_text(output)
         self.state[self.selected_key_id]["output"] = output
         self.state[self.selected_key_id]["target"] = "gamepad"
+        self._updating_editor = True
+        try:
+            self.entry_output.set_text(output)
+        finally:
+            self._updating_editor = False
         self._update_all_visuals()
 
     def _on_custom_label_changed(self, widget):
-        if not self.selected_key_id:
+        if getattr(self, "_updating_editor", False) or not self.selected_key_id:
             return
         new_label = self.entry_custom_label.get_text()
         self.state[self.selected_key_id]["custom_name"] = new_label
@@ -700,12 +740,16 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         macro_label = tpl.get("label", tpl["title"])
         mapping_type = tpl.get("mapping_type", "macro")
 
-        self.entry_output.set_text(macro_code)
-        self.entry_custom_label.set_text(macro_label)
         self.state[self.selected_key_id]["output"] = macro_code
         self.state[self.selected_key_id]["custom_name"] = macro_label
         self.state[self.selected_key_id]["mapping_type"] = mapping_type
         self.state[self.selected_key_id]["target"] = "keyboard"
+        self._updating_editor = True
+        try:
+            self.entry_output.set_text(macro_code)
+            self.entry_custom_label.set_text(macro_label)
+        finally:
+            self._updating_editor = False
         self._update_all_visuals()
 
         if hasattr(self, "toast"):
@@ -820,14 +864,14 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             logger.error(f"Failed to apply lighting: {e}")
 
     def _on_output_changed(self, widget):
-        if not self.selected_key_id:
+        if getattr(self, "_updating_editor", False) or not self.selected_key_id:
             return
         new_text = self.entry_output.get_text()
         self.state[self.selected_key_id]["output"] = new_text
         self._update_all_visuals(refresh_editor_entry=False)
 
     def _on_target_changed(self, dropdown, param):
-        if not self.selected_key_id:
+        if getattr(self, "_updating_editor", False) or not self.selected_key_id:
             return
         selected_item = dropdown.get_selected_item()
         target = selected_item.get_string() if selected_item else "keyboard"
@@ -840,8 +884,12 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             self._stop_recording(cancelled=True)
         self.state[self.selected_key_id]["output"] = ""
         self.state[self.selected_key_id]["custom_name"] = ""
-        self.entry_output.set_text("")
-        self.entry_custom_label.set_text("")
+        self._updating_editor = True
+        try:
+            self.entry_output.set_text("")
+            self.entry_custom_label.set_text("")
+        finally:
+            self._updating_editor = False
         self._update_all_visuals()
 
     def _on_reset_all(self, widget):
@@ -857,12 +905,19 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             try:
                 choice = dialog.choose_finish(result)
                 if choice == 1:
+                    self.unrepresented_preset_entries = []
                     for s in self.state.values():
                         s["output"] = ""
                         s["custom_name"] = ""
+                        s["target"] = "mouse" if s.get("input_type") == 2 else "keyboard"
+                        s.pop("mapping_type", None)
                     if self.selected_key_id:
-                        self.entry_output.set_text("")
-                        self.entry_custom_label.set_text("")
+                        self._updating_editor = True
+                        try:
+                            self.entry_output.set_text("")
+                            self.entry_custom_label.set_text("")
+                        finally:
+                            self._updating_editor = False
                     self._update_all_visuals()
             except Exception:
                 pass
@@ -873,8 +928,12 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         self.state[kid]["output"] = ""
         self.state[kid]["custom_name"] = ""
         if self.selected_key_id == kid:
-            self.entry_output.set_text("")
-            self.entry_custom_label.set_text("")
+            self._updating_editor = True
+            try:
+                self.entry_output.set_text("")
+                self.entry_custom_label.set_text("")
+            finally:
+                self._updating_editor = False
         self._update_all_visuals()
 
 
@@ -924,15 +983,16 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
             has_output = bool(s.get("output") and s["output"].strip())
             custom_name = s.get("custom_name", "").strip()
+            esc_raw = GLib.markup_escape_text(raw_label)
             if has_output:
                 btn.add_css_class("assigned")
                 disp_text = custom_name if custom_name else self._format_display_text(s.get("output", ""))
                 if lbl:
-                    lbl.set_markup(f"<span weight='bold' size='small'>{raw_label}</span>\n<span size='7500' weight='semibold' color='#86efac'>→ {GLib.markup_escape_text(disp_text)}</span>")
+                    lbl.set_markup(f"<span weight='bold' size='small'>{esc_raw}</span>\n<span size='7500' weight='semibold' color='#86efac'>→ {GLib.markup_escape_text(disp_text)}</span>")
             else:
                 btn.remove_css_class("assigned")
                 if lbl:
-                    lbl.set_markup(f"<span weight='bold' size='small'>{raw_label}</span>")
+                    lbl.set_markup(f"<span weight='bold' size='small'>{esc_raw}</span>")
 
         # 2. Update Editor Form
         if not self.selected_key_id:
@@ -944,21 +1004,30 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             s = self.state[self.selected_key_id]
             self.ed_key_name.set_markup(f"<span size='small' weight='bold' color='#86efac'>{GLib.markup_escape_text(s['name'])}</span>")
 
-            code_desc = f"evdev {s['code']}" if s.get("code") is not None else "driver dependent"
+            if s.get("input_type") == 2 and s.get("code") is not None:
+                code_desc = f"rel {s['code']}"
+            elif s.get("code") is not None:
+                code_desc = f"evdev {s['code']}"
+            else:
+                code_desc = "driver dependent"
             self.ed_key_code.set_text(code_desc)
 
-            if refresh_editor_entry:
-                self.entry_output.set_text(s.get("output", ""))
-                self.entry_custom_label.set_text(s.get("custom_name", ""))
+            self._updating_editor = True
+            try:
+                if refresh_editor_entry:
+                    self.entry_output.set_text(s.get("output", ""))
+                    self.entry_custom_label.set_text(s.get("custom_name", ""))
 
-            idx = 0
-            if s.get("target") == "mouse":
-                idx = 1
-            elif s.get("target") == "keyboard + mouse":
-                idx = 2
-            elif s.get("target") == "gamepad":
-                idx = 3
-            self.dropdown_target.set_selected(idx)
+                idx = 0
+                if s.get("target") == "mouse":
+                    idx = 1
+                elif s.get("target") == "keyboard + mouse":
+                    idx = 2
+                elif s.get("target") == "gamepad":
+                    idx = 3
+                self.dropdown_target.set_selected(idx)
+            finally:
+                self._updating_editor = False
 
         # 3. Update Remaps List & Badges
         assigned_items = [
@@ -1027,13 +1096,51 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         combination: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[str]:
         """Robustly matches an input-remapper JSON mapping to a state key."""
+        input_type = combination[0].get("type", 1) if combination else 1
+        analog_threshold = (
+            combination[0].get("analog_threshold")
+            if combination and len(combination) == 1
+            else None
+        )
+
+        if input_type == 2:
+            if code is not None:
+                rel_candidates = [
+                    kid for kid, state in self.state.items()
+                    if state.get("input_type") == 2
+                    and state.get("code") == code
+                    and state.get("analog_threshold") == analog_threshold
+                ]
+                if origin_hash:
+                    hash_matches = [
+                        kid for kid in rel_candidates
+                        if (self.state[kid].get("origin_hash") or self.detected_device.get("rel_to_hash", {}).get(code) or "").casefold() == origin_hash.casefold()
+                    ]
+                    if len(hash_matches) == 1:
+                        return hash_matches[0]
+                if len(rel_candidates) == 1:
+                    return rel_candidates[0]
+            if name:
+                clean_name = str(name).strip().lower().replace("_", " ").replace("-", " ")
+                for kid, s in self.state.items():
+                    if s.get("input_type") != 2:
+                        continue
+                    if s.get("name", "").lower() == clean_name or s.get("label", "").lower() == clean_name:
+                        return kid
+                    for a in s.get("aliases", []):
+                        if a.lower() == clean_name:
+                            return kid
+            return None
+
         if combination and len(combination) > 1:
             preset_codes = sorted(
                 item.get("code") for item in combination if isinstance(item.get("code"), int)
             )
             combo_matches = [
                 kid for kid, state in self.state.items()
-                if state.get("code") is None and sorted(state.get("combo") or []) == preset_codes
+                if state.get("input_type", 1) == 1
+                and state.get("code") is None
+                and sorted(state.get("combo") or []) == preset_codes
             ]
             if len(combo_matches) == 1:
                 return combo_matches[0]
@@ -1041,7 +1148,7 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         if code is not None:
             candidates = [
                 kid for kid, state in self.state.items()
-                if state.get("code") == code
+                if state.get("input_type", 1) == 1 and state.get("code") == code
             ]
             if origin_hash:
                 hash_matches = [
@@ -1056,6 +1163,8 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         if name:
             clean_name = str(name).strip().lower().replace("_", " ").replace("-", " ")
             for kid, s in self.state.items():
+                if s.get("input_type", 1) != 1:
+                    continue
                 if s.get("name", "").lower() == clean_name or s.get("label", "").lower() == clean_name:
                     return kid
                 for a in s.get("aliases", []):
@@ -1070,19 +1179,29 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
 
         for s in self.state.values():
             s["output"] = ""
-            s["target"] = "keyboard"
+            s["target"] = "mouse" if s.get("input_type") == 2 else "keyboard"
             s["custom_name"] = ""
+            s.pop("mapping_type", None)
             if s.get("code") is not None:
                 s.pop("combo", None)
 
         matched_count = 0
         unrepresented_entries = []
         for item in data:
-            # Strop currently edits key outputs. Keep valid backend mappings
-            # outside that model untouched in the file and report them as
-            # unmapped instead of silently pretending they round-tripped.
+            # Strop currently edits key outputs and scroll wheel relative events.
+            # Keep valid backend mappings outside that model untouched in the file.
             combination = item["input_combination"]
-            if any(input_item.get("type") != 1 or input_item.get("analog_threshold") is not None for input_item in combination):
+            is_key_combo = all(
+                input_item.get("type") == 1 and input_item.get("analog_threshold") is None
+                for input_item in combination
+            )
+            is_scroll_wheel = (
+                len(combination) == 1
+                and combination[0].get("type") == 2
+                and combination[0].get("code") == 8
+                and combination[0].get("analog_threshold") in (1, -1)
+            )
+            if not (is_key_combo or is_scroll_wheel):
                 unrepresented_entries.append(item)
                 continue
             output_sym = item.get("output_symbol")
@@ -1119,9 +1238,13 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         self.unrepresented_preset_entries = unrepresented_entries
 
         preset_name = Path(load_path).stem
-        self.entry_preset_name.set_text(preset_name)
-        if self.selected_key_id:
-            self.entry_output.set_text(self.state[self.selected_key_id].get("output", ""))
+        self._updating_editor = True
+        try:
+            self.entry_preset_name.set_text(preset_name)
+            if self.selected_key_id:
+                self.entry_output.set_text(self.state[self.selected_key_id].get("output", ""))
+        finally:
+            self._updating_editor = False
 
         self._update_all_visuals()
         return matched_count, len(data)
@@ -1148,6 +1271,8 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
                     break
 
     def _on_profile_state_checked(self, device_name: str, state: str):
+        if getattr(self, "_destroyed", False):
+            return
         current_device = self.detected_device.get("name", self.default_device_name)
         if device_name != current_device:
             return
@@ -1189,18 +1314,6 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
             GLib.idle_add, preset_name=pname,
         )
 
-        # Apply physical OpenRazer lighting using the user's selected color
-        try:
-            cinfo = COLOR_PALETTE.get(self.selected_color_name, COLOR_PALETTE["Green"])
-            rgb = cinfo["rgb"]
-            lighting = get_lighting_engine()
-            if self.apply_color_all_devices:
-                lighting.apply_all_connected_devices_lighting(rgb)
-            else:
-                lighting.apply_device_lighting(dev_name, rgb)
-        except Exception:
-            pass
-
         self._update_all_visuals()
 
     def _stop_current_profile(self, widget):
@@ -1219,6 +1332,8 @@ class BaseStudioWindow(Gtk.ApplicationWindow):
         )
 
     def _on_profile_operation_finished(self, operation: str, device_name: str, preset_name: str, result):
+        if getattr(self, "_destroyed", False):
+            return
         self.profile_operation_pending = False
         self.btn_apply_profile.set_sensitive(True)
         self.btn_stop_profile.set_sensitive(True)

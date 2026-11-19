@@ -130,13 +130,13 @@ Priority: optional
 Architecture: ${ARCH}
 Installed-Size: ${INSTALLED_SIZE}
 Maintainer: Strop Contributors
-Depends: python3, python3-gi, python3-evdev, gir1.2-gtk-4.0
+Depends: python3, python3-gi, python3-gi-cairo, python3-evdev, python3-dasbus, gir1.2-gtk-4.0
 Recommends: input-remapper, openrazer-meta | openrazer-daemon
 Homepage: https://github.com/dedmo399/strop
 Description: Unified Linux Peripheral Studio & HUD for Razer Hardware
  Native Linux GTK4 application suite for configuring, remapping, and customizing
  Razer keypad, keyboard, and mouse layouts with input-remapper profile integration.
- Official 1.2 device support is limited to the matrix documented in README.md.
+ Official device support is limited to the matrix documented in docs/SUPPORT.md.
 CTRL_EOF
 
 # 5. Create postinst and postrm scripts to refresh desktop and icon caches
@@ -144,10 +144,10 @@ cat << 'POSTINST_EOF' > "${PKG_DIR}/DEBIAN/postinst"
 #!/bin/sh
 set -e
 if [ "$1" = "configure" ]; then
-    if which update-desktop-database >/dev/null 2>&1; then
+    if command -v update-desktop-database >/dev/null 2>&1; then
         update-desktop-database -q /usr/share/applications || true
     fi
-    if which gtk-update-icon-cache >/dev/null 2>&1; then
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
     fi
 fi
@@ -160,10 +160,10 @@ cat << 'POSTRM_EOF' > "${PKG_DIR}/DEBIAN/postrm"
 #!/bin/sh
 set -e
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-    if which update-desktop-database >/dev/null 2>&1; then
+    if command -v update-desktop-database >/dev/null 2>&1; then
         update-desktop-database -q /usr/share/applications || true
     fi
-    if which gtk-update-icon-cache >/dev/null 2>&1; then
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
     fi
 fi

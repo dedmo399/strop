@@ -9,9 +9,10 @@ synchronization, and 2D vector zone mapping across Keyboards, Keypads, Mice, and
 from __future__ import annotations
 
 import argparse
+import copy
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Ensure strop_core can be imported regardless of execution working directory
 script_dir = Path(__file__).resolve().parent
@@ -24,7 +25,7 @@ gi.require_version('Gdk', '4.0')
 from gi.repository import Gdk, Gio, GLib, Gtk
 
 from strop_core.catalog import get_archetype_for_device
-from strop_core.device import detect_device, device_model_name, scan_all_connected_devices
+from strop_core.device import scan_all_connected_devices
 from strop_core.lighting import (
     DEVICE_CATEGORIES,
     EFFECT_SPECIFICATIONS,
@@ -82,9 +83,11 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
 
         self.active_layer_index: int = 0
         self.active_color_slot: str = "color1"  # "color1" | "color2" | "rest_color" | "cold_color" | "hot_color"
+        self._color_slot_buttons: Dict[str, Tuple[str, Gtk.Button]] = {}
         self._updating_controls: bool = False
         self._tick_source_id: int = 0
         self._hw_frame_divider: int = 0
+        self._last_hw_push_state: Optional[Tuple[str, bool, Tuple[Tuple[str, RGBTuple], ...]]] = None
         self.live_hw_preview: bool = True
 
         self._build_ui()
@@ -93,6 +96,12 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
 
         self._tick_source_id = GLib.timeout_add(FRAME_INTERVAL_MS, self._on_frame_tick)
         self.connect("close-request", self._on_close_request)
+        self.connect("destroy", self._on_destroy)
+
+    def _on_destroy(self, _window: Gtk.Window) -> None:
+        if self._tick_source_id:
+            GLib.source_remove(self._tick_source_id)
+            self._tick_source_id = 0
 
     def _on_close_request(self, window: Gtk.Window) -> bool:
         if self._tick_source_id:
@@ -658,6 +667,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
             self.active_color_slot = slots[0][1]
 
         slot_btns: Dict[str, Gtk.Button] = {}
+        self._color_slot_buttons = {}
         for title, key in slots:
             col = layer.params.get(key, (0, 255, 0))
             btn = Gtk.Button(label=f"{title} ({rgb_to_hex(col)})")
@@ -678,6 +688,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
             btn.connect("clicked", on_slot_clicked)
             row.append(btn)
             slot_btns[key] = btn
+            self._color_slot_buttons[key] = (title, btn)
 
         self.params_container.append(row)
 
@@ -704,6 +715,11 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
         if category not in DEVICE_CATEGORIES:
             return
         self.active_category = category
+        self._last_hw_push_state = None
+        for dev in getattr(self, "connected_devices", []):
+            if _category_for_device_name(dev.get("name", "")) == category:
+                self.active_device_name = dev["name"]
+                break
         for cid, btn in self.cat_buttons.items():
             if cid == category:
                 btn.add_css_class("active")
@@ -756,6 +772,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
         save_lighting_settings(self.controller)
         self._rebuild_layers_list_ui()
         self._rebuild_effect_params_ui()
+        self._last_hw_push_state = None
         frame = self.controller.render_device_frame(self.active_category)
         self.hw_engine.queue_frame_push(
             self.controller.topologies[self.active_category],
@@ -827,7 +844,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
             finally:
                 self._updating_controls = False
             self.canvas.set_selected_ids(set(), emit=False)
-            self.controller.set_Effect_on_selection(
+            self.controller.set_effect_on_selection(
                 self.active_category,
                 effect_id,
                 selected_leds=None,
@@ -845,6 +862,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
         save_lighting_settings(self.controller)
         self._rebuild_layers_list_ui()
         self._rebuild_effect_params_ui()
+        self._last_hw_push_state = None
         frame = self.controller.render_device_frame(self.active_category)
         self.hw_engine.queue_frame_push(
             self.controller.topologies[self.active_category],
@@ -858,17 +876,20 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
     def _set_effect_param(self, key: str, value: Any) -> None:
         layer = self._current_layer()
         layer.params[key] = value
+        self._last_hw_push_state = None
         if self.controller.sync_all_devices and layer.target_leds is None:
             for cat in DEVICE_CATEGORIES:
                 if cat != self.active_category and self.controller.device_layers.get(cat):
-                    self.controller.device_layers[cat][0].params[key] = value
+                    self.controller.device_layers[cat][0].params[key] = copy.deepcopy(value)
 
     def _on_selector_color_changed(self, rgb: RGBTuple) -> None:
         layer = self._current_layer()
-        if self.active_color_slot in layer.params:
-            self._set_effect_param(self.active_color_slot, rgb)
-        else:
-            self._set_effect_param("color1", rgb)
+        target_slot = self.active_color_slot if self.active_color_slot in layer.params else "color1"
+        self._set_effect_param(target_slot, rgb)
+        slot_entry = getattr(self, "_color_slot_buttons", {}).get(target_slot)
+        if slot_entry is not None:
+            title, btn = slot_entry
+            btn.set_label(f"{title} ({rgb_to_hex(rgb)})")
 
     def _on_selector_gradient_changed(self, stops: List[GradientStop]) -> None:
         self._set_effect_param("gradient_stops", stops)
@@ -882,6 +903,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
         val = scale.get_value()
         self.controller.master_brightness = max(0.0, min(1.0, val / 100.0))
         self.lbl_brightness_val.set_text(f"{int(round(val))}%")
+        self._last_hw_push_state = None
 
     def _on_global_speed_changed(self, scale: Gtk.Scale) -> None:
         val = scale.get_value()
@@ -890,6 +912,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
 
     def _on_sync_all_toggled(self, chk: Gtk.CheckButton) -> None:
         self.controller.sync_all_devices = chk.get_active()
+        self._last_hw_push_state = None
         if self.controller.sync_all_devices:
             # Synchronize active whole-device effect to all devices immediately
             base = self.controller.device_layers[self.active_category][0]
@@ -900,7 +923,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
                             id="base",
                             name="Whole Device",
                             effect_id=base.effect_id,
-                            params=dict(base.params),
+                            params=copy.deepcopy(base.params),
                             target_leds=None,
                         )
                     ]
@@ -918,6 +941,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
             save_lighting_settings(self.controller)
             self._rebuild_layers_list_ui()
             self._rebuild_effect_params_ui()
+            self._last_hw_push_state = None
             frame = self.controller.render_device_frame(self.active_category)
             self.hw_engine.queue_frame_push(
                 self.controller.topologies[self.active_category],
@@ -955,10 +979,10 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
             self._updating_controls = False
 
         cur = self._current_layer()
-        new_layer = self.controller.set_Effect_on_selection(
+        new_layer = self.controller.set_effect_on_selection(
             self.active_category,
             cur.effect_id,
-            params=dict(cur.params),
+            params=copy.deepcopy(cur.params),
             selected_leds=sel,
         )
         layers = self.controller.get_active_layers(self.active_category)
@@ -1017,6 +1041,7 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
     def _on_apply_hardware_clicked(self, btn: Gtk.Button) -> None:
         save_lighting_settings(self.controller)
         self.live_hw_preview = True
+        self._last_hw_push_state = None
         frame = self.controller.render_device_frame(self.active_category)
         nodes = self.controller.topologies[self.active_category]
         if self.hw_engine.is_available:
@@ -1027,6 +1052,11 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
                 all_devices=self.controller.sync_all_devices,
                 controller=self.controller,
                 reset_first=True,
+            )
+            self._last_hw_push_state = (
+                self.active_category,
+                bool(self.controller.sync_all_devices),
+                tuple(sorted(frame.items())),
             )
             self.toast.show_message("Cleared previous lighting and applied new profile to hardware", icon="💡")
         else:
@@ -1044,24 +1074,45 @@ class LightingStudioWindow(Gtk.ApplicationWindow):
         if self.live_hw_preview and self.hw_engine.is_available:
             self._hw_frame_divider = (self._hw_frame_divider + 1) % 3
             if self._hw_frame_divider == 0:
-                self.hw_engine.queue_frame_push(
-                    self.controller.topologies[self.active_category],
-                    frame,
-                    device_name=self.active_device_name,
-                    all_devices=self.controller.sync_all_devices,
-                    controller=self.controller,
-                    reset_first=False,
+                push_state = (
+                    self.active_category,
+                    bool(self.controller.sync_all_devices),
+                    tuple(sorted(frame.items())),
                 )
+                if push_state != self._last_hw_push_state:
+                    self._last_hw_push_state = push_state
+                    self.hw_engine.queue_frame_push(
+                        self.controller.topologies[self.active_category],
+                        frame,
+                        device_name=self.active_device_name,
+                        all_devices=self.controller.sync_all_devices,
+                        controller=self.controller,
+                        reset_first=False,
+                    )
         return True
 
 
 class LightingStudioApp(Gtk.Application):
     def __init__(self, device_override: Optional[str] = None):
-        super().__init__(application_id="com.razer.strop.lighting", flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        super().__init__(
+            application_id="com.razer.strop.lighting",
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+        )
         self.device_override = device_override
         self.window: Optional[LightingStudioWindow] = None
         self.connect("startup", lambda app: apply_theme())
         self.connect("activate", self._on_activate)
+        self.connect("command-line", self._on_command_line)
+
+    def _on_command_line(self, app: Gtk.Application, command_line: Gio.ApplicationCommandLine) -> int:
+        argv = command_line.get_arguments()
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--device", "-d", type=str, default=None)
+        args, _ = parser.parse_known_args(argv[1:])
+        if args.device:
+            self.device_override = args.device
+        self.activate()
+        return 0
 
     def _on_activate(self, app: Gtk.Application) -> None:
         if self.window is None:
@@ -1078,7 +1129,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     args, unknown = parser.parse_known_args(argv)
 
     app = LightingStudioApp(device_override=args.device)
-    return app.run([sys.argv[0]] + unknown)
+    run_args = [sys.argv[0]] + ([f"--device={args.device}"] if args.device else []) + unknown
+    return app.run(run_args)
 
 
 if __name__ == "__main__":

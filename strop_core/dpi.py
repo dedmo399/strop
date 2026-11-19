@@ -309,7 +309,15 @@ class RazerDPIEngine:
         try:
             devices = list(self._manager.devices)
         except Exception:
-            return None
+            self._connected = False
+            self._manager = None
+            self._init_openrazer()
+            if not self._manager:
+                return None
+            try:
+                devices = list(self._manager.devices)
+            except Exception:
+                return None
 
         target_pid = pid
         if target_pid is None and device_name:
@@ -349,9 +357,10 @@ class RazerDPIEngine:
 
         return None
 
-    def discover_capabilities(self, device_name: str, pid: Optional[int] = None) -> MouseSensorCapabilities:
+    def discover_capabilities(self, device_name: str, pid: Optional[int] = None, dev: Optional[Any] = None) -> MouseSensorCapabilities:
         """Discovers actual DPI, stage, and polling rate capabilities from OpenRazer."""
-        dev = self.get_razer_mouse(device_name, pid=pid)
+        if dev is None:
+            dev = self.get_razer_mouse(device_name, pid=pid)
         if dev is None:
             return MouseSensorCapabilities(
                 available=False,
@@ -449,16 +458,20 @@ class RazerDPIEngine:
         dpi_x: int,
         dpi_y: Optional[int] = None,
         pid: Optional[int] = None,
+        dev: Optional[Any] = None,
+        caps: Optional[MouseSensorCapabilities] = None,
     ) -> SensorOperationResult:
         """Applies X/Y DPI to the target OpenRazer mouse and verifies via read-back."""
-        dev = self.get_razer_mouse(device_name, pid=pid)
+        if dev is None:
+            dev = self.get_razer_mouse(device_name, pid=pid)
         if dev is None:
             return SensorOperationResult(
                 success=False,
                 message=f"OpenRazer mouse '{device_name}' is not available.",
             )
 
-        caps = self.discover_capabilities(device_name, pid=pid)
+        if caps is None:
+            caps = self.discover_capabilities(device_name, pid=pid, dev=dev)
         if not caps.has_dpi:
             return SensorOperationResult(
                 success=False,
@@ -506,13 +519,17 @@ class RazerDPIEngine:
         active_stage: int,
         stages: List[Tuple[int, int]],
         pid: Optional[int] = None,
+        dev: Optional[Any] = None,
+        caps: Optional[MouseSensorCapabilities] = None,
     ) -> bool:
         """Syncs DPI stages to OpenRazer hardware if the device supports native dpi_stages."""
-        dev = self.get_razer_mouse(device_name, pid=pid)
+        if dev is None:
+            dev = self.get_razer_mouse(device_name, pid=pid)
         if dev is None or not getattr(dev, "has", lambda _f: False)("dpi_stages"):
             return False
 
-        caps = self.discover_capabilities(device_name, pid=pid)
+        if caps is None:
+            caps = self.discover_capabilities(device_name, pid=pid, dev=dev)
         sanitized = [
             (
                 clamp_dpi_value(sx, caps.min_dpi, caps.max_dpi, caps.available_dpi),
@@ -535,16 +552,20 @@ class RazerDPIEngine:
         device_name: str,
         poll_rate: int,
         pid: Optional[int] = None,
+        dev: Optional[Any] = None,
+        caps: Optional[MouseSensorCapabilities] = None,
     ) -> SensorOperationResult:
         """Applies polling rate (Hz) to the target OpenRazer mouse and verifies via read-back."""
-        dev = self.get_razer_mouse(device_name, pid=pid)
+        if dev is None:
+            dev = self.get_razer_mouse(device_name, pid=pid)
         if dev is None:
             return SensorOperationResult(
                 success=False,
                 message=f"OpenRazer mouse '{device_name}' is not available.",
             )
 
-        caps = self.discover_capabilities(device_name, pid=pid)
+        if caps is None:
+            caps = self.discover_capabilities(device_name, pid=pid, dev=dev)
         if not caps.has_poll_rate:
             return SensorOperationResult(
                 success=False,
@@ -598,7 +619,8 @@ class RazerDPIEngine:
         settings.dpi_y = dpi_y
         saved = save_mouse_settings(device_name, settings)
 
-        caps = self.discover_capabilities(device_name, pid=pid)
+        dev = self.get_razer_mouse(device_name, pid=pid)
+        caps = self.discover_capabilities(device_name, pid=pid, dev=dev)
         if not caps.available:
             msg = (
                 f"Saved sensor settings for {clean_device_display_name(device_name)} "
@@ -619,7 +641,7 @@ class RazerDPIEngine:
         applied_poll = caps.current_poll_rate
 
         if caps.has_dpi:
-            dpi_res = self.apply_dpi(device_name, settings.dpi_x, dpi_y, pid=pid)
+            dpi_res = self.apply_dpi(device_name, settings.dpi_x, dpi_y, pid=pid, dev=dev, caps=caps)
             if dpi_res.success and dpi_res.dpi:
                 applied_dpi = dpi_res.dpi
                 settings.dpi_x, settings.dpi_y = applied_dpi
@@ -634,11 +656,11 @@ class RazerDPIEngine:
                 messages.append(dpi_res.message)
 
         if caps.has_dpi_stages:
-            self.apply_dpi_stages(device_name, settings.active_stage, settings.stages, pid=pid)
+            self.apply_dpi_stages(device_name, settings.active_stage, settings.stages, pid=pid, dev=dev, caps=caps)
 
         if caps.has_poll_rate and settings.poll_rate:
             if caps.current_poll_rate != settings.poll_rate:
-                poll_res = self.apply_poll_rate(device_name, settings.poll_rate, pid=pid)
+                poll_res = self.apply_poll_rate(device_name, settings.poll_rate, pid=pid, dev=dev, caps=caps)
                 if poll_res.success and poll_res.poll_rate:
                     applied_poll = poll_res.poll_rate
                     messages.append(f"{applied_poll} Hz")

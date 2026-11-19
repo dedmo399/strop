@@ -6,8 +6,8 @@ COMMON_MOUSE_BUTTONS = [
     {"id": "btn_left", "l": "Left Click", "name": "Primary Left Click", "c": 272, "aliases": ["btn_left", "left click", "btn 1", "left_click", "btn_mouse_left"]},
     {"id": "btn_right", "l": "Right Click", "name": "Secondary Right Click", "c": 273, "aliases": ["btn_right", "right click", "btn 2", "right_click", "btn_mouse_right"]},
     {"id": "btn_middle", "l": "Wheel Click", "name": "Middle Mouse Click", "c": 274, "aliases": ["btn_middle", "middle click", "btn 3", "middle_click", "btn_mouse_middle"]},
-    {"id": "wheel_up", "l": "Wheel Up", "name": "Scroll Wheel Up", "c": None, "aliases": ["wheel up", "wheel_up", "rel_wheel:1", "wheel_up_macro", "rel_wheel"]},
-    {"id": "wheel_down", "l": "Wheel Down", "name": "Scroll Wheel Down", "c": None, "aliases": ["wheel down", "wheel_down", "rel_wheel:-1", "wheel_down_macro"]},
+    {"id": "wheel_up", "l": "Wheel Up", "name": "Scroll Wheel Up", "c": 8, "input_type": 2, "analog_threshold": 1, "aliases": ["wheel up", "wheel_up", "rel_wheel:1", "wheel_up_macro", "rel_wheel"]},
+    {"id": "wheel_down", "l": "Wheel Down", "name": "Scroll Wheel Down", "c": 8, "input_type": 2, "analog_threshold": -1, "aliases": ["wheel down", "wheel_down", "rel_wheel:-1", "wheel_down_macro"]},
     {"id": "tilt_left", "l": "Tilt Left", "name": "Scroll Wheel Tilt Left", "c": 279, "aliases": ["tilt left", "tilt_left", "btn_tilt_left", "wheel_left"]},
     {"id": "tilt_right", "l": "Tilt Right", "name": "Scroll Wheel Tilt Right", "c": 280, "aliases": ["tilt right", "tilt_right", "btn_tilt_right", "wheel_right"]},
     {"id": "dpi_up", "l": "DPI +", "name": "DPI Stage Up Button", "c": 148, "aliases": ["dpi up", "dpi+", "dpi_up", "dpi_stage_up"]},
@@ -48,8 +48,8 @@ NAGA_HEX_7_GRID = [
 ]
 
 FPS_SIDE_BUTTONS = [
-    {"id": "fps_forward", "l": "Forward (Front)", "name": "Forward Button (Front)", "c": 276, "aliases": ["btn_forward", "forward", "front", "btn_extra", "m5", "m4"]},
-    {"id": "fps_back", "l": "Back (Rear)", "name": "Back Button (Rear)", "c": 275, "aliases": ["btn_back", "back", "rear", "btn_side", "m4", "m5"]},
+    {"id": "fps_forward", "l": "Forward (Front)", "name": "Forward Button (Front)", "c": 276, "aliases": ["btn_forward", "forward", "front", "btn_extra", "m5"]},
+    {"id": "fps_back", "l": "Back (Rear)", "name": "Back Button (Rear)", "c": 275, "aliases": ["btn_back", "back", "rear", "btn_side", "m4"]},
 ]
 
 

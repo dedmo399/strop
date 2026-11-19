@@ -16,6 +16,7 @@ Provides:
 from __future__ import annotations
 
 import colorsys
+import copy
 import json
 import math
 import os
@@ -26,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from strop_core.logger import get_logger
 from strop_core.layouts.keyboard import MAIN_KEYS, NAV_KEYS, NUMPAD_KEYS
 from strop_core.layouts.keypad import (
     DPAD_DATA,
@@ -35,6 +37,8 @@ from strop_core.layouts.keypad import (
     SPACEBAR_DATA,
     THUMB_BTN_DATA,
 )
+
+logger = get_logger("strop.lighting")
 
 # ---------------------------------------------------------------------------
 # Standard 8 Basic Colors + Black RGB Presets (Backward-compatible)
@@ -1082,7 +1086,7 @@ def evaluate_effect(
         if theme == "Blue Gas":
             stops = BLUE_GAS_GRADIENT
         elif theme in ("Custom Duo-Tone", "Custom Gradient"):
-            if "gradient_stops" in params and len(params["gradient_stops"]) >= 2:
+            if params and "gradient_stops" in params and len(params["gradient_stops"]) >= 2:
                 stops = params["gradient_stops"]
             else:
                 stops = [
@@ -1435,7 +1439,10 @@ def evaluate_effect(
         if direction == "Bottom-to-Top":
             ordered = sorted(nodes, key=lambda n: (-n.row, n.col))
         elif direction == "Random Scatter":
-            ordered = sorted(nodes, key=lambda n: _hash_noise_1d(hash(n.id) & 0xFFFF, 31337))
+            ordered = sorted(
+                nodes,
+                key=lambda n: _hash_noise_1d(sum(ord(ch) * (i + 1) for i, ch in enumerate(n.id)) & 0xFFFF, 31337),
+            )
         else:  # Left-to-Right
             ordered = sorted(nodes, key=lambda n: (n.col, n.row))
 
@@ -1618,7 +1625,7 @@ class LightingStudioController:
         cat = category if category in self.device_layers else "keyboard"
         return self.device_layers[cat]
 
-    def set_Effect_on_selection(
+    def set_effect_on_selection(
         self,
         category: str,
         effect_id: str,
@@ -1645,7 +1652,7 @@ class LightingStudioController:
                     id="base",
                     name="Whole Device",
                     effect_id=effect_id,
-                    params=dict(eff_params),
+                    params=copy.deepcopy(eff_params),
                     target_leds=None,
                     runtime=EffectRuntimeState(),
                 )
@@ -1661,7 +1668,7 @@ class LightingStudioController:
         for layer in layers:
             if layer.target_leds == target_set:
                 layer.effect_id = effect_id
-                layer.params = dict(eff_params)
+                layer.params = copy.deepcopy(eff_params)
                 layer.runtime = EffectRuntimeState()
                 if layer_name:
                     layer.name = layer_name
@@ -1671,12 +1678,15 @@ class LightingStudioController:
             id=f"zone-{len(layers) + 1}",
             name=layer_name or f"{EFFECT_SPECIFICATIONS.get(effect_id, {}).get('name', effect_id)} ({len(target_set)} LEDs)",
             effect_id=effect_id,
-            params=dict(eff_params),
+            params=copy.deepcopy(eff_params),
             target_leds=target_set,
             runtime=EffectRuntimeState(),
         )
         layers.append(new_layer)
         return new_layer
+
+    # Backwards-compatible alias
+    set_Effect_on_selection = set_effect_on_selection
 
     def clear_zone_layers(self, category: Optional[str] = None) -> None:
         """Removes all zone overlay layers and restores clean Whole Device mode."""
@@ -1798,9 +1808,9 @@ def get_lighting_settings_path() -> Path:
 
 def save_lighting_settings(controller: LightingStudioController, path: Optional[Path] = None) -> bool:
     """Persists lighting studio settings and user swatches atomically to JSON."""
+    from strop_core.presets import _atomic_write_json
     target = path or get_lighting_settings_path()
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "master_brightness": round(float(controller.master_brightness), 4),
             "global_speed": round(float(controller.global_speed), 4),
@@ -1812,9 +1822,7 @@ def save_lighting_settings(controller: LightingStudioController, path: Optional[
                 for cat, layers in controller.device_layers.items()
             },
         }
-        tmp_path = target.with_suffix(".json.tmp")
-        tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        os.replace(tmp_path, target)
+        _atomic_write_json(target, payload)
         return True
     except Exception:
         return False
@@ -1890,15 +1898,32 @@ class RazerLightingEngine:
     def is_available(self) -> bool:
         return self._connected and self._manager is not None
 
-    def get_razer_device(self, device_name: str):
-        """Finds the openrazer device matching the target name."""
+    def _get_openrazer_devices(self) -> List[Any]:
         if not self.is_available:
             self._init_openrazer()
         if not self._manager:
+            return []
+        try:
+            return list(self._manager.devices)
+        except Exception:
+            self._connected = False
+            self._manager = None
+            self._init_openrazer()
+            if not self._manager:
+                return []
+            try:
+                return list(self._manager.devices)
+            except Exception:
+                return []
+
+    def get_razer_device(self, device_name: str):
+        """Finds the openrazer device matching the target name."""
+        devices = self._get_openrazer_devices()
+        if not devices:
             return None
 
         clean_target = device_name.lower().replace("razer", "").replace("_", " ").strip()
-        for dev in self._manager.devices:
+        for dev in devices:
             dev_clean = dev.name.lower().replace("razer", "").replace("_", " ").strip()
             if clean_target in dev_clean or dev_clean in clean_target:
                 return dev
@@ -1941,7 +1966,7 @@ class RazerLightingEngine:
                 adv.draw()
                 return True
             except Exception as e:
-                print(f"Failed to draw matrix lighting on {device_name}: {e}")
+                logger.warning(f"Failed to draw matrix lighting on {device_name}: {e}")
 
         return False
 
@@ -1952,13 +1977,12 @@ class RazerLightingEngine:
         """
         Applies solid color to every connected Razer device found by OpenRazer.
         """
-        if not self.is_available:
-            self._init_openrazer()
-        if not self._manager or not self._manager.devices:
+        devices = self._get_openrazer_devices()
+        if not devices:
             return False
 
         success = True
-        for dev in self._manager.devices:
+        for dev in devices:
             try:
                 if hasattr(dev, "fx") and hasattr(dev.fx, "static"):
                     dev.fx.static(*color)
@@ -1973,7 +1997,7 @@ class RazerLightingEngine:
                 else:
                     success = False
             except Exception as e:
-                print(f"Failed to set lighting for {dev.name}: {e}")
+                logger.warning(f"Failed to set lighting for {dev.name}: {e}")
                 success = False
         return success
 
@@ -2036,13 +2060,12 @@ class RazerLightingEngine:
         Clears any active lighting effect and zeroes the hardware matrix on target device(s)
         so previous profiles never combine with newly applied profiles.
         """
-        if not self.is_available:
-            self._init_openrazer()
-        if not self._manager or not self._manager.devices:
+        devices = self._get_openrazer_devices()
+        if not devices:
             return False
 
         targets = (
-            list(self._manager.devices)
+            devices
             if (all_devices or not device_name)
             else [self.get_razer_device(device_name)]
         )
@@ -2050,7 +2073,8 @@ class RazerLightingEngine:
         if not targets:
             return False
 
-        self._last_static_colors.clear()
+        with self._worker_lock:
+            self._last_static_colors.clear()
         any_ok = False
         for dev in targets:
             try:
@@ -2139,20 +2163,33 @@ class RazerLightingEngine:
             except Exception:
                 pass
 
-    def _push_frame_precomputed(self, job: Dict[str, Any]) -> bool:
-        if not self.is_available:
-            self._init_openrazer()
-        if not self._manager or not self._manager.devices:
+    @staticmethod
+    def _pick_sample_color(dev_frame: Dict[str, RGBTuple]) -> RGBTuple:
+        for key in ("palm_logo", "scroll_wheel_top"):
+            col = dev_frame.get(key)
+            if col is not None and col != (0, 0, 0):
+                return col
+        lit = next((col for col in dev_frame.values() if col != (0, 0, 0)), None)
+        if lit is not None:
+            return lit
+        return next(iter(dev_frame.values()), COLOR_STOCK_GREEN)
+
+    def _write_frame_to_targets(
+        self,
+        nodes: List[LEDNode],
+        frame: Dict[str, RGBTuple],
+        device_name: Optional[str] = None,
+        all_devices: bool = False,
+        device_frames: Optional[Dict[str, Tuple[List[LEDNode], Dict[str, RGBTuple]]]] = None,
+        controller: Optional[LightingStudioController] = None,
+        dedup_static: bool = False,
+    ) -> bool:
+        devices = self._get_openrazer_devices()
+        if not devices:
             return False
 
-        all_devices = bool(job.get("all_devices"))
-        device_name = job.get("device_name")
-        nodes = job["nodes"]
-        frame = job["frame"]
-        device_frames: Dict[str, Tuple[List[LEDNode], Dict[str, RGBTuple]]] = job.get("device_frames") or {}
-
         targets = (
-            list(self._manager.devices)
+            devices
             if (all_devices or not device_name)
             else [self.get_razer_device(device_name)]
         )
@@ -2165,17 +2202,15 @@ class RazerLightingEngine:
             try:
                 dname = getattr(dev, "name", "")
                 dev_cat = self._infer_device_category(dname)
-                if all_devices and dev_cat in device_frames:
+                if all_devices and device_frames and dev_cat in device_frames:
                     dev_nodes, dev_frame = device_frames[dev_cat]
+                elif all_devices and controller is not None:
+                    dev_nodes = controller.topologies.get(dev_cat, nodes)
+                    dev_frame = controller.render_device_frame(dev_cat)
                 else:
                     dev_nodes, dev_frame = nodes, frame
 
-                sample_color = (
-                    dev_frame.get("palm_logo")
-                    or dev_frame.get("scroll_wheel_top")
-                    or next((col for col in dev_frame.values() if col != (0, 0, 0)), None)
-                    or next(iter(dev_frame.values()), COLOR_STOCK_GREEN)
-                )
+                sample_color = self._pick_sample_color(dev_frame)
 
                 adv = getattr(dev.fx, "advanced", None) if hasattr(dev, "fx") else None
                 if adv is not None and getattr(adv, "rows", None) and getattr(adv, "cols", None):
@@ -2191,9 +2226,14 @@ class RazerLightingEngine:
                     adv.draw()
                     any_ok = True
                 elif hasattr(dev, "fx") and hasattr(dev.fx, "static"):
-                    if self._last_static_colors.get(dname) != sample_color:
+                    should_push = True
+                    if dedup_static:
+                        with self._worker_lock:
+                            should_push = self._last_static_colors.get(dname) != sample_color
+                            if should_push:
+                                self._last_static_colors[dname] = sample_color
+                    if should_push:
                         dev.fx.static(*sample_color)
-                        self._last_static_colors[dname] = sample_color
                     any_ok = True
                 elif hasattr(dev, "fx") and hasattr(dev.fx, "misc") and hasattr(dev.fx.misc, "set_static_effect"):
                     dev.fx.misc.set_static_effect(*sample_color)
@@ -2201,6 +2241,16 @@ class RazerLightingEngine:
             except Exception:
                 pass
         return any_ok
+
+    def _push_frame_precomputed(self, job: Dict[str, Any]) -> bool:
+        return self._write_frame_to_targets(
+            job["nodes"],
+            job["frame"],
+            device_name=job.get("device_name"),
+            all_devices=bool(job.get("all_devices")),
+            device_frames=job.get("device_frames") or {},
+            dedup_static=True,
+        )
 
     def push_frame(
         self,
@@ -2214,61 +2264,14 @@ class RazerLightingEngine:
         Streams a rendered RGB frame to OpenRazer hardware (clearing the matrix buffer
         before drawing each frame so previous profiles never combine).
         """
-        if not self.is_available:
-            self._init_openrazer()
-        if not self._manager or not self._manager.devices:
-            return False
-
-        targets = (
-            list(self._manager.devices)
-            if (all_devices or not device_name)
-            else [self.get_razer_device(device_name)]
+        return self._write_frame_to_targets(
+            nodes,
+            frame,
+            device_name=device_name,
+            all_devices=all_devices,
+            controller=controller,
+            dedup_static=False,
         )
-        targets = [d for d in targets if d is not None]
-        if not targets:
-            return False
-
-        any_ok = False
-        for dev in targets:
-            try:
-                dev_cat = self._infer_device_category(getattr(dev, "name", ""))
-                if controller is not None and all_devices:
-                    dev_nodes = controller.topologies.get(dev_cat, nodes)
-                    dev_frame = controller.render_device_frame(dev_cat)
-                else:
-                    dev_nodes = nodes
-                    dev_frame = frame
-
-                # Pick representative active color for non-matrix static/zone devices (e.g. Naga Trinity)
-                sample_color = (
-                    dev_frame.get("palm_logo")
-                    or dev_frame.get("scroll_wheel_top")
-                    or next((col for col in dev_frame.values() if col != (0, 0, 0)), None)
-                    or next(iter(dev_frame.values()), COLOR_STOCK_GREEN)
-                )
-
-                adv = getattr(dev.fx, "advanced", None) if hasattr(dev, "fx") else None
-                if adv is not None and getattr(adv, "rows", None) and getattr(adv, "cols", None):
-                    if hasattr(adv.matrix, "reset"):
-                        adv.matrix.reset()
-                    else:
-                        for r in range(adv.rows):
-                            for c in range(adv.cols):
-                                adv.matrix[r, c] = (0, 0, 0)
-                    for n in dev_nodes:
-                        col = dev_frame.get(n.id, (0, 0, 0))
-                        self._write_node_to_matrix(adv, n, col)
-                    adv.draw()
-                    any_ok = True
-                elif hasattr(dev, "fx") and hasattr(dev.fx, "static"):
-                    dev.fx.static(*sample_color)
-                    any_ok = True
-                elif hasattr(dev, "fx") and hasattr(dev.fx, "misc") and hasattr(dev.fx.misc, "set_static_effect"):
-                    dev.fx.misc.set_static_effect(*sample_color)
-                    any_ok = True
-            except Exception:
-                pass
-        return any_ok
 
 
 # Singleton engine instance

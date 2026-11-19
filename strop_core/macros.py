@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Optional
 
 from strop_core.logger import get_logger
 
@@ -249,7 +249,7 @@ def save_user_macros(macros: List[Dict[str, Any]]) -> bool:
         logger.error(f"Refusing to save invalid macro library: {error}")
         return False
     try:
-        if fpath.exists():
+        if fpath.exists() and fpath.stat().st_size > 0:
             with fpath.open("r", encoding="utf-8") as existing:
                 prior = json.load(existing)
             if _validate_macro_library(prior):
@@ -282,6 +282,7 @@ def save_or_update_macro(macro_dict: Dict[str, Any]) -> bool:
     """Saves a new macro or updates an existing one in user storage."""
     if not isinstance(macro_dict, dict):
         return False
+    orig_dict = macro_dict
     macro_dict = dict(macro_dict)
     macro_dict["macro"] = normalize_macro_to_input_remapper(macro_dict.get("macro", ""))
     if validate_macro_expression(macro_dict["macro"]):
@@ -304,7 +305,10 @@ def save_or_update_macro(macro_dict: Dict[str, Any]) -> bool:
     if not updated:
         user_macros.append(macro_dict)
 
-    return save_user_macros(user_macros)
+    saved = save_user_macros(user_macros)
+    if saved:
+        orig_dict["id"] = m_id
+    return saved
 
 
 def delete_custom_macro(macro_id: str) -> bool:
@@ -424,7 +428,7 @@ def normalize_macro_to_input_remapper(macro_str: str) -> str:
         return s
 
     # If it's a simple key combination like 'Control_L + space' without function calls:
-    if "+" in s and "(" not in s and ")" not in s and "ms" not in s:
+    if "+" in s and "(" not in s and ")" not in s and not re.search(r'(?:^|[+.\s])\d+\s*ms(?:$|[+.\s])', s, re.IGNORECASE):
         return s
 
     if not raw_tokens:

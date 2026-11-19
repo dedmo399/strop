@@ -49,6 +49,8 @@ htmlcov/
 
 # Generated release artifacts and staged Pages assets
 *.deb
+*.pkg.tar.zst
+*.pkg.tar.xz
 *.tar.gz
 SHA256SUMS
 .strop-local-check

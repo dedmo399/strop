@@ -17,8 +17,19 @@ from dataclasses import dataclass
 
 from strop_core.logger import get_logger
 from strop_core.gamepad import parse_gamepad_button_output
+from strop_core.models import DeviceInfo, KeyState, PresetEntry
 
 logger = get_logger("strop.presets")
+
+try:  # dasbus is a hard package dependency, but degrade cleanly if absent.
+    from dasbus.error import DBusError
+except ImportError:  # pragma: no cover - exercised via tests with a patched import
+    class DBusError(Exception):
+        """Placeholder used when dasbus is not installed."""
+
+_dbus_lock = threading.Lock()
+_dbus_bus = None
+_dbus_proxy = None
 
 
 @dataclass(frozen=True)
@@ -118,28 +129,40 @@ def get_active_profile(device_name: str) -> Optional[str]:
     return matches[0] if len(matches) == 1 else None
 
 
-def set_active_profile(device_name: str, preset_name: str) -> bool:
+def _normalize_profile_device_name(value: str) -> str:
+    return " ".join(value.casefold().replace("razer", "").replace("_", " ").split())
+
+
+def set_active_profile(
+    device_name: str,
+    preset_name: str,
+    autoload_key: Optional[str] = None,
+) -> bool:
     """Records the last confirmed Strop profile; returns whether it persisted."""
     profiles = get_all_active_profiles()
+    clean_target = _normalize_profile_device_name(device_name)
     matches = [
         name for name in profiles
         if name != device_name
-        and name.lower().replace("razer", "").replace("_", " ").strip()
-        == device_name.lower().replace("razer", "").replace("_", " ").strip()
+        and _normalize_profile_device_name(name) == clean_target
     ]
     if len(matches) == 1:
         profiles.pop(matches[0], None)
     profiles[device_name] = preset_name
     try:
         _atomic_write_json(get_active_profiles_file(), profiles)
-        _sync_input_remapper_autoload(device_name, preset_name)
+        _sync_input_remapper_autoload(device_name, preset_name, ir_key=autoload_key)
         return True
     except Exception as e:
         logger.warning(f"Failed to write active profile: {e}")
         return False
 
 
-def _sync_input_remapper_autoload(device_name: str, preset_name: Optional[str]) -> None:
+def _sync_input_remapper_autoload(
+    device_name: str,
+    preset_name: Optional[str],
+    ir_key: Optional[str] = None,
+) -> None:
     """Keep ~/.config/input-remapper-2/config.json autoload mapping synchronized."""
     try:
         ir_cfg_path = _profile_config_dir() / "config.json"
@@ -147,28 +170,55 @@ def _sync_input_remapper_autoload(device_name: str, preset_name: Optional[str]) 
             return
         with open(ir_cfg_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        autoload = data.setdefault("autoload", {})
-        clean = device_name.replace("Razer ", "")
-        ir_key = f"Razer Razer {clean}" if not device_name.startswith("Razer Razer") else device_name
+        if not isinstance(data, dict):
+            return
+        autoload = data.get("autoload")
+        if autoload is None:
+            if not preset_name:
+                return
+            autoload = {}
+            data["autoload"] = autoload
+        if not isinstance(autoload, dict):
+            return
+
+        target_norm = _normalize_profile_device_name(device_name)
+        matching_keys = [
+            k for k in list(autoload.keys())
+            if isinstance(k, str) and _normalize_profile_device_name(k) == target_norm
+        ]
+
         if preset_name:
-            autoload[ir_key] = preset_name
+            target_key = ir_key or (matching_keys[0] if len(matching_keys) == 1 else device_name)
+            if autoload.get(target_key) == preset_name:
+                return
+            autoload[target_key] = preset_name
         else:
-            autoload.pop(ir_key, None)
-            autoload.pop(device_name, None)
+            keys_to_remove = set(matching_keys)
+            if ir_key:
+                keys_to_remove.add(ir_key)
+            keys_to_remove.add(device_name)
+            removed = False
+            for k in keys_to_remove:
+                if k in autoload:
+                    autoload.pop(k, None)
+                    removed = True
+            if not removed:
+                return
+
         _atomic_write_json(ir_cfg_path, data)
     except Exception as e:
         logger.warning(f"Failed to sync autoload to input-remapper config: {e}")
 
 
-def clear_active_profile(device_name: str) -> bool:
+def clear_active_profile(device_name: str, autoload_key: Optional[str] = None) -> bool:
     """Clears the last confirmed profile record; returns whether it persisted."""
     profiles = get_all_active_profiles()
     key = device_name if device_name in profiles else None
     if key is None:
-        clean_target = device_name.lower().replace("razer", "").replace("_", " ").strip()
+        clean_target = _normalize_profile_device_name(device_name)
         matches = [
             name for name in profiles
-            if name.lower().replace("razer", "").replace("_", " ").strip() == clean_target
+            if _normalize_profile_device_name(name) == clean_target
         ]
         if len(matches) == 1:
             key = matches[0]
@@ -176,11 +226,10 @@ def clear_active_profile(device_name: str) -> bool:
         del profiles[key]
         try:
             _atomic_write_json(get_active_profiles_file(), profiles)
-            _sync_input_remapper_autoload(device_name, None)
-            return True
         except Exception as e:
             logger.warning(f"Could not clear active profile: {e}")
             return False
+    _sync_input_remapper_autoload(device_name, None, ir_key=autoload_key)
     return True
 
 
@@ -206,7 +255,10 @@ def sanitize_filename(name: str) -> str:
     return clean
 
 
-def get_device_presets_dir(device_name: str) -> Path:
+def get_device_presets_dir(
+    device_name: str,
+    preferred_dir_name: Optional[str] = None,
+) -> Path:
     """Returns the specific device preset subfolder, resolving existing directories or creating clean one."""
     base = get_presets_base_dir()
     clean_dev_input = sanitize_filename(device_name) or "Razer Device"
@@ -214,6 +266,10 @@ def get_device_presets_dir(device_name: str) -> Path:
     pdir = base / clean_dev_input
     if pdir.exists():
         return pdir
+    if preferred_dir_name:
+        clean_pref = sanitize_filename(preferred_dir_name)
+        if clean_pref and (base / clean_pref).exists():
+            return base / clean_pref
     # 2. Match clean name
     from strop_core.device import clean_device_display_name
     clean_name = sanitize_filename(clean_device_display_name(device_name)) or clean_dev_input
@@ -228,8 +284,9 @@ def get_device_presets_dir(device_name: str) -> Path:
                 clean_sub = sub.name.lower().replace("razer", "").replace("_", " ").strip()
                 if clean_target and (clean_target in clean_sub or clean_sub in clean_target):
                     return sub
-    # 4. Default: Create clean path
-    target = base / clean_name
+    # 4. Default: Create preferred or clean path
+    default_dir_name = sanitize_filename(preferred_dir_name) if preferred_dir_name else ""
+    target = base / (default_dir_name or clean_name)
     target.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -246,16 +303,17 @@ def list_device_presets(device_name: str) -> List[str]:
 
 
 def serialize_preset_data(
-    state: Dict[str, Dict[str, Any]],
-    device_info: Dict[str, Any],
-) -> List[Dict[str, Any]]:
+    state: Dict[str, KeyState],
+    device_info: DeviceInfo,
+) -> List[PresetEntry]:
     """
     Serializes runtime KeyState dictionary into pure input-remapper JSON entries.
     Handles scancode-to-hash resolution for multi-node devices (Tartarus switches, matrix, etc.).
     """
     dev_hash = device_info.get("hash", "")
     key_to_hash = device_info.get("key_to_hash", {})
-    preset_data = []
+    rel_to_hash = device_info.get("rel_to_hash", {})
+    preset_data: List[PresetEntry] = []
 
     for kid, s in state.items():
         out_sym = (s.get("output") or "").strip()
@@ -273,18 +331,10 @@ def serialize_preset_data(
         out_sym = normalize_macro_to_input_remapper(out_sym)
 
         target_uinput = s.get("target") or "keyboard"
-        if target_uinput == "analog" or s.get("mapping_type") == "analog":
-            mapping_type = "analog"
-        else:
-            mapping_type = "key_macro"
+        mapping_type = "analog" if s.get("mapping_type") == "analog" else "key_macro"
 
-        # Determine origin_hash for this key
-        key_hash = s.get("origin_hash")
-        if not key_hash and s.get("code") in key_to_hash:
-            key_hash = key_to_hash[s["code"]]
-        if not key_hash:
-            key_hash = dev_hash
-
+        # Determine origin_hash and input_combination for this key/event
+        input_type = int(s.get("input_type", 1))
         if "combo" in s and s["combo"]:
             input_comb = [
                 {
@@ -298,11 +348,22 @@ def serialize_preset_data(
                 }
                 for c_code in s["combo"]
             ]
+        elif s.get("code") is None:
+            logger.warning(f"Skipping preset mapping for {kid!r}: missing evdev code.")
+            continue
+        elif input_type == 2:
+            code_val = int(s["code"])
+            key_hash = s.get("origin_hash") or rel_to_hash.get(code_val) or dev_hash
+            rel_item: Dict[str, Any] = {"type": 2, "code": code_val, "origin_hash": key_hash}
+            if s.get("analog_threshold") is not None:
+                rel_item["analog_threshold"] = int(s["analog_threshold"])
+            input_comb = [rel_item]
         else:
-            code_val = s.get("code") if s.get("code") is not None else 0
-            input_comb = [{"type": 1 if s.get("code") is not None else 2, "code": code_val, "origin_hash": key_hash}]
+            code_val = int(s["code"])
+            key_hash = s.get("origin_hash") or key_to_hash.get(code_val) or dev_hash
+            input_comb = [{"type": 1, "code": code_val, "origin_hash": key_hash}]
 
-        entry_dict: Dict[str, Any] = {
+        entry_dict: PresetEntry = {
             "input_combination": input_comb,
             "target_uinput": target_uinput,
             "output_symbol": out_sym,
@@ -384,9 +445,9 @@ def validate_preset_data(data: Any) -> Optional[str]:
 def save_device_preset(
     device_name: str,
     preset_name: str,
-    state: Dict[str, Dict[str, Any]],
-    device_info: Dict[str, Any],
-    preserved_entries: Optional[List[Dict[str, Any]]] = None,
+    state: Dict[str, KeyState],
+    device_info: DeviceInfo,
+    preserved_entries: Optional[List[PresetEntry]] = None,
 ) -> Optional[Path]:
     """Serializes and saves a preset file directly to disk. Returns saved file Path."""
     clean_pname = sanitize_filename(preset_name)
@@ -405,7 +466,14 @@ def save_device_preset(
     if validation_error:
         logger.error(f"Could not save preset '{clean_pname}': {validation_error}")
         return None
-    target_dir = get_device_presets_dir(device_name)
+    raw_name = device_info.get("raw_name") if isinstance(device_info, dict) else None
+    if raw_name:
+        try:
+            target_dir = get_device_presets_dir(device_name, preferred_dir_name=raw_name)
+        except TypeError:
+            target_dir = get_device_presets_dir(device_name)
+    else:
+        target_dir = get_device_presets_dir(device_name)
     save_file = target_dir / f"{clean_pname}.json"
     try:
         _atomic_write_json(save_file, preset_data)
@@ -417,7 +485,7 @@ def save_device_preset(
 
 
 
-def load_preset_file(path: Path) -> Optional[List[Dict[str, Any]]]:
+def load_preset_file(path: Path) -> Optional[List[PresetEntry]]:
     """Reads and parses an input-remapper JSON preset file."""
     if not path.exists():
         return None
@@ -437,28 +505,40 @@ def _profile_config_dir() -> Path:
     return get_presets_base_dir().parent
 
 
+_device_keys_lock = threading.Lock()
 _DEVICE_KEYS_CACHE: Tuple[float, List[str]] = (0.0, [])
 
 
-def _list_input_remapper_devices(ctrl_bin: str) -> List[str]:
+def invalidate_device_keys_cache() -> None:
+    """Clears the cached input-remapper device enumeration."""
+    global _DEVICE_KEYS_CACHE
+    with _device_keys_lock:
+        _DEVICE_KEYS_CACHE = (0.0, [])
+
+
+def _list_input_remapper_devices(ctrl_bin: str, force_refresh: bool = False) -> List[str]:
     global _DEVICE_KEYS_CACHE
     now = time.monotonic()
-    last_time, cached_keys = _DEVICE_KEYS_CACHE
-    if cached_keys and (now - last_time < 30.0):
-        return list(cached_keys)
+    with _device_keys_lock:
+        last_time, cached_keys = _DEVICE_KEYS_CACHE
+        if not force_refresh and cached_keys and (now - last_time < 30.0):
+            return list(cached_keys)
 
     result = subprocess.run(
         [ctrl_bin, "--list-devices"], capture_output=True, text=True, timeout=3.0,
         env=dict(os.environ, PYTHONWARNINGS="ignore"),
     )
     if result.returncode != 0:
-        if cached_keys:
-            return list(cached_keys)
+        with _device_keys_lock:
+            _, latest_cached = _DEVICE_KEYS_CACHE
+            if latest_cached:
+                return list(latest_cached)
         detail = (result.stderr or result.stdout or "Unable to enumerate input-remapper devices").strip()
         raise RuntimeError(detail[-500:])
     keys = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
-    _DEVICE_KEYS_CACHE = (now, keys)
-    return keys
+    with _device_keys_lock:
+        _DEVICE_KEYS_CACHE = (time.monotonic(), keys)
+    return list(keys)
 
 
 def _resolve_input_remapper_device(device_name: str, group_keys: List[str]) -> Optional[str]:
@@ -480,12 +560,53 @@ def _resolve_input_remapper_device(device_name: str, group_keys: List[str]) -> O
     return matches[0] if len(matches) == 1 else None
 
 
+def _get_system_bus():
+    """Return a cached dasbus system bus connection (thread-safe)."""
+    global _dbus_bus
+    with _dbus_lock:
+        if _dbus_bus is None:
+            from dasbus.connection import SystemMessageBus
+            _dbus_bus = SystemMessageBus()
+        return _dbus_bus
+
+
+def _reset_dbus_cache() -> None:
+    """Drop cached bus/proxy so the next call reconnects (e.g. after DBusError)."""
+    global _dbus_bus, _dbus_proxy
+    with _dbus_lock:
+        old_bus = _dbus_bus
+        _dbus_bus = None
+        _dbus_proxy = None
+    if old_bus is not None and hasattr(old_bus, "disconnect"):
+        try:
+            old_bus.disconnect()
+        except Exception:
+            pass
+
+
+def _get_input_remapper_proxy():
+    """Return a cached dasbus proxy for input-remapper's Control service."""
+    global _dbus_proxy
+    bus = _get_system_bus()
+    with _dbus_lock:
+        if _dbus_proxy is None:
+            from dasbus.identifier import DBusServiceIdentifier
+            service = DBusServiceIdentifier(
+                namespace=("inputremapper", "Control"),
+                message_bus=bus,
+            )
+            _dbus_proxy = service.get_proxy()
+        return _dbus_proxy
+
+
 def _get_input_remapper_state(group_key: str) -> str:
     """Read injector state from input-remapper's D-Bus API."""
-    from pydbus import SystemBus
-
-    daemon = SystemBus().get("inputremapper.Control")
-    raw_state = daemon.get_state(group_key, timeout=2)
+    try:
+        daemon = _get_input_remapper_proxy()
+        raw_state = daemon.get_state(group_key, timeout=2000)
+    except DBusError:
+        _reset_dbus_cache()
+        raise
     state = getattr(raw_state, "value", raw_state)
     return str(state).upper().rsplit(".", 1)[-1]
 
@@ -521,10 +642,14 @@ def get_injection_state(device_name: str) -> str:
     unique_candidates = [c for c in candidates if not (c in seen or seen.add(c))]
 
     try:
-        from pydbus import SystemBus
-        daemon = SystemBus().get("inputremapper.Control")
+        daemon = _get_input_remapper_proxy()
         for cand in unique_candidates:
-            raw_state = daemon.get_state(cand, timeout=1)
+            try:
+                raw_state = daemon.get_state(cand, timeout=1000)
+            except DBusError as exc:
+                logger.debug(f"input-remapper D-Bus state query failed for {cand!r}: {exc}")
+                _reset_dbus_cache()
+                break
             state = getattr(raw_state, "value", raw_state)
             state_str = str(state).upper().rsplit(".", 1)[-1]
             if state_str == "RUNNING":
@@ -535,8 +660,8 @@ def get_injection_state(device_name: str) -> str:
                 return "failed"
             if state_str == "STOPPED":
                 return "stopped"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(f"input-remapper D-Bus unavailable ({type(exc).__name__}): {exc}")
 
     ctrl_bin = shutil.which("input-remapper-control")
     if not ctrl_bin:
@@ -623,9 +748,15 @@ def apply_profile(device_name: str, preset_name: str) -> ProfileOperationResult:
 
     try:
         group_keys = _list_input_remapper_devices(ctrl_bin)
+        group_key = _resolve_input_remapper_device(device_name, group_keys)
+        if not group_key:
+            try:
+                group_keys = _list_input_remapper_devices(ctrl_bin, force_refresh=True)
+            except TypeError:
+                group_keys = _list_input_remapper_devices(ctrl_bin)
+            group_key = _resolve_input_remapper_device(device_name, group_keys)
     except Exception as exc:
         return ProfileOperationResult("failed", f"Could not enumerate input-remapper devices: {exc}")
-    group_key = _resolve_input_remapper_device(device_name, group_keys)
     if not group_key:
         return ProfileOperationResult(
             "failed",
@@ -666,7 +797,7 @@ def apply_profile(device_name: str, preset_name: str) -> ProfileOperationResult:
             "Apply was accepted, but Strop could not confirm that the injection is running. Check the input-remapper daemon and device connection, then refresh the profile state.",
         )
 
-    if not set_active_profile(device_name, clean_preset):
+    if not set_active_profile(device_name, clean_preset, autoload_key=group_key):
         return ProfileOperationResult("applied", f"Injection is running with {clean_preset}, but Strop could not save its last-confirmed profile record.")
     return ProfileOperationResult("applied", f"input-remapper reports an injection running for {device_name}; Strop last applied {clean_preset}.")
 
@@ -679,9 +810,15 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
 
     try:
         group_keys = _list_input_remapper_devices(ctrl_bin)
+        group_key = _resolve_input_remapper_device(device_name, group_keys)
+        if not group_key:
+            try:
+                group_keys = _list_input_remapper_devices(ctrl_bin, force_refresh=True)
+            except TypeError:
+                group_keys = _list_input_remapper_devices(ctrl_bin)
+            group_key = _resolve_input_remapper_device(device_name, group_keys)
     except Exception as exc:
         return ProfileOperationResult("failed", f"Could not enumerate input-remapper devices: {exc}")
-    group_key = _resolve_input_remapper_device(device_name, group_keys)
     if not group_key:
         return ProfileOperationResult(
             "failed",
@@ -718,15 +855,18 @@ def stop_profile(device_name: str) -> ProfileOperationResult:
             "Stop was accepted, but Strop could not confirm that injection ended. Check the input-remapper daemon and device connection, then refresh the profile state.",
         )
 
-    if not clear_active_profile(device_name):
+    if not clear_active_profile(device_name, autoload_key=group_key):
         return ProfileOperationResult("stopped", "Injection stopped, but Strop could not clear its last-confirmed profile record.")
     return ProfileOperationResult("stopped", f"input-remapper reports no injection running for {device_name}.")
 
 def _is_dbus_daemon_active() -> bool:
     try:
-        from pydbus import SystemBus
-        bus = SystemBus()
-        return "inputremapper.Control" in bus.get("org.freedesktop.DBus").ListNames()
+        bus = _get_system_bus()
+        dbus_proxy = bus.get_proxy("org.freedesktop.DBus", "/org/freedesktop/DBus")
+        return "inputremapper.Control" in dbus_proxy.ListNames(timeout=1000)
+    except DBusError:
+        _reset_dbus_cache()
+        return False
     except Exception:
         return False
 

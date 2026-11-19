@@ -27,7 +27,7 @@ Download the latest verified package and release artifacts from the [Strop relea
 
 ```bash
 # Example: install the current Debian package
-sudo apt install ./strop_1.2.2_all.deb
+sudo apt install ./strop_1.3.1_all.deb
 ```
 
 For setup steps and troubleshooting, see [docs/USER_GUIDE.md](docs/USER_GUIDE.md) and [docs/SUPPORT.md](docs/SUPPORT.md).
@@ -77,11 +77,11 @@ For an existing checkout, get the latest committed source with `git pull --ff-on
 
 ## 🧰 Platform and support
 
-The **only official 1.2 support target** is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4, with input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow, Huntsman, Naga, Basilisk, and comparable supported inputs listed in the support matrix.
+The **only official support target** is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4, with input-remapper 2.2.0. The hardware scope remains the Razer Tartarus Pro, BlackWidow, Huntsman, Naga, Basilisk, and comparable supported inputs listed in the support matrix.
 
 Strop's catalog contains 230+ device entries and generic layout archetypes. Catalog presence is reference data; it does not mean a device has been tested or is officially supported. Other distributions, desktop environments, or device families may work but are not in scope for support commitments.
 
-Strop uses **Python 3**, **PyGObject**, **GTK 4**, and **python-evdev**. Hardware remapping requires [**input-remapper**](https://github.com/sezanzeb/input-remapper); [**OpenRazer**](https://openrazer.github.io/) is used for lighting and device control.
+Strop uses **Python 3**, **PyGObject**, **PyCairo**, **GTK 4**, **python-dasbus**, and **python-evdev**. Hardware remapping requires [**input-remapper**](https://github.com/sezanzeb/input-remapper); [**OpenRazer**](https://openrazer.github.io/) is used for lighting and device control.
 
 - **Macro Studio & Composer**: Built-in gaming combos such as Bullet Jump and Ability Combos, plus productivity shortcuts with custom millisecond delays.
 - **Unified RGB Lighting & Chroma Effects Studio**: 60 FPS internal render loop, 16 lighting presets, interactive Cairo HSV color wheel + SV square, multi-stop gradient editor, and 2D vector zone mapping.
@@ -139,11 +139,11 @@ Open dedicated studios for hardware-specific layouts and device controls:
 
 ## 📦 Installation & Packaging
 
-The official 1.2 target is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4. Other distributions are not in the support matrix.
+The official target is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4. Other distributions are not in the support matrix.
 
 ### Install Debian Package (.deb)
 
-Download `strop_1.2.2_all.deb`, `strop_1.2.2.tar.gz`, and `SHA256SUMS` from the [Strop 1.2.2 release](https://github.com/dedmo399/strop/releases/tag/v1.2.2) into the same directory. Verify both downloads before installation:
+Download `strop_1.3.1_all.deb`, `strop_1.3.1.tar.gz`, and `SHA256SUMS` from the [Strop 1.3.1 release](https://github.com/dedmo399/strop/releases/tag/v1.3.1) into the same directory. Verify both downloads before installation:
 
 ```bash
 sha256sum --check SHA256SUMS
@@ -154,13 +154,35 @@ Both files should report `OK`. Checksums detect corrupted or changed downloads; 
 Install the verified Debian package with `apt`:
 
 ```bash
-sudo apt install ./strop_1.2.2_all.deb
+sudo apt install ./strop_1.3.1_all.deb
 ```
 
 To build fresh `.deb` and `.tar.gz` release artifacts at any time:
 
 ```bash
 ./build_deb.sh
+```
+
+### Build & Install Arch Linux / CachyOS Package (`.pkg.tar.zst`)
+
+Strop provides an architecture-independent (`arch=('any')`) Arch Linux / CachyOS package definition in [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD). CachyOS and KDE Plasma support are active targets for **Strop 1.4.0**.
+
+Build the package natively on Arch / CachyOS (or via Docker/Podman on Debian/Ubuntu):
+
+```bash
+./build_arch.sh
+```
+
+Install the generated package with `pacman`:
+
+```bash
+sudo pacman -U ./strop-1.3.1-1-any.pkg.tar.zst
+```
+
+For full remapping and OpenRazer RGB/DPI support on Arch / CachyOS, also install optional packages (e.g. via `paru` or `yay`):
+
+```bash
+paru -S input-remapper-git openrazer-daemon python-openrazer
 ```
 
 Source checkout launchers use the `./strop*.py` commands above. To add an installed package to the application menu, install the `.deb`; it provides a system desktop entry and icons.
@@ -191,7 +213,7 @@ For setup and troubleshooting, read the [user guide](docs/USER_GUIDE.md) and [su
 
 ## 📜 Version & License
 
-- **Version**: `1.2.2`
+- **Version**: `1.3.1`
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 
 Maintained by Strop Contributors. Source and issue tracking: [dedmo399/strop](https://github.com/dedmo399/strop).

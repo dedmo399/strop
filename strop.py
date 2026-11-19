@@ -2,11 +2,10 @@
 """
 Strop — Unified Razer Linux Peripheral Suite Hub
 Native Linux GTK4 dashboard for managing Razer keypads, keyboards, mice, lighting, and in-game HUDs.
-Official 1.2 device support is limited to the published support matrix.
+Official device support is limited to the published support matrix.
 """
 
 import sys
-import os
 import subprocess
 from pathlib import Path
 
@@ -15,7 +14,7 @@ script_dir = Path(__file__).resolve().parent
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
-from strop_core.presets import get_active_profile
+from strop_core.presets import get_active_profile, invalidate_device_keys_cache
 
 from strop_core.theme import apply_theme, show_about_dialog
 from strop_core.tray_controller import TrayController
@@ -23,8 +22,7 @@ from strop_core.tray_controller import TrayController
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-gi.require_version('GdkPixbuf', '2.0')
-from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf
+from gi.repository import Gtk, Gdk, Gio
 
 
 class StropHubWindow(Gtk.ApplicationWindow):
@@ -39,6 +37,8 @@ class StropHubWindow(Gtk.ApplicationWindow):
         self.selected_dev_name = ""
         self.available_presets_for_selected = []
         self.profile_operation_pending = False
+        self._last_daemon_banner_key = None
+        self._last_hardware_banner_key = None
 
         self._build_ui()
         self.connect("close-request", self._on_close_requested)
@@ -124,7 +124,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
         lbl_title.set_xalign(0)
         title_box.append(lbl_title)
 
-        lbl_sub = Gtk.Label(label="Official 1.2 hardware support is limited to the devices listed in the support matrix.")
+        lbl_sub = Gtk.Label(label="Official hardware support is limited to the devices listed in the support matrix.")
         lbl_sub.add_css_class("dim-text")
         lbl_sub.set_xalign(0)
         title_box.append(lbl_sub)
@@ -274,13 +274,18 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
 
     def _refresh_daemon_banner(self):
+        status, msg = self.get_application().controller.daemon_status
+        banner_key = (status, msg)
+        if banner_key == self._last_daemon_banner_key:
+            return
+        self._last_daemon_banner_key = banner_key
+
         while True:
             child = self.daemon_banner.get_first_child()
             if not child:
                 break
             self.daemon_banner.remove(child)
 
-        status, msg = self.get_application().controller.daemon_status
         if status == "running":
             self.daemon_banner.set_visible(False)
             return
@@ -316,7 +321,24 @@ class StropHubWindow(Gtk.ApplicationWindow):
 
         self.daemon_banner.append(alert_card)
 
-    def _refresh_hardware_banner(self):
+    def _refresh_hardware_banner(self, force: bool = False):
+        hw_key = (
+            tuple(
+                (
+                    d["name"],
+                    d.get("clean_name", d["name"]),
+                    d.get("hash", ""),
+                    d.get("side_plate_label") if d.get("multi_plate") else None,
+                    get_active_profile(d["name"]),
+                )
+                for d in self.connected_devices
+            ),
+            tuple(self.device_scan_diagnostics),
+        )
+        if not force and hw_key == self._last_hardware_banner_key:
+            return
+        self._last_hardware_banner_key = hw_key
+
         while True:
             child = self.hardware_box.get_first_child()
             if not child:
@@ -423,7 +445,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
             else:
                 self.lbl_profile_status.set_text(f"{operation.title()} failed · " + result.message)
         if result.status in ("applied", "stopped"):
-            self._refresh_hardware_banner()
+            self._refresh_hardware_banner(force=True)
         title = {
             "applied": "Profile Applied",
             "stopped": "Profile Stopped",
@@ -513,6 +535,7 @@ class StropHubWindow(Gtk.ApplicationWindow):
             alert.show(self)
 
     def _on_rescan_clicked(self, widget):
+        invalidate_device_keys_cache()
         self.get_application().controller.refresh()
 
 

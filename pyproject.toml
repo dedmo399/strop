@@ -12,6 +12,34 @@ requires-python = ">=3.12"
 authors = [
     { name = "Strop Contributors" }
 ]
+dependencies = [
+    "PyGObject",
+    "pycairo",
+    "evdev",
+    "dasbus",
+]
+
+[project.scripts]
+strop = "strop:main"
+strop-keypad = "strop_keypad:main"
+strop-keyboard = "strop_keyboard:main"
+strop-mouse = "strop_mouse:main"
+strop-hud = "strop_hud:main"
+strop-macro = "strop_macro:main"
+strop-lighting = "strop_lighting:main"
+strop-studio = "strop_studio:main"
+
+[tool.setuptools]
+py-modules = [
+    "strop",
+    "strop_hud",
+    "strop_keyboard",
+    "strop_keypad",
+    "strop_lighting",
+    "strop_macro",
+    "strop_mouse",
+    "strop_studio",
+]
 
 [tool.setuptools.dynamic]
 version = { attr = "strop_core.__version__" }

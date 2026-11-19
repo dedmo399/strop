@@ -2128,16 +2128,24 @@ def get_device_catalog() -> List[Dict[str, Any]]:
     return RAZER_DEVICE_CATALOG
 
 
+_GENERIC_NON_MODEL_QUERIES = frozenset({
+    "razer", "pro", "wireless", "wired", "mini", "lite", "v2", "v3", "v4",
+    "essential", "chroma", "tournament", "stealth", "mouse", "keyboard",
+    "keypad", "edition", "usb", "core", "gaming", "elite", "ultimate",
+    "mercury", "quartz", "white", "black",
+})
+
+
 def _norm_name(s: str) -> str:
     return "".join(c for c in s.lower() if c.isalnum())
 
 
-def get_device_by_name(name: str) -> Optional[Dict[str, Any]]:
-    """Finds a device by its exact, fuzzy, or normalized matching name."""
+def get_exact_or_contained_device_by_name(name: str) -> Optional[Dict[str, Any]]:
+    """Finds a device by exact normalized match or by catalog name contained in query."""
     if not name or not isinstance(name, str):
         return None
     name_norm = _norm_name(name)
-    if not name_norm or name_norm == "razer":
+    if not name_norm or name_norm in _GENERIC_NON_MODEL_QUERIES:
         return None
     # 1. Exact normalized match
     for d in RAZER_DEVICE_CATALOG:
@@ -2152,6 +2160,19 @@ def get_device_by_name(name: str) -> Optional[Dict[str, Any]]:
     if matches_contained:
         matches_contained.sort(key=lambda d: len(_norm_name(d["name"])), reverse=True)
         return matches_contained[0]
+    return None
+
+
+def get_device_by_name(name: str) -> Optional[Dict[str, Any]]:
+    """Finds a device by its exact, fuzzy, or normalized matching name."""
+    direct = get_exact_or_contained_device_by_name(name)
+    if direct is not None:
+        return direct
+    if not name or not isinstance(name, str):
+        return None
+    name_norm = _norm_name(name)
+    if not name_norm or name_norm in _GENERIC_NON_MODEL_QUERIES:
+        return None
 
     # 3. Query is substring of catalog device names. Prefer the most specific
     # match deterministically instead of whichever catalog entry appears first.

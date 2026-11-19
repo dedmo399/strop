@@ -32,6 +32,7 @@ class StropToast(Gtk.Box):
         self.append(self.btn_dismiss)
 
         self._timeout_id = None
+        self.connect("destroy", lambda _w: self.dismiss())
 
     def show_message(self, message: str, icon: str = "⚡", timeout_ms: int = 2500):
         """Displays toast message with an icon and auto-dismisses."""
@@ -39,7 +40,7 @@ class StropToast(Gtk.Box):
             GLib.source_remove(self._timeout_id)
             self._timeout_id = None
 
-        self.icon_lbl.set_markup(f"<span size='medium'>{icon}</span>")
+        self.icon_lbl.set_markup(f"<span size='medium'>{GLib.markup_escape_text(icon)}</span>")
         self.msg_lbl.set_markup(f"<span weight='semibold' color='#f8fafc'>{GLib.markup_escape_text(message)}</span>")
         self.set_visible(True)
 
