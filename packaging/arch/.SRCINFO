@@ -1,6 +1,6 @@
 pkgbase = strop
 	pkgdesc = Unified Linux Peripheral Studio & HUD for Razer Hardware
-	pkgver = 1.3.1
+	pkgver = 1.3.2
 	pkgrel = 1
 	url = https://github.com/dedmo399/strop
 	arch = any
@@ -17,7 +17,7 @@ pkgbase = strop
 	optdepends = libx11: Always-on-top HUD overlay window pinning on X11/XWayland
 	optdepends = openrazer-daemon: Razer hardware RGB lighting, DPI, and polling rate control
 	optdepends = python-openrazer: Python client bindings for OpenRazer hardware control
-	source = strop_1.3.1.tar.gz::https://github.com/dedmo399/strop/releases/download/v1.3.1/strop_1.3.1.tar.gz
+	source = strop_1.3.2.tar.gz::https://github.com/dedmo399/strop/releases/download/v1.3.2/strop_1.3.2.tar.gz
 	sha256sums = SKIP
 
 pkgname = strop

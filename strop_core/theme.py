@@ -22,6 +22,30 @@ window.main-window {
     color: #e2e8f0;
 }
 
+headerbar {
+    background-color: #12161d;
+    color: #e2e8f0;
+    border-bottom: 1px solid #243040;
+}
+
+popover > contents {
+    background-color: #161c26;
+    color: #e2e8f0;
+    border: 1px solid #283444;
+}
+
+popover modelbutton,
+dropdown popover listview > row {
+    color: #e2e8f0;
+}
+
+popover modelbutton:hover,
+dropdown popover listview > row:hover,
+dropdown popover listview > row:selected {
+    background-color: #1e293b;
+    color: #86efac;
+}
+
 label {
     color: #e2e8f0;
 }
@@ -527,6 +551,12 @@ def apply_theme(extra_css: bytes = b"") -> None:
     provider.load_from_data(full_css)
     display = Gdk.Display.get_default()
     if display:
+        try:
+            settings = Gtk.Settings.get_for_display(display)
+            if settings is not None:
+                settings.set_property("gtk-application-prefer-dark-theme", True)
+        except Exception:
+            pass
         Gtk.StyleContext.add_provider_for_display(
             display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )

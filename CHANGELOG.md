@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.2
+
+- Added KDE Plasma (Wayland & X11) desktop integration:
+  - Added `strop_core/desktop.py` with KDE/GNOME and Wayland/X11 session detection and KWin D-Bus scripting (`org.kde.kwin.Scripting`) keep-above/placement support for the HUD overlay on KDE Wayland (falling back cleanly to X11/XWayland `pin_window_on_top`).
+  - Forced `gtk-application-prefer-dark-theme = True` and added explicit `headerbar`, `popover`, and `dropdown` CSS rules in `strop_core/theme.py` so Strop's dark slate palette renders consistently under Breeze-GTK.
+  - Added test coverage for KDE desktop detection, KWin D-Bus pinning, dark-theme settings, and `DBusMenu` group methods (`AboutToShowGroup`, `EventGroup`) used by Plasma's StatusNotifier host.
+
 ## 1.3.1
 
 - Added Arch Linux and CachyOS packaging support (`packaging/arch/PKGBUILD`, `packaging/arch/.SRCINFO`, `build_arch.sh` with native `makepkg` and Docker/Podman container build support, plus CI Arch package verification).

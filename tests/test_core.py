@@ -2291,5 +2291,78 @@ class TestProjectReviewRegressionFixes(unittest.TestCase):
         self.assertEqual(mock_disc.call_count, 1)
 
 
+class TestKDESupport(unittest.TestCase):
+    def test_desktop_and_session_detection(self):
+        from strop_core.desktop import is_kde, is_kde_wayland, session_type
+
+        self.assertTrue(is_kde({"XDG_CURRENT_DESKTOP": "KDE"}))
+        self.assertTrue(is_kde({"KDE_FULL_SESSION": "true"}))
+        self.assertTrue(is_kde({"DESKTOP_SESSION": "plasma"}))
+        self.assertFalse(is_kde({"XDG_CURRENT_DESKTOP": "GNOME"}))
+
+        self.assertEqual(session_type({"XDG_SESSION_TYPE": "wayland"}), "wayland")
+        self.assertEqual(session_type({"XDG_SESSION_TYPE": "x11"}), "x11")
+        self.assertEqual(session_type({"WAYLAND_DISPLAY": "wayland-0"}), "wayland")
+        self.assertEqual(session_type({"DISPLAY": ":0"}), "x11")
+
+        self.assertTrue(is_kde_wayland({"XDG_CURRENT_DESKTOP": "KDE", "XDG_SESSION_TYPE": "wayland"}))
+        self.assertFalse(is_kde_wayland({"XDG_CURRENT_DESKTOP": "KDE", "XDG_SESSION_TYPE": "x11"}))
+        self.assertFalse(is_kde_wayland({"XDG_CURRENT_DESKTOP": "GNOME", "XDG_SESSION_TYPE": "wayland"}))
+
+    def test_pin_kwin_window_on_top_and_fallback(self):
+        from gi.repository import GLib
+        from strop_core.desktop import pin_hud_window_on_top, pin_kwin_window_on_top
+
+        calls = []
+
+        class FakeBus:
+            def call_sync(self, bus_name, obj_path, iface, method, params, _reply_type, _flags, _timeout, _cancellable):
+                calls.append((bus_name, obj_path, iface, method, params.unpack() if params else None))
+                if method == "loadScript":
+                    script_file = params.unpack()[0]
+                    self.loaded_script_exists = os.path.exists(script_file)
+                    return GLib.Variant("(i)", (7,))
+                if method == "unloadScript":
+                    return GLib.Variant("(b)", (True,))
+                return None
+
+        bus = FakeBus()
+        ok = pin_kwin_window_on_top("Razer Tartarus Pro - Strop HUD", 16, 20, connection=bus)
+        self.assertTrue(ok)
+        self.assertTrue(bus.loaded_script_exists)
+        self.assertEqual([c[3] for c in calls], ["loadScript", "run", "unloadScript"])
+        self.assertEqual(calls[1][1], "/Scripting/Script7")
+        # Temp script file must be cleaned up
+        self.assertFalse(os.path.exists(calls[0][4][0]))
+
+        # Non-KDE falls back directly to X11 pin helper
+        x11_calls = []
+        with patch("strop_core.desktop.is_kde_wayland", return_value=False):
+            res = pin_hud_window_on_top("HUD", 10, 12, x11_pin_fn=lambda t, x, y: x11_calls.append((t, x, y)) or True)
+        self.assertTrue(res)
+        self.assertEqual(x11_calls, [("HUD", 10, 12)])
+
+        # KDE Wayland falls back to X11 if KWin scripting returns False
+        x11_calls.clear()
+        with patch("strop_core.desktop.is_kde_wayland", return_value=True), \
+             patch("strop_core.desktop.pin_kwin_window_on_top", return_value=False):
+            res = pin_hud_window_on_top("HUD", 10, 12, x11_pin_fn=lambda t, x, y: x11_calls.append((t, x, y)) or True)
+        self.assertTrue(res)
+        self.assertEqual(x11_calls, [("HUD", 10, 12)])
+
+    def test_apply_theme_sets_prefer_dark_theme_for_breeze_compatibility(self):
+        import strop_core.theme as theme_mod
+
+        fake_settings = MagicMock()
+        fake_display = object()
+        with patch.object(theme_mod.Gdk.Display, "get_default", return_value=fake_display), \
+             patch.object(theme_mod.Gtk.Settings, "get_for_display", return_value=fake_settings), \
+             patch.object(theme_mod.Gtk.StyleContext, "add_provider_for_display"), \
+             patch.object(theme_mod.Gtk.IconTheme, "get_for_display", return_value=MagicMock()):
+            theme_mod.apply_theme()
+
+        fake_settings.set_property.assert_called_once_with("gtk-application-prefer-dark-theme", True)
+
+
 if __name__ == "__main__":
     unittest.main()

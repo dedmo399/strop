@@ -215,3 +215,35 @@ def test_tray_submenu_opened_does_not_block_layout_updates():
     assert not tray.menu_open
     assert not tray.pending_layout_update
     assert "LayoutUpdated" in [call.args[3] for call in tray.connection.emit_signal.call_args_list]
+
+
+def test_tray_dbusmenu_group_methods_for_kde():
+    from gi.repository import GLib
+    from strop_core.tray import TrayService
+
+    clicked = Mock()
+    tray = TrayService.__new__(TrayService)
+    tray.closed = False
+    tray.menu = MenuModel()
+    tray.menu_open = False
+    tray.pending_layout_update = False
+    tray.refresh = Mock()
+    tray.connection = Mock()
+    tray.update([MenuItem("act", "Run Action", clicked)])
+    act_id = tray.menu.ids["act"]
+
+    inv_about = Mock()
+    tray._menu_method(None, None, "/Menu", "com.canonical.dbusmenu", "AboutToShowGroup",
+                      GLib.Variant("(ai)", ([0, 999],)), inv_about)
+    tray.refresh.assert_called_once()
+    updates, errors = inv_about.return_value.call_args.args[0].unpack()
+    assert updates == []
+    assert errors == [999]
+
+    inv_event = Mock()
+    tray._menu_method(None, None, "/Menu", "com.canonical.dbusmenu", "EventGroup",
+                      GLib.Variant("(a(isvu))", ([(act_id, "clicked", GLib.Variant("s", ""), 0),
+                                                   (999, "clicked", GLib.Variant("s", ""), 0)],)),
+                      inv_event)
+    clicked.assert_called_once()
+    assert inv_event.return_value.call_args.args[0].unpack() == ([999],)

@@ -25,6 +25,7 @@ script_dir = Path(__file__).resolve().parent
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
+from strop_core.desktop import pin_hud_window_on_top
 from strop_core.x11 import pin_window_on_top
 from strop_core.device import detect_device, device_model_name
 from strop_core.presets import (
@@ -177,7 +178,12 @@ class KeypadHUDOverlay(Gtk.ApplicationWindow):
     def _apply_on_top_and_position(self):
         if getattr(self, "_destroyed", False):
             return False
-        pin_window_on_top(self.get_title() or "Strop — Keypad HUD Overlay", x=12, y=12)
+        pin_hud_window_on_top(
+            self.get_title() or "Strop — Keypad HUD Overlay",
+            x=12,
+            y=12,
+            x11_pin_fn=pin_window_on_top,
+        )
         return False  # Run once
 
 

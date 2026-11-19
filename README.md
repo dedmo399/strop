@@ -27,7 +27,7 @@ Download the latest verified package and release artifacts from the [Strop relea
 
 ```bash
 # Example: install the current Debian package
-sudo apt install ./strop_1.3.1_all.deb
+sudo apt install ./strop_1.3.2_all.deb
 ```
 
 For setup steps and troubleshooting, see [docs/USER_GUIDE.md](docs/USER_GUIDE.md) and [docs/SUPPORT.md](docs/SUPPORT.md).
@@ -139,11 +139,11 @@ Open dedicated studios for hardware-specific layouts and device controls:
 
 ## 📦 Installation & Packaging
 
-The official target is Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4. Other distributions are not in the support matrix.
+The official targets are Ubuntu 26.04 LTS (GNOME on Wayland/X11) and KDE Plasma 6 (Wayland/X11, including CachyOS / Arch Linux) with Python 3.11–3.14 and GTK4. Other distributions may work but are outside the current support matrix.
 
 ### Install Debian Package (.deb)
 
-Download `strop_1.3.1_all.deb`, `strop_1.3.1.tar.gz`, and `SHA256SUMS` from the [Strop 1.3.1 release](https://github.com/dedmo399/strop/releases/tag/v1.3.1) into the same directory. Verify both downloads before installation:
+Download `strop_1.3.2_all.deb`, `strop_1.3.2.tar.gz`, and `SHA256SUMS` from the [Strop 1.3.2 release](https://github.com/dedmo399/strop/releases/tag/v1.3.2) into the same directory. Verify both downloads before installation:
 
 ```bash
 sha256sum --check SHA256SUMS
@@ -154,7 +154,7 @@ Both files should report `OK`. Checksums detect corrupted or changed downloads; 
 Install the verified Debian package with `apt`:
 
 ```bash
-sudo apt install ./strop_1.3.1_all.deb
+sudo apt install ./strop_1.3.2_all.deb
 ```
 
 To build fresh `.deb` and `.tar.gz` release artifacts at any time:
@@ -165,7 +165,7 @@ To build fresh `.deb` and `.tar.gz` release artifacts at any time:
 
 ### Build & Install Arch Linux / CachyOS Package (`.pkg.tar.zst`)
 
-Strop provides an architecture-independent (`arch=('any')`) Arch Linux / CachyOS package definition in [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD). CachyOS and KDE Plasma support are active targets for **Strop 1.4.0**.
+Strop provides an architecture-independent (`arch=('any')`) Arch Linux / CachyOS package definition in [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD), including KDE Plasma 6 (Wayland & X11) tray, dark theme, and KWin HUD integration.
 
 Build the package natively on Arch / CachyOS (or via Docker/Podman on Debian/Ubuntu):
 
@@ -176,7 +176,7 @@ Build the package natively on Arch / CachyOS (or via Docker/Podman on Debian/Ubu
 Install the generated package with `pacman`:
 
 ```bash
-sudo pacman -U ./strop-1.3.1-1-any.pkg.tar.zst
+sudo pacman -U ./strop-1.3.2-1-any.pkg.tar.zst
 ```
 
 For full remapping and OpenRazer RGB/DPI support on Arch / CachyOS, also install optional packages (e.g. via `paru` or `yay`):
@@ -213,7 +213,7 @@ For setup and troubleshooting, read the [user guide](docs/USER_GUIDE.md) and [su
 
 ## 📜 Version & License
 
-- **Version**: `1.3.1`
+- **Version**: `1.3.2`
 - **License**: [GNU General Public License v3.0 or later](LICENSES.md) (`GPL-3.0-or-later`); full license text: [LICENSE](LICENSE).
 
 Maintained by Strop Contributors. Source and issue tracking: [dedmo399/strop](https://github.com/dedmo399/strop).

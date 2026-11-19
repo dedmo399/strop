@@ -2,8 +2,7 @@
 
 Strop is a Linux application for configuring Razer peripherals through GTK,
 [input-remapper](https://github.com/sezanzeb/input-remapper), and optional
-[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration. The supported platform is
-Ubuntu 26.04 LTS, GNOME on Wayland, Python 3.14, and GTK4. Other configurations may work but are outside
+[OpenRazer](https://openrazer.github.io/) ([GitHub](https://github.com/openrazer/openrazer)) integration. The supported platforms are Ubuntu 26.04 LTS (GNOME on Wayland/X11) and KDE Plasma 6 (Wayland/X11, including CachyOS / Arch Linux) with Python 3.11–3.14 and GTK4. Other configurations may work but are outside
 the current support scope.
 
 ## Requirements
@@ -15,7 +14,7 @@ the current support scope.
 | python-evdev | Input device discovery and capture |
 | [input-remapper](https://github.com/sezanzeb/input-remapper) | Profile remapping and macro injection; current integration targets version 2.2.0 |
 | [OpenRazer](https://openrazer.github.io/) (optional) | Supported Chroma RGB lighting, mouse DPI stages, and polling-rate controls |
-| Desktop StatusNotifier/AppIndicator host | Tray applet; Ubuntu AppIndicators supplies this on the supported GNOME desktop |
+| Desktop StatusNotifier/AppIndicator host | Tray applet; provided natively by KDE Plasma System Tray or Ubuntu AppIndicators on GNOME |
 
 The Debian package declares the application dependencies and recommends
 input-remapper and OpenRazer. See [README.md](../README.md) for installation.
@@ -48,8 +47,9 @@ Profile remapping uses input-remapper independently of OpenRazer.
 
 ## Known limitations
 
-- The HUD uses X11/XWayland window controls. Positioning and always-on-top behavior
-  depend on the compositor and may not work in fullscreen applications.
+- The HUD uses KWin D-Bus scripting on KDE Plasma Wayland and X11/XWayland EWMH
+  controls elsewhere. Positioning and always-on-top behavior depend on the compositor
+  and may be restricted in fullscreen exclusive windows or compositors that block scripting.
 - The tray uses Gio/D-Bus, without loading GTK3 into the GTK4 application. If the
   desktop tray host is unavailable, Strop keeps the Hub accessible and closing it
   exits the application.
