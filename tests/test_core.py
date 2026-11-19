@@ -2082,8 +2082,11 @@ class TestProjectReviewRegressionFixes(unittest.TestCase):
             validation_code = (
                 "import sys\n"
                 "from pathlib import Path\n"
-                "from inputremapper.configs.preset import Preset\n"
-                "from inputremapper.configs.keyboard_layout import keyboard_layout\n"
+                "try:\n"
+                "    from inputremapper.configs.preset import Preset\n"
+                "    from inputremapper.configs.keyboard_layout import keyboard_layout\n"
+                "except ImportError:\n"
+                "    sys.exit(42)\n"
                 "keyboard_layout.update({'a': 30, 'b': 48, 'x': 45})\n"
                 f"p = Preset(Path({str(preset_path)!r}))\n"
                 "p.load()\n"
@@ -2091,6 +2094,8 @@ class TestProjectReviewRegressionFixes(unittest.TestCase):
                 "assert len(p) == 3, f'Expected 3 mappings, got {len(p)}'\n"
             )
             res = subprocess.run([sys.executable, "-c", validation_code], capture_output=True, text=True)
+            if res.returncode == 42 and os.environ.get("STROP_REQUIRE_INPUT_REMAPPER") != "1":
+                self.skipTest("input-remapper is not installed")
             self.assertEqual(res.returncode, 0, f"inputremapper validation failed: {res.stdout}\n{res.stderr}")
 
             # Re-import into empty studio state and verify EV_KEY code 8 != EV_REL code 8

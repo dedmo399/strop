@@ -102,6 +102,8 @@ jobs:
       - name: Build and verify Arch/CachyOS package
         run: |
           VERSION=$(PYTHONPATH=. python3 -c 'import strop_core; print(strop_core.__version__)')
+          git config --global --add safe.directory "$PWD"
+          git ls-files -z > .strop-source-files
           useradd -m -s /bin/bash builder
           cp -a . /home/builder/strop
           chown -R builder:builder /home/builder/strop
